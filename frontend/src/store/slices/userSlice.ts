@@ -1,8 +1,11 @@
 // frontend/src/store/slices/userSlice.ts
+
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import userService from '../../services/userService';
 import { User } from '../../type/user';
 import api from '../../services/api';
+import { RootState } from '../index';
+import { setUser as setAuthUser } from './authSlice';
 
 interface UserState {
     users: User[];        // Liste aller User für Admin
@@ -48,7 +51,7 @@ const mapApiUserToUser = (raw: any): User => {
         city: raw.city ?? null,
         country: raw.country ?? null,
 
-        // Lieferadresse (im Frontend camelCase, im Backend evtl. snake_case)
+        // Lieferadresse
         shippingStreet: raw.shippingStreet ?? raw.shipping_street ?? '',
         shippingHouseNumber:
             raw.shippingHouseNumber ?? raw.shipping_house_number ?? '',
@@ -76,10 +79,13 @@ const mapApiUserToUser = (raw: any): User => {
 };
 
 // 🔹 eingeloggten User laden
-export const fetchUser = createAsyncThunk<any>('user/fetchUser', async () => {
-    const me = await userService.me();
-    return me;
-});
+export const fetchUser = createAsyncThunk<any>(
+    'user/fetchUser',
+    async () => {
+        const me = await userService.me();
+        return me;
+    }
+);
 
 // 🔹 alle User für Admin laden
 export const fetchUsers = createAsyncThunk<any[]>(
@@ -91,22 +97,47 @@ export const fetchUsers = createAsyncThunk<any[]>(
 );
 
 // 🔹 eingeloggten User aktualisieren (/users/me)
-export const updateUser = createAsyncThunk<any, Partial<User>>(
+export const updateUser = createAsyncThunk<
+    any,
+    Partial<User>,
+    { state: RootState }
+>(
     'user/update',
-    async (updates) => {
-        const updated = await userService.update(updates);
-        return updated;
+    async (updates, { getState, dispatch }) => {
+        const updatedRaw = await userService.update(updates);
+        const updated = mapApiUserToUser(updatedRaw);
+
+        // Wenn der aktualisierte User der aktuell eingeloggte ist → auch im Auth-Slice updaten
+        const authUser = (getState().auth.user);
+        if (authUser && authUser.id === updated.id) {
+            dispatch(setAuthUser(updated));
+        }
+
+        return updatedRaw;
     }
 );
 
 // 🔹 Admin: beliebigen User per ID aktualisieren (/users/:id)
 export const updateUserById = createAsyncThunk<
     any,
-    { id: number; changes: any }
->('user/updateById', async ({ id, changes }) => {
-    const res = await api.put(`/users/${id}`, changes);
-    return res.data;
-});
+    { id: number; changes: any },
+    { state: RootState }
+>(
+    'user/updateById',
+    async ({ id, changes }, { getState, dispatch }) => {
+        const res = await api.put(`/users/${id}`, changes);
+        const updatedRaw = res.data;
+        const updated = mapApiUserToUser(updatedRaw);
+
+        // Falls der aktualisierte User der aktuell eingeloggte ist → Auth-Slice synchronisieren
+        const authUser = (getState().auth.user);
+        if (authUser && authUser.id === updated.id) {
+            dispatch(setAuthUser(updated));
+        }
+
+        return updatedRaw;
+    }
+);
 
 // 🔹 User löschen – mit ID = Admin löscht jemanden, ohne ID = User löscht sich selbst
 export const deleteUser = createAsyncThunk<number, number | undefined>(
@@ -162,7 +193,6 @@ const userSlice = createSlice({
                     state.loading = false;
                     state.error = null;
 
-                    // 🔍 Debug: Rohdaten aus der API
                     console.log(
                         '[userSlice] fetchUsers.fulfilled – raw payload:',
                         action.payload
@@ -170,7 +200,6 @@ const userSlice = createSlice({
 
                     state.users = action.payload.map(mapApiUserToUser);
 
-                    // optional: nochmal loggen, wie sie im State landen
                     console.log(
                         '[userSlice] fetchUsers.fulfilled – normalized users:',
                         state.users

@@ -167,7 +167,21 @@ const authSlice = createSlice({
                 // ignorieren – localStorage ist nur ein Komfort-Feature
             }
         },
+        setUser(state, action: PayloadAction<User | null>) {
+            state.user = action.payload;
 
+            if (typeof window !== 'undefined') {
+                try {
+                    if (action.payload) {
+                        localStorage.setItem('user', JSON.stringify(action.payload));
+                    } else {
+                        localStorage.removeItem('user');
+                    }
+                } catch {
+                    // ignorieren
+                }
+            }
+        },
         /**
          * Löscht alle Auth-Daten aus dem State (z.B. on logout / token error).
          */
@@ -302,6 +316,6 @@ const authSlice = createSlice({
     },
 });
 
-export const { setAccessToken, clearAuth } = authSlice.actions;
+export const { setAccessToken, clearAuth, setUser } = authSlice.actions;
 export const selectAuth = (state: RootState) => state.auth;
 export default authSlice.reducer;
