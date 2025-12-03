@@ -1,0 +1,219 @@
+/* frontend/src/pages/Admin/ManageOrders.css */
+
+/* Seite */
+.orders-page {
+    padding: 1rem 1.25rem;
+    background: #f7f8fb;
+    border-radius: 12px;
+
+    /* WICHTIG: sorgt dafür, dass Überschrift UND Tabelle untereinander stehen */
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.orders-page h2 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #172133;
+    margin: 0 0 1rem 0;
+}
+
+/* ─────────────────────────────────────────
+   Toolbar – wie bei Produkten & Usern
+   ───────────────────────────────────────── */
+.orders-toolbar {
+    display: flex;
+    align-items: stretch;
+    gap: 12px;
+    padding: 10px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    box-shadow: 0 2px 6px rgba(16, 24, 40, 0.04);
+    margin-bottom: 12px;
+}
+
+.orders-field {
+    flex: 1 1 0;
+    min-width: 220px;
+    display: flex;
+}
+
+.orders-actions {
+    flex: 0 0 auto;
+    display: flex;
+}
+
+.orders-input,
+.orders-dropdown,
+.orders-calendar,
+.orders-button {
+    width: 100%;
+    height: 42px;
+}
+
+/* Inputs / Dropdown / Calendar an Products-Style angleichen */
+.orders-toolbar .p-inputtext,
+.orders-toolbar .p-dropdown,
+.orders-toolbar .p-calendar .p-inputtext {
+    width: 100%;
+    border-radius: 10px;
+    border: 1px solid #d7dbe7;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.95rem;
+    box-sizing: border-box;
+}
+
+.orders-toolbar .p-inputtext:focus,
+.orders-toolbar .p-dropdown.p-focus,
+.orders-toolbar .p-calendar .p-inputtext:focus {
+    border-color: #4f46e5;
+    box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.18);
+    outline: none;
+}
+
+/* Dropdown optisch mittig */
+.orders-toolbar .p-dropdown {
+    display: flex;
+    align-items: center;
+}
+.orders-toolbar .p-dropdown-label {
+    line-height: 1.4;
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
+/* Buttons wie bei Produkten/Usern */
+.orders-toolbar .p-button {
+    border-radius: 10px;
+    background: #4f46e5;
+    border: none;
+    font-weight: 600;
+}
+.orders-toolbar .p-button:hover {
+    background: #4338ca;
+}
+
+/* Responsive Verhalten */
+@media (max-width: 720px) {
+    .orders-toolbar {
+        flex-wrap: wrap;
+    }
+    .orders-actions {
+        width: 100%;
+    }
+}
+
+/* ─────────────────────────────────────────
+   Tabelle – gleiche Breite & Style wie Produkte
+   ───────────────────────────────────────── */
+.orders-table {
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #fff;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.p-datatable.orders-table .p-datatable-thead > tr > th {
+    background: #f3f4f6;
+    color: #0f172a;
+    font-weight: 700;
+    padding: 0.7rem 0.75rem;
+    border: none;
+}
+
+.p-datatable.orders-table .p-datatable-tbody > tr > td {
+    padding: 0.7rem 0.75rem;
+    vertical-align: middle;
+    border: none;
+    border-top: 1px solid #eef0f4;
+    font-size: 0.92rem;
+    color: #111827;
+}
+
+.row-actions {
+    display: flex;
+    gap: 8px;
+}
+
+/* ─────────────────────────────────────────
+   Badges (Status)
+   ───────────────────────────────────────── */
+.badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    line-height: 1;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+
+.badge--bestellt {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+.badge--bezahlt {
+    background: #dcfce7;
+    color: #15803d;
+}
+.badge--storniert {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+/* ─────────────────────────────────────────
+   Expander-Bereich
+   ───────────────────────────────────────── */
+.order-expansion {
+    background: #f9fafb;
+    border-radius: 10px;
+    padding: 0.85rem;
+    border: 1px solid #e5e7eb;
+}
+
+.order-expansion h5 {
+    margin: 0.25rem 0 0.5rem 0;
+    font-size: 1.05rem;
+    color: #111827;
+}
+
+.order-expansion__cols {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 0.75rem;
+}
+@media (max-width: 700px) {
+    .order-expansion__cols {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Key-Value Liste */
+.kv {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+.kv li {
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    gap: 8px;
+    padding: 6px 8px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    margin-bottom: 6px;
+}
+.kv li span:first-child {
+    color: #6b7280;
+}
+.kv li span:last-child {
+    color: #0f172a;
+    font-weight: 600;
+}

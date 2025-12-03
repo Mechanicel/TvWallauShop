@@ -1,0 +1,90 @@
+/* Profil-Seite im Stil von Admin/Signup */
+
+.profile-page {
+    padding: 1.5rem;
+    background: #f7f8fb;
+    display: flex;
+    justify-content: center;
+}
+
+.profile-card {
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 2px 6px rgba(16, 24, 40, 0.06);
+    border: 1px solid #e5e7eb;
+    padding: 2rem;
+    width: 100%;
+    max-width: 800px;
+}
+
+.profile-card h2 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #172133;
+    margin-bottom: 1.5rem;
+}
+
+.profile-card h4 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #111827;
+    margin: 1.25rem 0 0.75rem;
+    padding-bottom: 0.25rem;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.profile-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+}
+
+.profile-grid .p-field {
+    display: flex;
+    flex-direction: column;
+}
+
+.profile-card label {
+    margin-bottom: 0.25rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #374151;
+}
+
+.profile-card .p-inputtext {
+    width: 100%;
+    border-radius: 8px;
+    border: 1px solid #d7dbe7;
+    padding: 0.6rem 0.75rem;
+    font-size: 0.95rem;
+    background: #f9fafb;
+    color: #374151;
+}
+
+.profile-card .p-inputtext:disabled {
+    background: #f9fafb;
+    color: #6b7280;
+}
+
+.profile-actions {
+    margin-top: 2rem;
+    text-align: right;
+}
+
+.profile-actions .p-button {
+    background: #4f46e5;
+    border: none;
+    border-radius: 8px;
+    padding: 0.6rem 1.2rem;
+    font-weight: 600;
+}
+
+.profile-actions .p-button:hover {
+    background: #4338ca;
+}
+
+@media (max-width: 700px) {
+    .profile-grid {
+        grid-template-columns: 1fr;
+    }
+}

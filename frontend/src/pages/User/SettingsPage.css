@@ -1,0 +1,42 @@
+.settings-page {
+    display: flex;
+    justify-content: center;
+    padding: 2rem;
+    background-color: #f7f8fb;
+    min-height: calc(100vh - 100px);
+}
+
+.settings-card {
+    width: 100%;
+    max-width: 700px;
+    padding: 2rem;
+    border-radius: 16px;
+    box-shadow: 0 4px 10px rgba(16, 24, 40, 0.08);
+    border: 1px solid #e5e7eb;
+}
+
+.settings-section {
+    margin-bottom: 2rem;
+}
+
+.settings-section h3 {
+    font-size: 1.3rem;
+    margin-bottom: 1rem;
+    color: #1f2937;
+}
+
+.settings-field {
+    margin-bottom: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.settings-btn {
+    margin-top: 0.5rem;
+    border-radius: 8px;
+}
+
+.settings-section.danger h3 {
+    color: #b91c1c;
+}
