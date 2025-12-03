@@ -3,22 +3,20 @@
 
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { getUserById } from '../models/userModel';
-import {userService} from "../services/userService";
+import { userService } from '../services/userService';
 
 const ACCESS_TOKEN_SECRET = process.env.JWT_SECRET!;
 
 export const authMiddleware = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        // 1) Token aus Cookie oder Header holen
+        // 1) Token aus Header (bevorzugt) oder Cookie holen
         let token: string | undefined;
-        if (req.cookies?.accessToken) {
-            token = req.cookies.accessToken;
-        } else if (req.headers['authorization']) {
-            const authHeader = req.headers['authorization'];
-            if (authHeader?.startsWith('Bearer ')) {
-                token = authHeader.substring(7);
-            }
+
+        const authHeader = req.headers['authorization'];
+        if (authHeader?.startsWith('Bearer ')) {
+            token = authHeader.substring(7);
+        } else if ((req as any).cookies?.accessToken) {
+            token = (req as any).cookies.accessToken;
         }
 
         if (!token) {
@@ -27,8 +25,6 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
 
         // 2) Token prüfen
         const decoded: any = jwt.verify(token, ACCESS_TOKEN_SECRET);
-
-
         const userId = decoded.sub; // wichtig: bei signJwt war es { sub: user.id }
 
         if (!userId) {
@@ -37,9 +33,7 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
         }
 
         // 3) User laden
-
         const user = await userService.getUserById(Number(userId));
-
 
         if (!user) {
             console.warn('[authMiddleware] Kein User für ID gefunden:', userId);
@@ -47,7 +41,6 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
         }
 
         // 4) an Request hängen
-
         (req as any).user = user;
 
         next();

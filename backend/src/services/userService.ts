@@ -4,6 +4,7 @@
 import { knex } from '../database';
 import {User} from "../models/userModel";
 import bcrypt from "bcrypt";
+import {formatDate} from "../utils/helpers";
 
 export interface UserView {
     id: number;
@@ -36,7 +37,7 @@ export interface UserView {
 
     // Marketing / Sonstiges
     newsletterOptIn: boolean;
-    dateOfBirth: Date | null;
+    dateOfBirth: String | null;
     gender: 'male' | 'female' | 'other' | null;
 
     // Shop-spezifisch
@@ -72,7 +73,7 @@ function mapUserRow(row: any): UserView {
 
         preferredPayment: row.preferred_payment,
         newsletterOptIn: !!row.newsletter_opt_in,
-        dateOfBirth: row.date_of_birth,
+        dateOfBirth: formatDate(row.date_of_birth),
         gender: row.gender,
 
         loyaltyPoints: row.loyalty_points,
@@ -136,6 +137,7 @@ export const userService = {
             'city',
             'state',
             'country',
+            'role',
             'shipping_street',
             'shipping_house_number',
             'shipping_postal_code',

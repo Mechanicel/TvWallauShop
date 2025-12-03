@@ -66,3 +66,17 @@ export const isValidEmail = (email: string): boolean => {
         /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return re.test(email);
 };
+
+export function formatDate(d: any): string | null {
+    if (!d) return null;
+
+    try {
+        const date = new Date(d);
+        if (isNaN(date.getTime())) return null;
+
+        // YYYY-MM-DD extrahieren
+        return date.toISOString().split('T')[0];
+    } catch {
+        return null;
+    }
+}

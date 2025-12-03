@@ -1,100 +1,97 @@
 // frontend/src/services/authService.ts
 
 import api from './api';
+import { User } from '../type/user';
 
 export interface LoginCredentials {
     email: string;
     password: string;
 }
 
-export interface SignupCredentials {
+export interface SignupPayload {
     firstName: string;
-    lastName:  string;
-    email:     string;
-    password:  string;
-    phone?:    string;
+    lastName: string;
+    email: string;
+    password: string;
+    phone?: string;
+    // Billing (Pflicht)
+    street: string;
+    houseNumber: string;
+    postalCode: string;
+    city: string;
+    country: string;
+    // Shipping (optional)
+    shippingStreet?: string;
+    shippingHouseNumber?: string;
+    shippingPostalCode?: string;
+    shippingCity?: string;
+    shippingCountry?: string;
+    // Payment / Marketing
+    preferredPayment?: 'invoice' | 'sepa' | 'paypal';
+    newsletterOptIn?: boolean;
+    // Optional Profile
+    dateOfBirth?: string;
+    gender?: 'male' | 'female' | 'diverse' | 'none';
 }
 
 export interface AuthResponse {
     accessToken: string;
-    refreshToken: string;
+    user: User;
+    // Falls dein Backend zusätzlich refreshToken zurückgibt, ist das kein Problem:
+    // refreshToken?: string;
 }
 
-export interface SignupResponse {
-    accessToken: string;
-    user: {
-        id: number;
-        first_name: string;
-        last_name: string;
-        email: string;
-        role: 'customer' | 'admin';
-        phone?: string;
-    };
-}
-
+/**
+ * AuthService kümmert sich nur um die Kommunikation mit dem Backend.
+ * Tokens werden nicht mehr geloggt und der Refresh-Token wird nicht mehr im Frontend verwendet.
+ */
 const authService = {
     /**
-     * Meldet einen Benutzer an und liefert Access- & Refresh-Token.
+     * Login mit E-Mail & Passwort.
+     * Erwartet vom Backend: { accessToken, user } im Body
+     * plus Setzen des httpOnly-Refresh-Cookies.
      */
-    login: async (
-        credentials: LoginCredentials
-    ): Promise<AuthResponse> => {
-        console.log('[authService.login] aufruf mit:', credentials);
-        const response = await api.post<AuthResponse>(
-            '/auth/login',
-            credentials
-        );
+    async login(credentials: LoginCredentials): Promise<AuthResponse> {
+        // Wichtig: kein Logging von Passwort!
+        // console.log('[authService.login] email:', credentials.email);
 
-        console.log('[authService.login] Antwort:', response.data);
+        const response = await api.post<AuthResponse>('/auth/login', credentials, {
+            withCredentials: true, // schickt Cookies (z.B. refreshToken) mit
+        });
+
         return response.data;
     },
 
     /**
-     * Registriert einen neuen Benutzer.
+     * Signup mit den kompletten Registrierungsdaten.
+     * Hier erwarten wir bisher kein direktes Login danach, sondern nur eine Bestätigung.
+     * (Wenn dein Backend später auch accessToken zurückgibt, kannst du AuthResponse als Rückgabewert verwenden.)
      */
-    signup: async (
-        credentials: SignupCredentials
-    ): Promise<SignupResponse> => {
-        const response = await api.post<SignupResponse>('/auth/signup', credentials);
+    async signup(payload: SignupPayload): Promise<void> {
+        await api.post('/auth/signup', payload, {
+            withCredentials: true,
+        });
+    },
+
+    /**
+     * Holt mit Hilfe des httpOnly-Refresh-Cookies einen neuen Access-Token.
+     * Der Refresh-Token wird NICHT im Body gesendet.
+     */
+    async refresh(): Promise<AuthResponse> {
+        const response = await api.post<AuthResponse>('/auth/refresh', undefined, {
+            withCredentials: true,
+        });
         return response.data;
     },
 
     /**
-     * Tauscht ein gültiges Refresh-Token gegen neue Tokens.
+     * Logout: invalidiert den Refresh-Token auf dem Server und löscht die Auth-Cookies.
      */
-    refresh: async (
-        refreshToken: string
-    ): Promise<AuthResponse> => {
-        console.log('[authService.refresh] aufruf mit Token:', refreshToken);
-        const response = await api.post<AuthResponse>(
-            '/auth/refresh',
-            { refreshToken }
-        );
-        console.log('[authService.refresh] neue Tokens:', response.data);
-        return response.data;
+    async logout(): Promise<void> {
+        await api.post('/auth/logout', undefined, {
+            withCredentials: true,
+        });
     },
-
-    /**
-     * Invalidiert das übergebene Refresh-Token (Logout).
-     */
-    logout: async (): Promise<void> => {
-        console.log('[authService.logout] Aufruf');
-        try {
-            await api.post('/auth/logout');
-
-            // Lokale Cookies manuell löschen (falls Browser sie noch hält)
-            document.cookie = "accessToken=; Max-Age=0; Path=/; SameSite=Lax";
-            document.cookie = "refreshToken=; Max-Age=0; Path=/; SameSite=Lax";
-
-            // Falls du den AccessToken im Axios-Header gesetzt hast -> löschen
-            delete api.defaults.headers.common['Authorization'];
-
-            console.log('[authService.logout] abgeschlossen');
-        } catch (err) {
-            console.error('[authService.logout] Fehler:', err);
-        }
-    }
-    ,
 };
 
 export default authService;

@@ -1,3 +1,5 @@
+// frontend/src/pages/Auth/LoginPage.tsx
+
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../store';
@@ -52,7 +54,7 @@ export const LoginPage: React.FC = () => {
                         id="email"
                         value={email}
                         onChange={e => setEmail(e.target.value)}
-                        placeholder="admin@verein.de"
+                        placeholder="E-Mail Adresse"
                     />
                 </div>
                 <div className="p-field">

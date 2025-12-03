@@ -1,255 +1,305 @@
 // frontend/src/store/slices/authSlice.ts
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import api from '../../services/api';
 import type { RootState } from '../index';
-import authService from '../../services/authService';
-import { User } from "../../type/user";
+import authService, {
+    LoginCredentials,
+    SignupPayload,
+    AuthResponse,
+} from '../../services/authService';
+import { User } from '../../type/user';
 
-// Payload jetzt erweitert, passend zum Backend
-interface SignupPayload {
-    firstName: string;
-    lastName: string;
-    email: string;
-    password: string;
-    phone?: string;
-    // Billing (Pflicht)
-    street: string;
-    houseNumber: string;
-    postalCode: string;
-    city: string;
-    country: string;
-    state?: string | null;
-    // Shipping (optional)
-    shippingStreet?: string | null;
-    shippingHouseNumber?: string | null;
-    shippingPostalCode?: string | null;
-    shippingCity?: string | null;
-    shippingState?: string | null;
-    shippingCountry?: string | null;
-    // Payment / Marketing / Misc
-    preferredPayment?: string | null;
-    newsletterOptIn?: boolean;
-    dateOfBirth?: Date | null;
-    gender?: string | null;
-}
-
-interface AuthState {
+/**
+ * Auth-Status für die App.
+ * accessToken: aktueller JWT für API-Calls
+ * user: eingeloggter User
+ * loading / error: Status für Thunks
+ * isInitialized: ob wir schon einmal versucht haben, einen Persistenz-Status herzustellen
+ */
+export interface AuthState {
     accessToken: string | null;
     user: User | null;
     loading: boolean;
     error: string | null;
+    isInitialized: boolean;
 }
 
-const initialAccessToken = localStorage.getItem('accessToken');
-const initialUser = localStorage.getItem('user');
+/**
+ * Hilfsfunktionen zum Lesen/Schreiben aus localStorage.
+ * Wir persistieren optional accessToken und user.
+ * (Für maximale Sicherheit könnte man das später auch komplett in Memory halten.)
+ */
+function loadInitialAccessToken(): string | null {
+    if (typeof window === 'undefined') return null;
+    try {
+        return localStorage.getItem('accessToken');
+    } catch {
+        return null;
+    }
+}
+
+function loadInitialUser(): User | null {
+    if (typeof window === 'undefined') return null;
+    try {
+        const raw = localStorage.getItem('user');
+        if (!raw) return null;
+        return JSON.parse(raw) as User;
+    } catch {
+        return null;
+    }
+}
 
 const initialState: AuthState = {
-    accessToken: initialAccessToken,
-    user: initialUser ? JSON.parse(initialUser) : null,
+    accessToken: loadInitialAccessToken(),
+    user: loadInitialUser(),
     loading: false,
-    error: null
+    error: null,
+    isInitialized: true, // wir haben beim Laden schon versucht, aus localStorage zu ziehen
 };
 
-// Thunk: Signup
+/**
+ * Login-Thunk:
+ * - schickt Credentials an /auth/login
+ * - erwartet { accessToken, user } vom Backend
+ * - speichert accessToken & user im State und optional in localStorage
+ */
+export const login = createAsyncThunk<
+    AuthResponse,
+    LoginCredentials,
+    { rejectValue: string }
+>('auth/login', async (credentials, { rejectWithValue }) => {
+    try {
+        const data = await authService.login(credentials);
+        return data;
+    } catch (error: any) {
+        const message =
+            error?.response?.data?.error ||
+            error?.message ||
+            'Login fehlgeschlagen';
+        return rejectWithValue(message);
+    }
+});
+
+/**
+ * Signup-Thunk:
+ * - schickt Registrierungsdaten an /auth/signup
+ * - loggt den User NICHT automatisch ein (kannst du bei Bedarf anpassen)
+ */
 export const signup = createAsyncThunk<
-    { accessToken: string; user: User },
+    void,
     SignupPayload,
     { rejectValue: string }
->(
-    'auth/signup',
-    async (credentials, thunkAPI) => {
-        try {
-            // Date-Objekt in ISO-String konvertieren, wenn nötig
-            const payload = {
-                ...credentials,
-                dateOfBirth: credentials.dateOfBirth
-                    ? new Date(credentials.dateOfBirth).toISOString().split('T')[0] // yyyy-mm-dd
-                    : null
-            };
-
-            const response = await api.post<{ accessToken: string; user: User }>(
-                '/auth/signup',
-                payload
-            );
-            return response.data;
-        } catch (err: any) {
-            return thunkAPI.rejectWithValue(
-                err.response?.data?.message || 'Signup fehlgeschlagen'
-            );
-        }
-    }
-);
-
-
-// === Deine Cookie-Utils & login/logout bleiben unverändert ===
-// (ich lasse die bestehenden Funktionen wie in deiner Datei)
-
-type SameSiteOpt = 'Lax' | 'Strict' | 'None';
-
-function setCookie(name: string, value: string, opts?: {
-    maxAgeSeconds?: number;
-    path?: string;
-    sameSite?: SameSiteOpt;
-    secure?: boolean;
-}) {
-    let str = `${encodeURIComponent(name)}=${encodeURIComponent(value)}`;
-    if (typeof opts?.maxAgeSeconds === 'number')
-        str += `; Max-Age=${Math.max(0, Math.floor(opts.maxAgeSeconds))}`;
-    str += `; Path=${opts?.path ?? '/'}`;
-    str += `; SameSite=${opts?.sameSite ?? 'Lax'}`;
-    const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
-    if ((opts?.secure ?? isHttps)) str += `; Secure`;
-    document.cookie = str;
-}
-
-export function clearCookie(name: string, path: string = '/') {
-    document.cookie = `${encodeURIComponent(name)}=; Max-Age=0; Path=${path}`;
-}
-
-function jwtSecondsUntilExp(token: string): number | undefined {
+>('auth/signup', async (payload, { rejectWithValue }) => {
     try {
-        const [, payloadB64] = token.split('.');
-        if (!payloadB64) return undefined;
-        const b64 = payloadB64.replace(/-/g, '+').replace(/_/g, '/');
-        const json = atob(b64);
-        const payload = JSON.parse(json);
-        if (typeof payload?.exp !== 'number') return undefined;
-        const now = Math.floor(Date.now() / 1000);
-        return Math.max(0, payload.exp - now);
-    } catch {
-        return undefined;
+        await authService.signup(payload);
+    } catch (error: any) {
+        const message =
+            error?.response?.data?.error ||
+            error?.message ||
+            'Registrierung fehlgeschlagen';
+        return rejectWithValue(message);
     }
-}
+});
 
-function deleteCookieEverywhere(name: string) {
-    const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
-    const paths = ['/', '/auth', '/api', window.location.pathname];
-    for (const p of paths) {
-        document.cookie = `${encodeURIComponent(name)}=; Max-Age=0; Path=${p}; SameSite=Lax${isHttps ? '; Secure' : ''}`;
-    }
-}
-
-function setAuthCookies(accessToken: string, refreshToken: string) {
-    deleteCookieEverywhere('accessToken');
-    deleteCookieEverywhere('refreshToken');
-
-    const accessAge = jwtSecondsUntilExp(accessToken);
-    const refreshAge = jwtSecondsUntilExp(refreshToken);
-    setCookie('accessToken', accessToken, { maxAgeSeconds: accessAge, sameSite: 'Lax' });
-    setCookie('refreshToken', refreshToken, { maxAgeSeconds: refreshAge, sameSite: 'Lax' });
-}
-
-// Dein bestehender login/logout + Slice bleiben, keine Änderungen außer SignupPayload
-
-export const login = createAsyncThunk<
-    { accessToken: string; user: User },
-    { email: string; password: string },
+/**
+ * Logout-Thunk:
+ * - ruft /auth/logout auf
+ * - leert den Auth-State und localStorage
+ */
+export const logout = createAsyncThunk<
+    void,
+    void,
     { rejectValue: string }
->(
-    'auth/login',
-    async (credentials, thunkAPI) => {
-        try {
-            const response = await api.post<{
-                accessToken: string;
-                refreshToken: string;
-                user: User;
-            }>('/auth/login', credentials);
-
-            const { accessToken, refreshToken, user } = response.data;
-            setAuthCookies(accessToken, refreshToken);
-            return { accessToken, user };
-        } catch (err: any) {
-            return thunkAPI.rejectWithValue(
-                err?.response?.data?.message || 'Login fehlgeschlagen'
-            );
-        }
+>('auth/logout', async (_, { rejectWithValue }) => {
+    try {
+        await authService.logout();
+    } catch (error: any) {
+        const message =
+            error?.response?.data?.error ||
+            error?.message ||
+            'Logout fehlgeschlagen';
+        return rejectWithValue(message);
     }
-);
+});
 
-export const logout = createAsyncThunk<void, void, { state: RootState }>(
-    'auth/logout',
-    async (_, { dispatch }) => {
-        console.log('[auth/logout thunk] gestartet');
-        try {
-            await authService.logout();
-            console.log('[auth/logout thunk] api.logout erfolgreich');
-        } catch (err) {
-            console.error('[auth/logout thunk] api.logout Fehler', err);
-        } finally {
-            dispatch(clearAuth());
-            console.log('[auth/logout thunk] clearAuth dispatched');
-        }
+/**
+ * Optionaler Refresh-Thunk:
+ * - holt einen neuen Access-Token via /auth/refresh
+ * - nutzt dafür nur das httpOnly-Refresh-Cookie (kein Token im Body)
+ * - Kann z.B. vom Axios-Interceptor oder beim App-Start verwendet werden
+ */
+export const refreshAccessToken = createAsyncThunk<
+    AuthResponse,
+    void,
+    { rejectValue: string }
+>('auth/refresh', async (_, { rejectWithValue }) => {
+    try {
+        const data = await authService.refresh();
+        return data;
+    } catch (error: any) {
+        const message =
+            error?.response?.data?.error ||
+            error?.message ||
+            'Token-Refresh fehlgeschlagen';
+        return rejectWithValue(message);
     }
-);
+});
 
 const authSlice = createSlice({
     name: 'auth',
     initialState,
     reducers: {
-        setAccessToken(state, action: PayloadAction<string>) {
-            state.accessToken = action.payload;
-            localStorage.setItem('accessToken', action.payload);
+        /**
+         * Setzt den Access-Token manuell (z.B. nach einem Refresh oder aus einem Interceptor).
+         */
+        setAccessToken(state, action: PayloadAction<string | null>) {
+            state.accessToken = action.payload ?? null;
+
+            if (typeof window === 'undefined') return;
+
+            try {
+                if (action.payload) {
+                    localStorage.setItem('accessToken', action.payload);
+                } else {
+                    localStorage.removeItem('accessToken');
+                }
+            } catch {
+                // ignorieren – localStorage ist nur ein Komfort-Feature
+            }
         },
+
+        /**
+         * Löscht alle Auth-Daten aus dem State (z.B. on logout / token error).
+         */
         clearAuth(state) {
             state.accessToken = null;
             state.user = null;
             state.error = null;
-            localStorage.removeItem('refreshToken');
-            localStorage.removeItem('accessToken');
-            localStorage.removeItem('user');
-        }
+
+            if (typeof window !== 'undefined') {
+                try {
+                    localStorage.removeItem('accessToken');
+                    localStorage.removeItem('user');
+                } catch {
+                    // ignorieren
+                }
+            }
+        },
     },
     extraReducers: builder => {
+        // LOGIN
         builder
-            // Signup
-            .addCase(signup.pending, state => {
-                state.loading = true;
-                state.error = null;
-            })
-            .addCase(
-                signup.fulfilled,
-                (state, action: PayloadAction<{ accessToken: string; user: User }>) => {
-                    state.loading = false;
-                    state.accessToken = action.payload.accessToken;
-                    state.user = action.payload.user;
-                    localStorage.setItem('accessToken', action.payload.accessToken);
-                    localStorage.setItem('user', JSON.stringify(action.payload.user));
-                }
-            )
-            .addCase(signup.rejected, (state, action) => {
-                state.loading = false;
-                state.error = action.payload ?? 'Signup fehlgeschlagen';
-            })
-
-            // Login
             .addCase(login.pending, state => {
                 state.loading = true;
                 state.error = null;
             })
-            .addCase(
-                login.fulfilled,
-                (state, action: PayloadAction<{ accessToken: string; user: User }>) => {
-                    state.loading = false;
-                    state.accessToken = action.payload.accessToken;
-                    state.user = action.payload.user;
-                    localStorage.setItem('accessToken', action.payload.accessToken);
-                    localStorage.setItem('user', JSON.stringify(action.payload.user));
+            .addCase(login.fulfilled, (state, action) => {
+                state.loading = false;
+                state.error = null;
+                state.accessToken = action.payload.accessToken;
+                state.user = action.payload.user;
+
+                if (typeof window !== 'undefined') {
+                    try {
+                        localStorage.setItem(
+                            'accessToken',
+                            action.payload.accessToken,
+                        );
+                        localStorage.setItem(
+                            'user',
+                            JSON.stringify(action.payload.user),
+                        );
+                    } catch {
+                        // ignorieren
+                    }
                 }
-            )
+            })
             .addCase(login.rejected, (state, action) => {
                 state.loading = false;
-                state.error = action.payload ?? 'Login fehlgeschlagen';
+                state.error = action.payload || 'Login fehlgeschlagen';
+            });
+
+        // SIGNUP
+        builder
+            .addCase(signup.pending, state => {
+                state.loading = true;
+                state.error = null;
             })
-            // Logout
+            .addCase(signup.fulfilled, state => {
+                state.loading = false;
+                // optional: Erfolgszustand setzen
+            })
+            .addCase(signup.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload || 'Registrierung fehlgeschlagen';
+            });
+
+        // LOGOUT
+        builder
+            .addCase(logout.pending, state => {
+                state.loading = true;
+                state.error = null;
+            })
             .addCase(logout.fulfilled, state => {
+                state.loading = false;
                 state.accessToken = null;
                 state.user = null;
-                localStorage.removeItem('accessToken');
-                localStorage.removeItem('user');
-                localStorage.removeItem('refreshToken');
+
+                if (typeof window !== 'undefined') {
+                    try {
+                        localStorage.removeItem('accessToken');
+                        localStorage.removeItem('user');
+                    } catch {
+                        // ignorieren
+                    }
+                }
+            })
+            .addCase(logout.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload || 'Logout fehlgeschlagen';
             });
-    }
+
+        // REFRESH
+        builder
+            .addCase(refreshAccessToken.pending, state => {
+                // kein hartes loading notwendig, damit UI nicht flackert
+                state.error = null;
+            })
+            .addCase(refreshAccessToken.fulfilled, (state, action) => {
+                state.accessToken = action.payload.accessToken;
+                state.user = action.payload.user;
+
+                if (typeof window !== 'undefined') {
+                    try {
+                        localStorage.setItem(
+                            'accessToken',
+                            action.payload.accessToken,
+                        );
+                        localStorage.setItem(
+                            'user',
+                            JSON.stringify(action.payload.user),
+                        );
+                    } catch {
+                        // ignorieren
+                    }
+                }
+            })
+            .addCase(refreshAccessToken.rejected, (state, action) => {
+                // Wenn Refresh fehlschlägt → User ist effektiv ausgeloggt
+                state.accessToken = null;
+                state.user = null;
+                state.error = action.payload || 'Token-Refresh fehlgeschlagen';
+
+                if (typeof window !== 'undefined') {
+                    try {
+                        localStorage.removeItem('accessToken');
+                        localStorage.removeItem('user');
+                    } catch {
+                        // ignorieren
+                    }
+                }
+            });
+    },
 });
 
 export const { setAccessToken, clearAuth } = authSlice.actions;
