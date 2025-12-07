@@ -1,6 +1,6 @@
 // backend/src/services/orderService.ts
 import { knex } from '../database';
-import {mapUser} from "../utils/helpers";
+import {mapUser, restockOrderItems} from "../utils/helpers";
 import {sendOrderConfirmationEmail} from "../utils/mailer";
 
 // ⚠️ DB nutzt snake_case, Services liefern camelCase.
@@ -215,25 +215,88 @@ export const orderService = {
                 : user.id;
 
         const result = await knex.transaction(async (trx) => {
-            // Order anlegen
+            // 1) Order anlegen
             const [orderId] = await trx('orders').insert({
                 user_id: targetUserId,
                 status: data.status || 'Bestellt',
             });
 
-            // Preise holen
+            // 2) Preise holen
             const productIds = Array.from(new Set(data.items.map((i) => i.productId)));
-            const products = await trx('products').select('id', 'price', 'name').whereIn('id', productIds);
+            const products = await trx('products')
+                .select('id', 'price', 'name')
+                .whereIn('id', productIds);
 
             const priceMap = new Map<number, { price: number; name: string }>(
-                products.map((p: any) => [Number(p.id), { price: Number(p.price), name: p.name }])
+                products.map((p: any) => [
+                    Number(p.id),
+                    { price: Number(p.price), name: p.name },
+                ])
             );
 
-            // Items vorbereiten
+            // 3) Lagerbestand prüfen & reservieren
+            //    -> wir aggregieren pro (productId, sizeId), damit Mehrfach-Einträge korrekt sind
+            const aggregated = new Map<
+                string,
+                { productId: number; sizeId: number; quantity: number }
+            >();
+
+            for (const it of data.items) {
+                const key = `${it.productId}-${it.sizeId}`;
+                const existing = aggregated.get(key) || {
+                    productId: it.productId,
+                    sizeId: it.sizeId,
+                    quantity: 0,
+                };
+                existing.quantity += it.quantity;
+                aggregated.set(key, existing);
+            }
+
+            for (const { productId, sizeId, quantity } of aggregated.values()) {
+                const stockRow = await trx('product_sizes')
+                    .where({
+                        product_id: productId,
+                        size_id: sizeId,
+                    })
+                    .forUpdate()
+                    .first();
+
+                if (!stockRow) {
+                    throw Object.assign(
+                        new Error(
+                            `Lagerbestand für Produkt ${productId}, Größe ${sizeId} nicht gefunden`
+                        ),
+                        { status: 400 }
+                    );
+                }
+
+                const available = Number(stockRow.stock);
+                if (available < quantity) {
+                    throw Object.assign(
+                        new Error(
+                            `Nicht genug Bestand für Produkt ${productId}, Größe ${sizeId}. Verfügbar: ${available}, benötigt: ${quantity}`
+                        ),
+                        { status: 400 }
+                    );
+                }
+
+                // Bestand reservieren (abziehen)
+                await trx('product_sizes')
+                    .where({
+                        product_id: productId,
+                        size_id: sizeId,
+                    })
+                    .decrement('stock', quantity);
+            }
+
+            // 4) Items vorbereiten & einfügen
             const rows = data.items.map((it) => {
                 const prod = priceMap.get(it.productId);
                 if (!prod) {
-                    throw Object.assign(new Error(`Product ${it.productId} not found`), { status: 400 });
+                    throw Object.assign(
+                        new Error(`Product ${it.productId} not found`),
+                        { status: 400 }
+                    );
                 }
                 return {
                     order_id: orderId,
@@ -246,7 +309,7 @@ export const orderService = {
 
             await trx('order_items').insert(rows);
 
-            // Items inkl. Produktname + Größe laden
+            // 5) Items inkl. Produktname + Größe laden
             const itemRows = await trx('order_items as oi')
                 .join('products as p', 'oi.product_id', 'p.id')
                 .join('sizes as s', 'oi.size_id', 's.id')
@@ -262,9 +325,12 @@ export const orderService = {
                 .where('oi.order_id', orderId);
 
             const items = itemRows.map(mapOrderItem);
-            const total = items.reduce((sum, it) => sum + it.price * it.quantity, 0);
+            const total = items.reduce(
+                (sum, it) => sum + it.price * it.quantity,
+                0
+            );
 
-            // User-Daten laden
+            // 6) User-Daten laden
             const orderRow = await trx('orders as o')
                 .join('users as u', 'o.user_id', 'u.id')
                 .select(
@@ -282,20 +348,20 @@ export const orderService = {
                 .where('o.id', orderId)
                 .first();
 
-            // Mail verschicken
+            // 7) Mail verschicken (Fehler werden nur geloggt)
             try {
                 await sendOrderConfirmationEmail({
                     to: orderRow.email,
                     firstName: orderRow.first_name,
                     orderId: orderRow.order_id,
                     items,
-                    total
+                    total,
                 });
             } catch (mailErr) {
-                console.error('Fehler beim Senden der Bestellbestätigung:', mailErr);
-                // Hier kannst du entscheiden:
-                // - Fehler ignorieren und Bestellung trotzdem zurückgeben
-                // - oder err.status=500 werfen
+                console.error(
+                    'Fehler beim Senden der Bestellbestätigung:',
+                    mailErr
+                );
             }
 
             return {
@@ -322,18 +388,67 @@ export const orderService = {
     // Order löschen
     async deleteOrder(id: number): Promise<void> {
         const row = await knex('orders').where({ id }).first();
-        if (!row) throw Object.assign(new Error('Order not found'), { status: 404 });
+        if (!row) {
+            throw Object.assign(new Error('Order not found'), { status: 404 });
+        }
 
-        await knex('order_items').where({ order_id: id }).del();
-        await knex('orders').where({ id }).del();
+        await knex.transaction(async (trx) => {
+            // Aktuellen Status im Lock lesen
+            const current = await trx('orders')
+                .where({ id })
+                .forUpdate()
+                .first();
+
+            if (!current) {
+                throw Object.assign(new Error('Order not found'), {
+                    status: 404,
+                });
+            }
+
+            // Nur dann restocken, wenn die Order NICHT bereits "Storniert" ist
+            if (current.status !== 'Storniert') {
+                await restockOrderItems(trx, id);
+            }
+
+            // Order + Items löschen (Items via FK / CASCADE oder explizit)
+            await trx('order_items').where({ order_id: id }).del();
+            await trx('orders').where({ id }).del();
+        });
     },
+
 
     // Order-Status ändern
     async updateOrderStatus(id: number, status: string): Promise<Order> {
-        const row = await knex('orders').where({ id }).first();
-        if (!row) throw Object.assign(new Error('Order not found'), { status: 404 });
+        const existing = await knex('orders').where({ id }).first();
+        if (!existing) {
+            throw Object.assign(new Error('Order not found'), { status: 404 });
+        }
 
-        await knex('orders').where({ id }).update({ status });
+        await knex.transaction(async (trx) => {
+            const current = await trx('orders')
+                .where({ id })
+                .forUpdate()
+                .first();
+
+            if (!current) {
+                throw Object.assign(new Error('Order not found'), {
+                    status: 404,
+                });
+            }
+
+            const oldStatus = current.status;
+            const newStatus = status;
+
+            // Nur bei Übergang -> "Storniert" restocken
+            if (oldStatus !== 'Storniert' && newStatus === 'Storniert') {
+                await restockOrderItems(trx, id);
+            }
+
+            // Status aktualisieren
+            await trx('orders').where({ id }).update({ status: newStatus });
+        });
+
+        // Aktualisierte Order inkl. Items & User neu laden
         const updated = await knex('orders as o')
             .join('users as u', 'o.user_id', 'u.id')
             .select(
@@ -366,7 +481,10 @@ export const orderService = {
             .where('oi.order_id', id);
 
         const items = itemRows.map(mapOrderItem);
-        const total = items.reduce((sum, it) => sum + it.price * it.quantity, 0);
+        const total = items.reduce(
+            (sum, it) => sum + it.price * it.quantity,
+            0
+        );
 
         return {
             id: updated.order_id,
@@ -385,6 +503,7 @@ export const orderService = {
             total,
         };
     },
+
     async getOrdersByUser(userId: number) {
         console.log("TEST!!!!!!: " + userId);
         const rows = await knex('orders as o')

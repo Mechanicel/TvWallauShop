@@ -80,3 +80,18 @@ export function formatDate(d: any): string | null {
         return null;
     }
 }
+
+export async function restockOrderItems(trx: any, orderId: number) {
+    const items = await trx('order_items')
+        .where({ order_id: orderId })
+        .select('product_id', 'size_id', 'quantity');
+
+    for (const it of items) {
+        await trx('product_sizes')
+            .where({
+                product_id: it.product_id,
+                size_id: it.size_id,
+            })
+            .increment('stock', it.quantity);
+    }
+}
