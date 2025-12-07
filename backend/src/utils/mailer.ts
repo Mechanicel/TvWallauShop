@@ -6,12 +6,44 @@ const user = process.env.SMTP_USER!;
 const pass = process.env.SMTP_PASS!;
 const from = process.env.SMTP_FROM || user;
 
+// Wenn EMAIL_SEND explizit auf "false" steht → nicht senden
+// Default ist "true", wenn nichts gesetzt ist
+const EMAIL_SEND =
+    (process.env.EMAIL_SEND ?? 'true').toLowerCase() === 'true';
+
 const transporter = nodemailer.createTransport({
     host,
     port,
-    secure: false, // STARTTLS for 587
-    auth: { user, pass },
+    secure: false,
+    auth: {
+        user,
+        pass
+    }
 });
+
+async function sendMailSafely(options: {
+    to: string;
+    subject: string;
+    text: string;
+    html: string;
+}) {
+    if (!EMAIL_SEND) {
+        console.log('[Mailer] EMAIL_SEND=false → E-Mail-Versand ist deaktiviert.');
+        console.log('[Mailer] Würde senden:', {
+            to: options.to,
+            subject: options.subject
+        });
+        return;
+    }
+
+    const info = await transporter.sendMail({
+        from,
+        ...options
+    });
+
+    console.log('[Mailer] E-Mail gesendet, MessageId:', info.messageId);
+    return info;
+}
 
 /**
  * Send a verification email with a confirm link
@@ -25,16 +57,6 @@ export async function sendVerificationEmail({
     firstName: string;
     verifyUrl: string;
 }) {
-    const transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
-        port: Number(process.env.SMTP_PORT || 587),
-        secure: false,
-        auth: {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASS
-        }
-    });
-
     const subject = 'Bitte bestätige deine E-Mail-Adresse';
 
     const html = `
@@ -66,14 +88,14 @@ Liebe Grüße,
 Dein TvWallauShop-Team
 `;
 
-    await transporter.sendMail({
-        from: process.env.SMTP_USER|| 'shop@example.com',
+    await sendMailSafely({
         to,
         subject,
         text,
         html
     });
 }
+
 export async function sendOrderConfirmationEmail({
                                                      to,
                                                      firstName,
@@ -87,16 +109,6 @@ export async function sendOrderConfirmationEmail({
     items: Array<{ productName: string; sizeLabel: string; quantity: number; price: number }>;
     total: number;
 }) {
-    const transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
-        port: Number(process.env.SMTP_PORT || 587),
-        secure: false,
-        auth: {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASS
-        }
-    });
-
     const subject = `Bestellbestätigung #${orderId}`;
 
     const rows = items
@@ -168,8 +180,7 @@ Liebe Grüße,
 Dein TvWallauShop-Team
 `;
 
-    await transporter.sendMail({
-        from: process.env.SMTP_USER || 'shop@example.com',
+    await sendMailSafely({
         to,
         subject,
         text,
