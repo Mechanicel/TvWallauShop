@@ -70,10 +70,31 @@ const ordersSlice = createSlice({
         });
 
         // updateOrderStatus
-        builder.addCase(updateOrderStatus.fulfilled, (state, action: PayloadAction<OrderExtended>) => {
-            const idx = state.items.findIndex((o) => o.id === action.payload.id);
-            if (idx >= 0) state.items[idx] = action.payload;
-        });
+        builder.addCase(
+            updateOrderStatus.fulfilled,
+            (state, action: PayloadAction<OrderExtended>) => {
+                const idx = state.items.findIndex(
+                    (o) => o.id === action.payload.id
+                );
+                if (idx >= 0) {
+                    const current = state.items[idx];
+                    const incoming = action.payload as any;
+
+                    state.items[idx] = {
+                        ...current,
+                        ...incoming,
+                        // falls Backend nur Teil-User schickt, behalten wir die
+                        // vorhandenen Felder und überschreiben nur, was kommt
+                        user: {
+                            ...(current as any).user,
+                            ...(incoming.user ?? {}),
+                        },
+                        // falls Items gar nicht mitkommen, behalten wir die alten
+                        items: incoming.items ?? current.items,
+                    };
+                }
+            }
+        );
 
         // deleteOrder
         builder.addCase(deleteOrder.fulfilled, (state, action: PayloadAction<number>) => {

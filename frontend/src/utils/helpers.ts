@@ -5,49 +5,61 @@
  * @param amount number to format
  * @returns formatted currency string
  */
-export function formatCurrency(amount: number): string {
-    return new Intl.NumberFormat('de-DE', {
-        style: 'currency',
-        currency: 'EUR'
-    }).format(amount);
-}
+import {User} from "../type/user";
 
 /**
- * Safely parse JSON from localStorage
- * @param key storage key
- * @returns parsed value or null
+ * Normalisiert die API-User-Objekte auf unseren Frontend-User-Typ.
+ * -> fängt sowohl snake_case als auch camelCase ab.
  */
-export function loadFromStorage<T>(key: string): T | null {
-    try {
-        const item = localStorage.getItem(key);
-        return item ? JSON.parse(item) as T : null;
-    } catch {
-        console.warn(`Failed to parse localStorage key "${key}"`);
-        return null;
+export const mapApiUserToUser = (raw: any): User => {
+    if (!raw) {
+        throw new Error('Empty user from API');
     }
-}
 
-/**
- * Save a value to localStorage as JSON
- * @param key storage key
- * @param value value to save
- */
-export function saveToStorage<T>(key: string, value: T): void {
-    try {
-        localStorage.setItem(key, JSON.stringify(value));
-    } catch {
-        console.warn(`Failed to stringify localStorage key "${key}"`);
-    }
-}
+    return {
+        id: raw.id,
+        email: raw.email,
+        role: raw.role,
+        isVerified: raw.isVerified ?? raw.is_verified ?? false,
+        createdAt: raw.createdAt ?? raw.created_at ?? '',
 
-/**
- * Remove an item from localStorage
- * @param key storage key
- */
-export function removeFromStorage(key: string): void {
-    try {
-        localStorage.removeItem(key);
-    } catch {
-        console.warn(`Failed to remove localStorage key "${key}"`);
-    }
-}
+        // Name
+        first_name: raw.first_name ?? raw.firstName ?? '',
+        last_name: raw.last_name ?? raw.lastName ?? '',
+
+        // Kontakt
+        phone: raw.phone ?? null,
+
+        // Rechnungsadresse
+        street: raw.street ?? null,
+        house_number: raw.house_number ?? raw.houseNumber ?? null,
+        postal_code: raw.postal_code ?? raw.postalCode ?? null,
+        city: raw.city ?? null,
+        country: raw.country ?? null,
+
+        // Lieferadresse
+        shippingStreet: raw.shippingStreet ?? raw.shipping_street ?? '',
+        shippingHouseNumber:
+            raw.shippingHouseNumber ?? raw.shipping_house_number ?? '',
+        shippingPostalCode:
+            raw.shippingPostalCode ?? raw.shipping_postal_code ?? '',
+        shippingCity: raw.shippingCity ?? raw.shipping_city ?? '',
+        shippingState: raw.shippingState ?? raw.shipping_state ?? '',
+        shippingCountry: raw.shippingCountry ?? raw.shipping_country ?? '',
+
+        // Zahlungsinfo
+        preferred_payment:
+            raw.preferred_payment ?? raw.preferredPayment ?? undefined,
+
+        // Marketing
+        newsletter_opt_in:
+            raw.newsletter_opt_in ?? raw.newsletterOptIn ?? false,
+        dateOfBirth: raw.dateOfBirth ?? raw.date_of_birth ?? null,
+        gender: raw.gender ?? null,
+
+        // Shop-spezifisch
+        loyaltyPoints: raw.loyaltyPoints ?? raw.loyalty_points ?? 0,
+        lastLogin: raw.lastLogin ?? raw.last_login ?? null,
+        accountStatus: raw.accountStatus ?? raw.account_status ?? 'active',
+    };
+};

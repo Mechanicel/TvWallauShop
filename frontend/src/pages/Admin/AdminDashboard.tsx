@@ -19,6 +19,7 @@ import {
     fetchOrders,
     updateOrderStatus,
     selectOrders,
+    deleteOrder
 } from '../../store/slices/orderSlice';
 import {
     fetchUsers,
@@ -28,8 +29,12 @@ import {
 
 import type { Product } from '../../type/product';
 import type { User } from '../../type/user';
+import type { OrderExtended } from '../../type/order';
+
 import ProductDialog, { EditableProduct } from './Product/ProductDialog';
 import UserEditDialog from './User/UserEditDialog';
+import OrderEditDialog, { OrderStatus } from './Ordner/OrderEditDialog';
+
 import { ROUTES } from '../../utils/constants';
 
 export const AdminDashboard: React.FC = () => {
@@ -50,12 +55,17 @@ export const AdminDashboard: React.FC = () => {
     const [editingUser, setEditingUser] = useState<User | null>(null);
     const [userDialogVisible, setUserDialogVisible] = useState(false);
 
+    // --- Order-Dialog (geteilt mit ManageOrders) ---
+    const [editingOrder, setEditingOrder] = useState<OrderExtended | null>(null);
+    const [orderDialogVisible, setOrderDialogVisible] = useState(false);
+
     useEffect(() => {
         dispatch(fetchProducts());
         dispatch(fetchOrders());
         dispatch(fetchUsers());
     }, [dispatch]);
 
+    // ---------- Produkte ----------
     const editExisting = (product: Product) => {
         setEditingProduct({ ...product });
         setUploadFiles([]);
@@ -66,16 +76,6 @@ export const AdminDashboard: React.FC = () => {
         setDisplayDialog(false);
         setEditingProduct(null);
         setUploadFiles([]);
-    };
-
-    const openUserDialog = (u: User) => {
-        setEditingUser(u);
-        setUserDialogVisible(true);
-    };
-
-    const hideUserDialog = () => {
-        setUserDialogVisible(false);
-        setEditingUser(null);
     };
 
     const saveProduct = async () => {
@@ -125,9 +125,16 @@ export const AdminDashboard: React.FC = () => {
         }
     };
 
-    // --- Orders & Users ---
-    const onStatusChange = (orderId: number, newStatus: string) =>
-        dispatch(updateOrderStatus({ orderId, status: newStatus }));
+    // ---------- User ----------
+    const openUserDialog = (u: User) => {
+        setEditingUser(u);
+        setUserDialogVisible(true);
+    };
+
+    const hideUserDialog = () => {
+        setUserDialogVisible(false);
+        setEditingUser(null);
+    };
 
     const onUserRoleChange = (id: number, newRole: User['role']) =>
         dispatch(
@@ -142,6 +149,35 @@ export const AdminDashboard: React.FC = () => {
             window.confirm(`User "${u.email}" wirklich löschen?`) &&
             dispatch(deleteUser(u.id))
         );
+
+    // ---------- Orders ----------
+    const openOrderDialog = (order: OrderExtended) => {
+        setEditingOrder(order);
+        setOrderDialogVisible(true);
+    };
+
+    const hideOrderDialog = () => {
+        setOrderDialogVisible(false);
+        setEditingOrder(null);
+    };
+
+    const onStatusChange = (orderId: number, newStatus: OrderStatus) =>
+        dispatch(updateOrderStatus({ orderId, status: newStatus }));
+
+    const handleSaveOrderStatus = async (
+        orderId: number,
+        status: OrderStatus
+    ) => {
+        await dispatch(updateOrderStatus({ orderId, status }));
+        setOrderDialogVisible(false);
+    };
+
+    const handleDeleteOrder = async (orderId: number) => {
+        await dispatch(deleteOrder(orderId));
+        setOrderDialogVisible(false);
+        setEditingOrder(null);
+    };
+
 
     return (
         <div className="p-grid p-dir-col p-gap-4 p-p-4">
@@ -217,31 +253,43 @@ export const AdminDashboard: React.FC = () => {
                     <Column
                         field="createdAt"
                         header="Datum"
-                        body={(row) =>
-                            new Date(row.createdAt).toLocaleDateString()
+                        body={(row: OrderExtended) =>
+                            new Date(row.createdAt).toLocaleDateString('de-DE')
                         }
                     />
                     <Column
                         header="Aktionen"
-                        body={(row) => (
-                            <Button
-                                label={
-                                    row.status === 'Bestellt'
-                                        ? 'Als bezahlt'
-                                        : 'Stornieren'
-                                }
-                                className="p-button-sm"
-                                onClick={() =>
-                                    onStatusChange(
-                                        row.id,
-                                        row.status === 'Bestellt'
-                                            ? 'Bezahlt'
-                                            : 'Storniert'
-                                    )
-                                }
-                            />
+                        style={{ width: '14rem' }}
+                        body={(row: OrderExtended) => (
+                            <div className="row-actions">
+                                <Button
+                                    icon="pi pi-cog"
+                                    className="p-button-rounded p-button-text"
+                                    tooltip="Bestellung bearbeiten"
+                                    onClick={() => openOrderDialog(row)}
+                                />
+                                {row.status === 'Bestellt' && (
+                                    <Button
+                                        icon="pi pi-check"
+                                        className="p-button-success p-button-rounded p-button-text"
+                                        tooltip="Als bezahlt markieren"
+                                        onClick={() =>
+                                            onStatusChange(row.id, 'Bezahlt')
+                                        }
+                                    />
+                                )}
+                                {row.status !== 'Storniert' && (
+                                    <Button
+                                        icon="pi pi-times"
+                                        className="p-button-danger p-button-rounded p-button-text"
+                                        tooltip="Stornieren"
+                                        onClick={() =>
+                                            onStatusChange(row.id, 'Storniert')
+                                        }
+                                    />
+                                )}
+                            </div>
                         )}
-                        style={{ width: '10rem' }}
                     />
                 </DataTable>
             </div>
@@ -330,6 +378,15 @@ export const AdminDashboard: React.FC = () => {
                 visible={userDialogVisible}
                 user={editingUser}
                 onHide={hideUserDialog}
+            />
+
+            {/* Neuer Order-Dialog – wie in ManageOrders */}
+            <OrderEditDialog
+                order={editingOrder}
+                visible={orderDialogVisible}
+                onHide={hideOrderDialog}
+                onSaveStatus={handleSaveOrderStatus}
+                onDelete={handleDeleteOrder}
             />
         </div>
     );

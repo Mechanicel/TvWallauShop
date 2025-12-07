@@ -17,7 +17,7 @@ import { LoginPage }         from './pages/Auth/LoginPage';
 import { SignupPage }        from './pages/Auth/SignupPage';
 import { AdminDashboard }    from './pages/Admin/AdminDashboard';
 import { ManageProducts }    from './pages/Admin/Product/ManageProducts';
-import { ManageOrders }      from './pages/Admin/ManageOrders';
+import { ManageOrders }      from './pages/Admin/Ordner/ManageOrders';
 import { ManageUsers }       from './pages/Admin/User/ManageUsers';    // ← neu
 import { AccountPage }     from './pages/User/AccountPage';
 import { ProfilePage }     from './pages/User/ProfilePage';
