@@ -1,8 +1,8 @@
-// backend/src/middleware/authMiddleware.ts
+// backend/src/middlewares/authMiddleware.ts
 // Middleware für Authentifizierung und Rollenprüfung
 
 import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
+import jwt, { TokenExpiredError } from 'jsonwebtoken';
 import { userService } from '../services/userService';
 
 const ACCESS_TOKEN_SECRET = process.env.JWT_SECRET!;
@@ -28,7 +28,8 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
         const userId = decoded.sub; // wichtig: bei signJwt war es { sub: user.id }
 
         if (!userId) {
-            console.warn('[authMiddleware] Kein userId im Token');
+            // Das ist ein echter Fehlerfall, den wir loggen wollen
+            console.warn('[authMiddleware] Kein userId im Token-Payload');
             return res.status(401).json({ error: 'Ungültiges Token-Payload' });
         }
 
@@ -45,7 +46,15 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
 
         next();
     } catch (err: any) {
-        console.error('[authMiddleware] Fehler:', err.message, err.stack);
+        // 🔇 Token abgelaufen → kein riesiger Stacktrace im Log
+        if (err instanceof TokenExpiredError || err?.name === 'TokenExpiredError') {
+            // optional könntest du hier ganz leicht loggen, z.B.:
+            // console.info('[authMiddleware] Access-Token abgelaufen');
+            return res.status(401).json({ error: 'Token abgelaufen' });
+        }
+
+        // Nur „echte“ Fehler loggen
+        console.error('[authMiddleware] Fehler beim Token-Check:', err?.message, err?.stack);
         return res.status(401).json({ error: 'Token ungültig oder abgelaufen' });
     }
 };

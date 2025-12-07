@@ -1,16 +1,13 @@
-import React, { useState } from 'react';
+import React, {useState} from 'react';
 import api from '../../services/api';
-import { Card } from 'primereact/card';
-import { Password } from 'primereact/password';
-import { Checkbox } from 'primereact/checkbox';
-import { Dropdown } from 'primereact/dropdown';
-import { Button } from 'primereact/button';
+import {Card} from 'primereact/card';
+import {Password} from 'primereact/password';
+import {Checkbox} from 'primereact/checkbox';
+import {Dropdown} from 'primereact/dropdown';
+import {Button} from 'primereact/button';
 import './SettingsPage.css';
-import {clearCookie, logout} from "../../store/slices/authSlice";
-import authService from "../../services/authService";
+import { logout} from "../../store/slices/authSlice";
 import {useAppDispatch} from "../../store";
-
-
 
 
 export const SettingsPage: React.FC = () => {
@@ -22,9 +19,10 @@ export const SettingsPage: React.FC = () => {
     const [preferredPayment, setPreferredPayment] = useState<string | null>(null);
 
     const paymentOptions = [
-        { label: 'PayPal', value: 'paypal' },
-        { label: 'Rechnung', value: 'invoice' },
-        { label: 'Kreditkarte', value: 'creditcard' },
+        {label: 'PayPal', value: 'paypal'},
+        {label: 'Rechnung', value: 'invoice'},
+        {label: 'Kreditkarte', value: 'creditcard'},
+        {label: 'Überweißung', value: 'banktransfer'},
     ];
 
     const handlePasswordChange = async () => {
@@ -33,7 +31,7 @@ export const SettingsPage: React.FC = () => {
             return;
         }
         try {
-            await api.put('/users/me/password', { oldPassword, newPassword });
+            await api.put('/users/me/password', {oldPassword, newPassword});
             alert('Passwort erfolgreich geändert.');
             setOldPassword('');
             setNewPassword('');
@@ -74,23 +72,28 @@ export const SettingsPage: React.FC = () => {
                     <h3>Passwort ändern</h3>
                     <div className="settings-field">
                         <label>Altes Passwort</label>
-                        <Password value={oldPassword} onChange={(e) => setOldPassword(e.target.value)} feedback={false} />
+                        <Password value={oldPassword} onChange={(e) => setOldPassword(e.target.value)}
+                                  feedback={false}/>
                     </div>
                     <div className="settings-field">
                         <label>Neues Passwort</label>
-                        <Password value={newPassword} onChange={(e) => setNewPassword(e.target.value)} feedback={false} />
+                        <Password value={newPassword} onChange={(e) => setNewPassword(e.target.value)}
+                                  feedback={false}/>
                     </div>
                     <div className="settings-field">
                         <label>Neues Passwort bestätigen</label>
-                        <Password value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} feedback={false} />
+                        <Password value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}
+                                  feedback={false}/>
                     </div>
-                    <Button label="Passwort speichern" icon="pi pi-lock" onClick={handlePasswordChange} className="settings-btn" />
+                    <Button label="Passwort speichern" icon="pi pi-lock" onClick={handlePasswordChange}
+                            className="settings-btn"/>
                 </section>
 
                 <section className="settings-section">
                     <h3>Präferenzen</h3>
                     <div className="settings-field">
-                        <Checkbox inputId="newsletter" checked={newsletter} onChange={(e) => setNewsletter(e.checked!)} />
+                        <Checkbox inputId="newsletter" checked={newsletter}
+                                  onChange={(e) => setNewsletter(e.checked!)}/>
                         <label htmlFor="newsletter">Newsletter abonnieren</label>
                     </div>
                     <div className="settings-field">
@@ -102,7 +105,8 @@ export const SettingsPage: React.FC = () => {
                             placeholder="Bitte auswählen"
                         />
                     </div>
-                    <Button label="Präferenzen speichern" icon="pi pi-save" onClick={handlePreferencesSave} className="settings-btn" />
+                    <Button label="Präferenzen speichern" icon="pi pi-save" onClick={handlePreferencesSave}
+                            className="settings-btn"/>
                 </section>
 
                 <section className="settings-section danger">
