@@ -46,35 +46,35 @@ export const CheckoutPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [insufficientItems, setInsufficientItems] = useState<
-    InsufficientItemKey[]
+      InsufficientItemKey[]
   >([]);
 
   const totalPrice = cartItems.reduce(
-    (sum, item) => sum + Number(item.price) * item.quantity,
-    0,
+      (sum, item) => sum + Number(item.price) * item.quantity,
+      0,
   );
 
   const isItemInsufficient = (item: CartItem): boolean =>
-    insufficientItems.some(
-      (ins) =>
-        normalizeId(ins.productId) === normalizeId(item.productId) &&
-        normalizeId(ins.sizeId) === normalizeId(item.sizeId),
-    );
+      insufficientItems.some(
+          (ins) =>
+              normalizeId(ins.productId) === normalizeId(item.productId) &&
+              normalizeId(ins.sizeId) === normalizeId(item.sizeId),
+      );
 
   const buildErrorMessage = (err: unknown): string => {
     const fallback =
-      'Die Bestellung konnte nicht abgeschlossen werden. Bitte versuche es später erneut.';
+        'Die Bestellung konnte nicht abgeschlossen werden. Bitte versuche es später erneut.';
 
     const anyErr = err as any;
 
     if (
-      anyErr &&
-      typeof anyErr === 'object' &&
-      anyErr.code === 'INSUFFICIENT_STOCK'
+        anyErr &&
+        typeof anyErr === 'object' &&
+        anyErr.code === 'INSUFFICIENT_STOCK'
     ) {
       return (
-        anyErr.message ||
-        'Ein Artikel ist nicht mehr in der gewünschten Menge verfügbar. Bitte prüfe deinen Warenkorb und passe die Mengen an.'
+          anyErr.message ||
+          'Ein Artikel ist nicht mehr in der gewünschten Menge verfügbar. Bitte prüfe deinen Warenkorb und passe die Mengen an.'
       );
     }
 
@@ -82,13 +82,13 @@ export const CheckoutPage: React.FC = () => {
       const axiosErr = err as AxiosError<any>;
       const status = axiosErr.response?.status;
       const data = axiosErr.response?.data as
-        | { code?: string; message?: string }
-        | undefined;
+          | { code?: string; message?: string }
+          | undefined;
 
       if (data?.code === 'INSUFFICIENT_STOCK') {
         return (
-          data.message ||
-          'Ein Artikel ist nicht mehr in der gewünschten Menge verfügbar. Bitte prüfe deinen Warenkorb und passe die Mengen an.'
+            data.message ||
+            'Ein Artikel ist nicht mehr in der gewünschten Menge verfügbar. Bitte prüfe deinen Warenkorb und passe die Mengen an.'
         );
       }
 
@@ -112,9 +112,9 @@ export const CheckoutPage: React.FC = () => {
     }
 
     if (
-      anyErr &&
-      typeof anyErr === 'object' &&
-      typeof anyErr.message === 'string'
+        anyErr &&
+        typeof anyErr === 'object' &&
+        typeof anyErr.message === 'string'
     ) {
       return anyErr.message;
     }
@@ -160,23 +160,23 @@ export const CheckoutPage: React.FC = () => {
       const anyErr = err as any;
 
       const detailsFromError =
-        anyErr?.details ??
-        (isAxiosError(err)
-          ? (err as AxiosError<any>).response?.data?.details
-          : undefined);
+          anyErr?.details ??
+          (isAxiosError(err)
+              ? (err as AxiosError<any>).response?.data?.details
+              : undefined);
 
       if (
-        (anyErr &&
-          typeof anyErr === 'object' &&
-          anyErr.code === 'INSUFFICIENT_STOCK') ||
-        (isAxiosError(err) &&
-          (err as AxiosError<any>).response?.data?.code ===
-            'INSUFFICIENT_STOCK')
+          (anyErr &&
+              typeof anyErr === 'object' &&
+              anyErr.code === 'INSUFFICIENT_STOCK') ||
+          (isAxiosError(err) &&
+              (err as AxiosError<any>).response?.data?.code ===
+              'INSUFFICIENT_STOCK')
       ) {
         if (detailsFromError) {
           const list = Array.isArray(detailsFromError)
-            ? detailsFromError
-            : [detailsFromError];
+              ? detailsFromError
+              : [detailsFromError];
 
           const keys: InsufficientItemKey[] = list.map((d: any) => ({
             productId: normalizeId(d.productId) ?? -1,
@@ -208,141 +208,148 @@ export const CheckoutPage: React.FC = () => {
   };
 
   return (
-    <div className="checkout-page">
-      <div className="checkout-wrapper">
-        {/* Warenkorb-Übersicht */}
-        <Card title="Bestellübersicht" className="p-mb-4 checkout-card-items">
-          {cartItems.length > 0 && (
-            <>
-              <div className="checkout-items-header">
-                <span className="checkout-items-header-col--article">
-                  Artikel
-                </span>
-                <span className="checkout-items-header-col--details">
-                  Details
-                </span>
-                <span className="checkout-items-header-col--price">Preis</span>
-              </div>
+      <div className="checkout-page">
+        <div className="checkout-wrapper">
+          {/* Überschrift analog Warenkorb */}
+          <h2>Bestellübersicht</h2>
 
-              <div className="checkout-items-list">
-                {cartItems.map((item) => {
-                  const insufficient = isItemInsufficient(item);
-                  const imageSrc = item.imageUrl
-                    ? resolveImageUrl(item.imageUrl)
-                    : undefined;
+          {/* Übersicht im gleichen Card-/Table-Stil wie der Warenkorb */}
+          <div className="checkout-table">
+            {cartItems.length > 0 && (
+                <>
+                  <div className="checkout-table-head">
+                    <div className="checkout-head-col checkout-head-col--image">
+                      Bild
+                    </div>
+                    <div className="checkout-head-col checkout-head-col--details">
+                      Artikel / Details
+                    </div>
+                    <div className="checkout-head-col checkout-head-col--price">
+                      Preis
+                    </div>
+                  </div>
 
-                  const linePrice = Number(item.price) * item.quantity;
+                  <div className="checkout-items-list">
+                    {cartItems.map((item) => {
+                      const insufficient = isItemInsufficient(item);
+                      const imageSrc = item.imageUrl
+                          ? resolveImageUrl(item.imageUrl)
+                          : undefined;
 
-                  return (
-                    <div
-                      key={`${normalizeId(item.productId)}-${normalizeId(item.sizeId)}`}
-                      className={
-                        'checkout-order-item' +
-                        (insufficient
-                          ? ' checkout-order-item--insufficient'
-                          : '')
-                      }
-                    >
-                      {/* Bild / Artikel-Spalte */}
-                      <div className="checkout-order-item-image">
-                        {imageSrc && <img src={imageSrc} alt={item.name} />}
-                      </div>
+                      const linePrice = Number(item.price) * item.quantity;
 
-                      {/* Details-Spalte */}
-                      <div className="checkout-order-item-info">
+                      return (
+                          <div
+                              key={`${normalizeId(item.productId)}-${normalizeId(
+                                  item.sizeId,
+                              )}`}
+                              className={
+                                  'checkout-order-item' +
+                                  (insufficient
+                                      ? ' checkout-order-item--insufficient'
+                                      : '')
+                              }
+                          >
+                            {/* Bild-Spalte */}
+                            <div className="checkout-order-item-image">
+                              {imageSrc && <img src={imageSrc} alt={item.name} />}
+                            </div>
+
+                            {/* Details-Spalte */}
+                            <div className="checkout-order-item-info">
                         <span className="checkout-order-item-name">
                           {item.name}
                         </span>
 
-                        <span className="checkout-order-item-meta">
+                              <span className="checkout-order-item-meta">
                           {item.sizeLabel && (
-                            <>Größe: {item.sizeLabel} &nbsp;|&nbsp; </>
+                              <>Größe: {item.sizeLabel} &nbsp;|&nbsp; </>
                           )}
-                          Menge: {item.quantity}
+                                Menge: {item.quantity}
                         </span>
 
-                        {insufficient && (
-                          <span className="checkout-order-item-warning">
+                              {insufficient && (
+                                  <span className="checkout-order-item-warning">
                             Nicht genug Bestand – bitte Menge anpassen.
                           </span>
-                        )}
-                      </div>
+                              )}
+                            </div>
 
-                      {/* Preis-Spalte */}
-                      <div className="checkout-order-item-price">
+                            {/* Preis-Spalte */}
+                            <div className="checkout-order-item-price">
                         <span className="checkout-order-item-price-total">
                           {linePrice.toFixed(2)} €
                         </span>
-                        <span className="checkout-order-item-price-unit">
+                              <span className="checkout-order-item-price-unit">
                           ({Number(item.price).toFixed(2)} € / Stk.)
                         </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </>
-          )}
-
-          <div className="checkout-summary-row">
-            <span>Summe:</span>
-            <span>{totalPrice.toFixed(2)} €</span>
-          </div>
-        </Card>
-
-        {/* Abhol-Infos */}
-        <Card title="Abholer-Informationen">
-          <div className="p-fluid">
-            <div className="p-field">
-              <label htmlFor="name">Name</label>
-              <InputText
-                id="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-              />
-            </div>
-
-            <div className="p-field">
-              <label htmlFor="email">E-Mail</label>
-              <InputText
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-
-            <div className="p-field">
-              <label htmlFor="address">Adresse</label>
-              <InputText
-                id="address"
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                required
-              />
-            </div>
-
-            {error && (
-              <div className="p-mt-2">
-                <p className="p-text-danger" style={{ whiteSpace: 'pre-line' }}>
-                  {error}
-                </p>
-              </div>
+                            </div>
+                          </div>
+                      );
+                    })}
+                  </div>
+                </>
             )}
 
-            <Button
-              label="Bestellung abschicken"
-              icon="pi pi-check"
-              onClick={handlePlaceOrder}
-              loading={loading}
-              disabled={loading}
-              className="p-mt-3"
-            />
+            <div className="checkout-summary-row">
+              <span>Summe:</span>
+              <span>{totalPrice.toFixed(2)} €</span>
+            </div>
           </div>
-        </Card>
+
+          {/* Abhol-Infos bleiben als Card */}
+          <Card title="Abholer-Informationen" className="checkout-info-card">
+            <div className="p-fluid">
+              <div className="p-field">
+                <label htmlFor="name">Name</label>
+                <InputText
+                    id="name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
+                />
+              </div>
+
+              <div className="p-field">
+                <label htmlFor="email">E-Mail</label>
+                <InputText
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                />
+              </div>
+
+              <div className="p-field">
+                <label htmlFor="address">Adresse</label>
+                <InputText
+                    id="address"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    required
+                />
+              </div>
+
+              {error && (
+                  <div className="p-mt-2">
+                    <p className="p-text-danger" style={{ whiteSpace: 'pre-line' }}>
+                      {error}
+                    </p>
+                  </div>
+              )}
+
+              <Button
+                  label="Bestellung abschicken"
+                  icon="pi pi-check"
+                  onClick={handlePlaceOrder}
+                  loading={loading}
+                  disabled={loading}
+                  className="p-mt-3"
+              />
+            </div>
+          </Card>
+        </div>
       </div>
-    </div>
   );
 };
