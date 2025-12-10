@@ -1,12 +1,12 @@
 // frontend/src/store/slices/userSlice.ts
 
-import {createAsyncThunk, createSlice, PayloadAction} from '@reduxjs/toolkit';
+import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
 import userService from '@/services/userService';
-import {User} from '@/type/user';
+import { User } from '@/type/user';
 import api from '@/services/api';
-import {RootState} from '@/store';
-import {setUser as setAuthUser} from './authSlice';
-import {mapApiUserToUser} from '@/utils/helpers';
+import { RootState } from '@/store';
+import { setUser as setAuthUser } from './authSlice';
+import { mapApiUserToUser } from '@/utils/helpers';
 
 interface UserState {
   users: User[]; // Liste aller User für Admin

@@ -43,7 +43,7 @@ const cartSlice = createSlice({
     addToCart: (state, action: PayloadAction<CartItem>) => {
       const { productId, sizeId, quantity } = action.payload;
       const existing = state.items.find(
-          (item) => item.productId === productId && item.sizeId === sizeId,
+        (item) => item.productId === productId && item.sizeId === sizeId,
       );
       if (existing) {
         existing.quantity += quantity;
@@ -56,16 +56,16 @@ const cartSlice = createSlice({
      * Setzt die Menge eines bestehenden Warenkorb-Eintrags.
      */
     updateQuantity: (
-        state,
-        action: PayloadAction<{
-          productId: number;
-          sizeId?: number | null;
-          quantity: number;
-        }>,
+      state,
+      action: PayloadAction<{
+        productId: number;
+        sizeId?: number | null;
+        quantity: number;
+      }>,
     ) => {
       const { productId, sizeId, quantity } = action.payload;
       const item = state.items.find(
-          (i) => i.productId === productId && i.sizeId === sizeId,
+        (i) => i.productId === productId && i.sizeId === sizeId,
       );
       if (item) {
         item.quantity = quantity;
@@ -76,12 +76,12 @@ const cartSlice = createSlice({
      * Entfernt einen Warenkorb-Eintrag vollständig.
      */
     removeFromCart: (
-        state,
-        action: PayloadAction<{ productId: number; sizeId?: number | null }>,
+      state,
+      action: PayloadAction<{ productId: number; sizeId?: number | null }>,
     ) => {
       const { productId, sizeId } = action.payload;
       state.items = state.items.filter(
-          (i) => !(i.productId === productId && i.sizeId === sizeId),
+        (i) => !(i.productId === productId && i.sizeId === sizeId),
       );
     },
 
@@ -95,7 +95,7 @@ const cartSlice = createSlice({
 });
 
 export const { addToCart, updateQuantity, removeFromCart, clearCart } =
-    cartSlice.actions;
+  cartSlice.actions;
 
 export const selectCartItems = (state: RootState) => state.cart.items;
 export default cartSlice.reducer;

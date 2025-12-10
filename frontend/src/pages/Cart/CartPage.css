@@ -1,180 +1,180 @@
 /* Seite – angelehnt an .users-page */
 .cart-page {
-    padding: 1rem 1.25rem;
-    background: #f7f8fb;
-    border-radius: 12px;
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    width: 100%;
-    box-sizing: border-box;
+  padding: 1rem 1.25rem;
+  background: #f7f8fb;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .cart-page h2 {
-    font-size: 1.6rem;
-    font-weight: 700;
-    color: #172133;
-    margin: 0 0 1rem 0;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #172133;
+  margin: 0 0 1rem 0;
 }
 
 /* Tabelle – gleiche Card-Optik wie Users/Orders */
 .cart-table {
-    border: 1px solid #e5e7eb;
-    border-radius: 12px;
-    overflow: hidden;
-    background: #ffffff;
-    width: 100%;
-    box-sizing: border-box;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #ffffff;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* Kopfzeile */
 .p-datatable.cart-table .p-datatable-thead > tr > th {
-    background: #f3f4f6;
-    color: #0f172a;
-    font-weight: 700;
-    padding: 0.7rem 0.75rem;
-    border: none;
-    font-size: 0.9rem;
+  background: #f3f4f6;
+  color: #0f172a;
+  font-weight: 700;
+  padding: 0.7rem 0.75rem;
+  border: none;
+  font-size: 0.9rem;
 }
 
 /* Tabellenzellen */
 .p-datatable.cart-table .p-datatable-tbody > tr > td {
-    padding: 0.7rem 0.75rem;
-    vertical-align: middle;
-    border: none;
-    border-top: 1px solid #eef0f4;
-    font-size: 0.92rem;
-    color: #111827;
+  padding: 0.7rem 0.75rem;
+  vertical-align: middle;
+  border: none;
+  border-top: 1px solid #eef0f4;
+  font-size: 0.92rem;
+  color: #111827;
 }
 
 /* Bild-Spalte */
 .cart-table-image {
-    width: 48px;
-    height: 48px;
-    object-fit: cover;
-    border-radius: 8px;
-    display: block;
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 8px;
+  display: block;
 }
 
 .cart-table-image-placeholder {
-    font-size: 0.8rem;
-    color: #9ca3af;
+  font-size: 0.8rem;
+  color: #9ca3af;
 }
 
 /* Footer unter der Tabelle */
 .cart-footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.75rem 0.9rem;
-    border-top: 1px solid #e5e7eb;
-    background: #f9fafb;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 0.9rem;
+  border-top: 1px solid #e5e7eb;
+  background: #f9fafb;
 }
 
 .cart-footer-total {
-    margin: 0;
-    font-size: 1.05rem;
-    font-weight: 600;
-    color: #111827;
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #111827;
 }
 
 .cart-footer-button {
-    border-radius: 10px;
-    background: #4f46e5;
-    border: none;
-    font-weight: 600;
+  border-radius: 10px;
+  background: #4f46e5;
+  border: none;
+  font-weight: 600;
 }
 
 .cart-footer-button:hover {
-    background: #4338ca;
+  background: #4338ca;
 }
 /* Seite – angelehnt an .users-page */
 .cart-page {
-    padding: 1rem 1.25rem;
-    background: #f7f8fb;
-    border-radius: 12px;
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    width: 100%;
-    box-sizing: border-box;
+  padding: 1rem 1.25rem;
+  background: #f7f8fb;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .cart-page h2 {
-    font-size: 1.6rem;
-    font-weight: 700;
-    color: #172133;
-    margin: 0 0 1rem 0;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #172133;
+  margin: 0 0 1rem 0;
 }
 
 /* Tabelle – gleiche Card-Optik wie Users/Orders */
 .cart-table {
-    border: 1px solid #e5e7eb;
-    border-radius: 12px;
-    overflow: hidden;
-    background: #ffffff;
-    width: 100%;
-    box-sizing: border-box;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #ffffff;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* Kopfzeile */
 .p-datatable.cart-table .p-datatable-thead > tr > th {
-    background: #f3f4f6;
-    color: #0f172a;
-    font-weight: 700;
-    padding: 0.7rem 0.75rem;
-    border: none;
-    font-size: 0.9rem;
+  background: #f3f4f6;
+  color: #0f172a;
+  font-weight: 700;
+  padding: 0.7rem 0.75rem;
+  border: none;
+  font-size: 0.9rem;
 }
 
 /* Tabellenzellen */
 .p-datatable.cart-table .p-datatable-tbody > tr > td {
-    padding: 0.7rem 0.75rem;
-    vertical-align: middle;
-    border: none;
-    border-top: 1px solid #eef0f4;
-    font-size: 0.92rem;
-    color: #111827;
+  padding: 0.7rem 0.75rem;
+  vertical-align: middle;
+  border: none;
+  border-top: 1px solid #eef0f4;
+  font-size: 0.92rem;
+  color: #111827;
 }
 
 /* Bild-Spalte */
 .cart-table-image {
-    width: 48px;
-    height: 48px;
-    object-fit: cover;
-    border-radius: 8px;
-    display: block;
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 8px;
+  display: block;
 }
 
 .cart-table-image-placeholder {
-    font-size: 0.8rem;
-    color: #9ca3af;
+  font-size: 0.8rem;
+  color: #9ca3af;
 }
 
 /* Footer unter der Tabelle */
 .cart-footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.75rem 0.9rem;
-    border-top: 1px solid #e5e7eb;
-    background: #f9fafb;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 0.9rem;
+  border-top: 1px solid #e5e7eb;
+  background: #f9fafb;
 }
 
 .cart-footer-total {
-    margin: 0;
-    font-size: 1.05rem;
-    font-weight: 600;
-    color: #111827;
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #111827;
 }
 
 .cart-footer-button {
-    border-radius: 10px;
-    background: #4f46e5;
-    border: none;
-    font-weight: 600;
+  border-radius: 10px;
+  background: #4f46e5;
+  border: none;
+  font-weight: 600;
 }
 
 .cart-footer-button:hover {
-    background: #4338ca;
+  background: #4338ca;
 }

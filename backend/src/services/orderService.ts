@@ -1,5 +1,5 @@
 // backend/src/services/orderService.ts
-import { knex } from '../database';
+import {knex} from '../database';
 import {mapUser, restockOrderItems} from "../utils/helpers";
 import {sendOrderConfirmationEmail} from "../utils/mailer";
 import {InsufficientStockError} from "../errors/InsufficientStockError";
@@ -215,7 +215,7 @@ export const orderService = {
                 ? data.userId
                 : user.id;
 
-        const result = await knex.transaction(async (trx) => {
+        return await knex.transaction(async (trx) => {
             // 1) Order anlegen
             const [orderId] = await trx('orders').insert({
                 user_id: targetUserId,
@@ -231,7 +231,7 @@ export const orderService = {
             const priceMap = new Map<number, { price: number; name: string }>(
                 products.map((p: any) => [
                     Number(p.id),
-                    { price: Number(p.price), name: p.name },
+                    {price: Number(p.price), name: p.name},
                 ])
             );
 
@@ -253,7 +253,7 @@ export const orderService = {
                 aggregated.set(key, existing);
             }
 
-            for (const { productId, sizeId, quantity } of aggregated.values()) {
+            for (const {productId, sizeId, quantity} of aggregated.values()) {
                 const stockRow = await trx('product_sizes')
                     .where({
                         product_id: productId,
@@ -267,7 +267,7 @@ export const orderService = {
                         new Error(
                             `Lagerbestand für Produkt ${productId}, Größe ${sizeId} nicht gefunden`
                         ),
-                        { status: 400 }
+                        {status: 400}
                     );
                 }
 
@@ -297,7 +297,7 @@ export const orderService = {
                 if (!prod) {
                     throw Object.assign(
                         new Error(`Product ${it.productId} not found`),
-                        { status: 400 }
+                        {status: 400}
                     );
                 }
                 return {
@@ -383,8 +383,6 @@ export const orderService = {
                 total,
             };
         });
-
-        return result;
     },
 
     // Order löschen

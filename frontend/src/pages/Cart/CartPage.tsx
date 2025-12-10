@@ -13,141 +13,131 @@ import './CartPage.css';
 
 // Typ aus cartSlice – erweitert um imageUrl & sizeLabel
 type CartItem = {
-    productId: number;
-    sizeId: number | null;
-    sizeLabel?: string | null;
-    name: string;
-    price: number | string;
-    quantity: number;
-    imageUrl?: string | null;
+  productId: number;
+  sizeId: number | null;
+  sizeLabel?: string | null;
+  name: string;
+  price: number | string;
+  quantity: number;
+  imageUrl?: string | null;
 };
 
 export const CartPage: React.FC = () => {
-    const dispatch = useAppDispatch();
-    const navigate = useNavigate();
-    const cartItems = useAppSelector((state) => state.cart.items) as CartItem[];
+  const dispatch = useAppDispatch();
+  const navigate = useNavigate();
+  const cartItems = useAppSelector((state) => state.cart.items) as CartItem[];
 
-    const handleQuantityChange = (item: CartItem, value: number) => {
-        dispatch(
-            updateQuantity({
-                productId: item.productId,
-                sizeId: item.sizeId ?? null,
-                quantity: value,
-            }),
-        );
-    };
-
-    const handleRemove = (item: CartItem) => {
-        dispatch(
-            removeFromCart({
-                productId: item.productId,
-                sizeId: item.sizeId ?? null,
-            }),
-        );
-    };
-
-    const totalPrice = cartItems.reduce(
-        (sum, item) => sum + Number(item.price) * item.quantity,
-        0,
+  const handleQuantityChange = (item: CartItem, value: number) => {
+    dispatch(
+      updateQuantity({
+        productId: item.productId,
+        sizeId: item.sizeId ?? null,
+        quantity: value,
+      }),
     );
+  };
 
-    const footer = (
-        <div className="cart-footer">
-            <h3 className="cart-footer-total">Total: {totalPrice.toFixed(2)} €</h3>
-            <Button
-                label="Zur Kasse"
-                icon="pi pi-credit-card"
-                onClick={() => navigate('/cart/checkout')}
-                disabled={cartItems.length === 0}
-                className="cart-footer-button"
-            />
-        </div>
+  const handleRemove = (item: CartItem) => {
+    dispatch(
+      removeFromCart({
+        productId: item.productId,
+        sizeId: item.sizeId ?? null,
+      }),
     );
+  };
 
-    return (
-        <div className="cart-page">
-            <h2>Warenkorb</h2>
+  const totalPrice = cartItems.reduce(
+    (sum, item) => sum + Number(item.price) * item.quantity,
+    0,
+  );
 
-            {cartItems.length > 0 ? (
-                <DataTable
-                    value={cartItems}
-                    footer={footer}
-                    responsiveLayout="scroll"
-                    className="cart-table p-datatable-sm"
-                >
-                    {/* 🖼️ Bild */}
-                    <Column
-                        header="Bild"
-                        body={(item: CartItem) => {
-                            const img = item.imageUrl
-                                ? resolveImageUrl(item.imageUrl)
-                                : undefined;
+  const footer = (
+    <div className="cart-footer">
+      <h3 className="cart-footer-total">Total: {totalPrice.toFixed(2)} €</h3>
+      <Button
+        label="Zur Kasse"
+        icon="pi pi-credit-card"
+        onClick={() => navigate('/cart/checkout')}
+        disabled={cartItems.length === 0}
+        className="cart-footer-button"
+      />
+    </div>
+  );
 
-                            return img ? (
-                                <img
-                                    src={img}
-                                    alt={item.name}
-                                    className="cart-table-image"
-                                />
-                            ) : (
-                                <span className="cart-table-image-placeholder">kein Bild</span>
-                            );
-                        }}
-                    />
+  return (
+    <div className="cart-page">
+      <h2>Warenkorb</h2>
 
-                    {/* Produktname */}
-                    <Column field="name" header="Produkt" />
+      {cartItems.length > 0 ? (
+        <DataTable
+          value={cartItems}
+          footer={footer}
+          responsiveLayout="scroll"
+          className="cart-table p-datatable-sm"
+        >
+          {/* 🖼️ Bild */}
+          <Column
+            header="Bild"
+            body={(item: CartItem) => {
+              const img = item.imageUrl
+                ? resolveImageUrl(item.imageUrl)
+                : undefined;
 
-                    {/* Größe */}
-                    <Column
-                        field="sizeLabel"
-                        header="Größe"
-                        body={(item: CartItem) =>
-                            item.sizeLabel ? item.sizeLabel : '-'
-                        }
-                    />
+              return img ? (
+                <img src={img} alt={item.name} className="cart-table-image" />
+              ) : (
+                <span className="cart-table-image-placeholder">kein Bild</span>
+              );
+            }}
+          />
 
-                    {/* Preis */}
-                    <Column
-                        header="Preis (€)"
-                        body={(item: CartItem) =>
-                            Number(item.price).toFixed(2)
-                        }
-                    />
+          {/* Produktname */}
+          <Column field="name" header="Produkt" />
 
-                    {/* Menge */}
-                    <Column
-                        header="Menge"
-                        body={(item: CartItem) => (
-                            <InputNumber
-                                value={item.quantity}
-                                onValueChange={(e) =>
-                                    handleQuantityChange(item, e.value || 0)
-                                }
-                                min={1}
-                                showButtons
-                                buttonLayout="horizontal"
-                                decrementButtonClassName="p-button-text"
-                                incrementButtonClassName="p-button-text"
-                            />
-                        )}
-                    />
+          {/* Größe */}
+          <Column
+            field="sizeLabel"
+            header="Größe"
+            body={(item: CartItem) => (item.sizeLabel ? item.sizeLabel : '-')}
+          />
 
-                    {/* Entfernen */}
-                    <Column
-                        header="Entfernen"
-                        body={(item: CartItem) => (
-                            <Button
-                                icon="pi pi-trash"
-                                className="p-button-icon-only p-button-danger"
-                                onClick={() => handleRemove(item)}
-                            />
-                        )}
-                    />
-                </DataTable>
-            ) : (
-                <p>Ihr Warenkorb ist leer.</p>
+          {/* Preis */}
+          <Column
+            header="Preis (€)"
+            body={(item: CartItem) => Number(item.price).toFixed(2)}
+          />
+
+          {/* Menge */}
+          <Column
+            header="Menge"
+            body={(item: CartItem) => (
+              <InputNumber
+                value={item.quantity}
+                onValueChange={(e) => handleQuantityChange(item, e.value || 0)}
+                min={1}
+                showButtons
+                buttonLayout="horizontal"
+                decrementButtonClassName="p-button-text"
+                incrementButtonClassName="p-button-text"
+              />
             )}
-        </div>
-    );
+          />
+
+          {/* Entfernen */}
+          <Column
+            header="Entfernen"
+            body={(item: CartItem) => (
+              <Button
+                icon="pi pi-trash"
+                className="p-button-icon-only p-button-danger"
+                onClick={() => handleRemove(item)}
+              />
+            )}
+          />
+        </DataTable>
+      ) : (
+        <p>Ihr Warenkorb ist leer.</p>
+      )}
+    </div>
+  );
 };
