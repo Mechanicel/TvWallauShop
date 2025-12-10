@@ -1,39 +1,51 @@
 // backend/src/index.ts
 
-import 'dotenv/config';                // Lädt .env
-import { config } from './config/env';
+import 'dotenv/config'; // Lädt .env
+
 import app from './app';
 import logger from './utils/logger';
 import { knex } from './database';
 
-const PORT = config.port;
+const PORT = Number(process.env.PORT ?? 3000);
+const NODE_ENV = process.env.NODE_ENV ?? 'development';
 
-async function start() {
+async function startServer() {
     try {
         // Teste Datenbank-Connection
-        await knex.raw('SELECT 1+1 AS result');
+        await knex.raw('SELECT 1 + 1 AS result');
         logger.info('✅ Database connection established');
 
-        // Starte Server
-        app.listen(PORT, () => {
-            logger.info(`🚀 Server listening on http://localhost:${PORT} [${config.nodeEnv}]`);
+        const server = app.listen(PORT, () => {
+            logger.info(
+                `🚀 Server listening on http://localhost:${PORT} [${NODE_ENV}]`
+            );
         });
 
-        // Graceful shutdown
-        process.on('SIGINT',  shutdown);
-        process.on('SIGTERM', shutdown);
-    } catch (err: any) {
-        logger.error('❌ Failed to start', err);
+        // Graceful Shutdown
+        const shutdown = (signal: NodeJS.Signals) => {
+            logger.info(`📥 Received ${signal}, shutting down…`);
+
+            server.close(() => {
+                logger.info('🛑 HTTP server closed');
+
+                knex.destroy()
+                    .then(() => {
+                        logger.info('🛑 Database connection closed');
+                        process.exit(0);
+                    })
+                    .catch((err) => {
+                        logger.error('❌ Error during DB shutdown', err);
+                        process.exit(1);
+                    });
+            });
+        };
+
+        process.on('SIGINT', () => shutdown('SIGINT'));
+        process.on('SIGTERM', () => shutdown('SIGTERM'));
+    } catch (err) {
+        logger.error('❌ Failed to start application', err);
         process.exit(1);
     }
 }
 
-function shutdown() {
-    logger.info('🛑 Shutting down…');
-    knex.destroy().then(() => {
-        logger.info('🛑 Database connection closed');
-        process.exit(0);
-    });
-}
-
-start();
+startServer();

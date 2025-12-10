@@ -1,59 +1,59 @@
 .account-page {
-    display: flex;
-    justify-content: center;
-    padding: 2rem;
-    background-color: #f7f8fb;
-    min-height: calc(100vh - 100px); /* Platz unter Header/Footer */
+  display: flex;
+  justify-content: center;
+  padding: 2rem;
+  background-color: #f7f8fb;
+  min-height: calc(100vh - 100px); /* Platz unter Header/Footer */
 }
 
 .account-card {
-    width: 100%;
-    max-width: 600px;
-    padding: 2rem;
-    border-radius: 16px;
-    box-shadow: 0 4px 10px rgba(16, 24, 40, 0.08);
-    background: #ffffff;
-    border: 1px solid #e5e7eb;
+  width: 100%;
+  max-width: 600px;
+  padding: 2rem;
+  border-radius: 16px;
+  box-shadow: 0 4px 10px rgba(16, 24, 40, 0.08);
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
 }
 
 .account-header {
-    display: flex;
-    align-items: center;
-    gap: 1.2rem;
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
 }
 
 .account-avatar {
-    background: #4f46e5 !important;
-    color: #fff !important;
-    font-size: 1.4rem !important;
+  background: #4f46e5 !important;
+  color: #fff !important;
+  font-size: 1.4rem !important;
 }
 
 .account-email {
-    font-size: 0.95rem;
-    color: #6b7280;
-    margin: 0.2rem 0 0;
+  font-size: 0.95rem;
+  color: #6b7280;
+  margin: 0.2rem 0 0;
 }
 
 .account-actions {
-    display: grid;
-    gap: 1rem;
-    margin-top: 1.5rem;
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.5rem;
 }
 
 .account-btn {
-    justify-content: flex-start;
-    font-weight: 600;
-    padding: 0.9rem 1rem;
-    border-radius: 10px !important;
-    transition: all 0.2s ease-in-out;
+  justify-content: flex-start;
+  font-weight: 600;
+  padding: 0.9rem 1rem;
+  border-radius: 10px !important;
+  transition: all 0.2s ease-in-out;
 }
 
 .account-btn .pi {
-    margin-right: 0.5rem;
+  margin-right: 0.5rem;
 }
 
 .account-btn:hover {
-    background-color: #eef2ff !important;
-    border-color: #4338ca !important;
-    color: #4338ca !important;
+  background-color: #eef2ff !important;
+  border-color: #4338ca !important;
+  color: #4338ca !important;
 }

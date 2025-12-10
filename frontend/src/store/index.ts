@@ -11,13 +11,13 @@ import userReducer from './slices/userSlice';
 
 // Configure Redux store with slices
 export const store = configureStore({
-    reducer: {
-        auth: authReducer,
-        product: productReducer,
-        cart: cartReducer,
-        order: orderReducer,
-        user: userReducer,
-    },
+  reducer: {
+    auth: authReducer,
+    product: productReducer,
+    cart: cartReducer,
+    order: orderReducer,
+    user: userReducer,
+  },
 });
 
 // Infer the `RootState` and `AppDispatch` types from the store

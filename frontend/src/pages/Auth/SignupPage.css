@@ -2,121 +2,123 @@
 
 /* Page-Wrapper */
 .signup-page {
-    padding: 1rem 1.25rem;
-    background: #f7f8fb;
-    border-radius: 12px;
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
-    min-height: 100vh;
+  padding: 1rem 1.25rem;
+  background: #f7f8fb;
+  border-radius: 12px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 100vh;
 }
 
 /* Card */
 .signup-card {
-    background: #ffffff;
-    border-radius: 12px;
-    box-shadow: 0 2px 6px rgba(16, 24, 40, 0.06);
-    border: 1px solid #e5e7eb;
-    padding: 2rem;
-    width: 100%;
-    max-width: 640px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(16, 24, 40, 0.06);
+  border: 1px solid #e5e7eb;
+  padding: 2rem;
+  width: 100%;
+  max-width: 640px;
 }
 
 /* Überschrift */
 .signup-card h2 {
-    font-size: 1.6rem;
-    font-weight: 700;
-    color: #172133;
-    margin-bottom: 1.5rem;
-    text-align: center;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #172133;
+  margin-bottom: 1.5rem;
+  text-align: center;
 }
 
 /* Abschnittsüberschriften */
 .signup-card h4 {
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: #111827;
-    margin: 1.25rem 0 0.75rem 0;
-    padding-bottom: 0.25rem;
-    border-bottom: 1px solid #e5e7eb;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #111827;
+  margin: 1.25rem 0 0.75rem 0;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid #e5e7eb;
 }
 
 /* Eingabefelder */
 .signup-card .p-field {
-    margin-bottom: 1rem;
+  margin-bottom: 1rem;
 }
 
 .signup-card label {
-    display: block;
-    margin-bottom: 0.35rem;
-    font-size: 0.9rem;
-    font-weight: 500;
-    color: #374151;
+  display: block;
+  margin-bottom: 0.35rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #374151;
 }
 
 .signup-card .p-inputtext,
 .signup-card .p-password input,
 .signup-card .p-dropdown,
 .signup-card .p-calendar input {
-    width: 100%;
-    border-radius: 10px;
-    border: 1px solid #d7dbe7;
-    padding: 0.6rem 0.75rem;
-    font-size: 0.95rem;
-    background: #fff;
-    transition: border-color 0.2s, box-shadow 0.2s;
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid #d7dbe7;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.95rem;
+  background: #fff;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
 }
 
 .signup-card .p-inputtext:focus,
 .signup-card .p-password input:focus,
 .signup-card .p-dropdown.p-focus,
 .signup-card .p-calendar .p-inputtext:focus {
-    border-color: #4f46e5;
-    box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.18);
-    outline: none;
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.18);
+  outline: none;
 }
 
 /* Checkbox */
 .signup-card .p-field-checkbox {
-    display: flex;
-    align-items: center;
-    margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  margin-bottom: 1rem;
 }
 
 .signup-card .p-field-checkbox label {
-    margin-left: 0.5rem;
-    font-size: 0.9rem;
-    color: #374151;
+  margin-left: 0.5rem;
+  font-size: 0.9rem;
+  color: #374151;
 }
 
 /* Fehler */
 .signup-card .p-text-danger {
-    color: #b91c1c;
-    font-size: 0.9rem;
-    margin-top: 0.5rem;
+  color: #b91c1c;
+  font-size: 0.9rem;
+  margin-top: 0.5rem;
 }
 
 /* Button */
 .signup-card .p-button {
-    width: 100%;
-    height: 42px;
-    border-radius: 10px;
-    background: #4f46e5;
-    border: none;
-    font-weight: 600;
-    font-size: 1rem;
-    margin-top: 1rem;
+  width: 100%;
+  height: 42px;
+  border-radius: 10px;
+  background: #4f46e5;
+  border: none;
+  font-weight: 600;
+  font-size: 1rem;
+  margin-top: 1rem;
 }
 .signup-card .p-button:hover {
-    background: #4338ca;
+  background: #4338ca;
 }
 
 /* Responsive */
 @media (max-width: 600px) {
-    .signup-card {
-        padding: 1.25rem;
-    }
-    .signup-card h2 {
-        font-size: 1.4rem;
-    }
+  .signup-card {
+    padding: 1.25rem;
+  }
+  .signup-card h2 {
+    font-size: 1.4rem;
+  }
 }

@@ -1,35 +1,26 @@
-// backend/src/database.ts
-
 import knexFactory from 'knex';
-import { config } from './config/env';
-
 
 export const knex = knexFactory({
     client: 'mysql2',
     connection: {
-        host:     config.db.host,
-        port:     config.db.port,
-        user:     config.db.user,
-        password: config.db.password,
-        database: config.db.database
+        host: process.env.DB_HOST,
+        port: Number(process.env.DB_PORT ?? 3306),
+        user: process.env.DB_USER,
+        password: process.env.DB_PASS,
+        database: process.env.DB_NAME,
     },
     pool: { min: 2, max: 10 },
-    migrations: {
-        directory: './migrations'
-    },
-    seeds: {
-        directory: './seeds'
-    },
-    postProcessResponse: (result) => {
-    const convert = (row: any) => {
-        if (row && Object.prototype.hasOwnProperty.call(row, 'is_verified')) {
-            row.is_verified = !!row.is_verified;
-        }
-        return row;
-    };
 
-    if (Array.isArray(result)) {
-        return result.map(convert);
-    }
-    return convert(result);
-}});
+    // Konvertierung für booleans – deine custom logic
+    postProcessResponse: (result) => {
+        const convert = (row: any) => {
+            if (row && Object.prototype.hasOwnProperty.call(row, 'is_verified')) {
+                row.is_verified = !!row.is_verified;
+            }
+            return row;
+        };
+
+        if (Array.isArray(result)) return result.map(convert);
+        return convert(result);
+    },
+});
