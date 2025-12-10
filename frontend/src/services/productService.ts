@@ -1,7 +1,7 @@
 // frontend/src/services/productService.ts
 
 import api from './api';
-import type { Product } from '../type/product';
+import type { Product } from '@/type/product';
 
 export interface ProductPayload {
   name: string;

@@ -5,7 +5,7 @@
  * @param amount number to format
  * @returns formatted currency string
  */
-import { User } from '../type/user';
+import { User } from '@/type/user';
 
 /**
  * Normalisiert die API-User-Objekte auf unseren Frontend-User-Typ.

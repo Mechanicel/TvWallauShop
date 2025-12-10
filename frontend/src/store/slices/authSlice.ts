@@ -1,13 +1,9 @@
 // frontend/src/store/slices/authSlice.ts
 
-import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import type { RootState } from '../index';
-import authService, {
-  LoginCredentials,
-  SignupPayload,
-  AuthResponse,
-} from '../../services/authService';
-import { User } from '../../type/user';
+import {createAsyncThunk, createSlice, PayloadAction} from '@reduxjs/toolkit';
+import type {RootState} from '@/store';
+import authService, {AuthResponse, LoginCredentials, SignupPayload,} from '../../services/authService';
+import {User} from '@/type/user';
 
 /**
  * Auth-Status für die App.
@@ -69,8 +65,7 @@ export const login = createAsyncThunk<
   { rejectValue: string }
 >('auth/login', async (credentials, { rejectWithValue }) => {
   try {
-    const data = await authService.login(credentials);
-    return data;
+    return await authService.login(credentials);
   } catch (error: any) {
     const message =
       error?.response?.data?.error || error?.message || 'Login fehlgeschlagen';
@@ -131,8 +126,7 @@ export const refreshAccessToken = createAsyncThunk<
   { rejectValue: string }
 >('auth/refresh', async (_, { rejectWithValue }) => {
   try {
-    const data = await authService.refresh();
-    return data;
+    return await authService.refresh();
   } catch (error: any) {
     const message =
       error?.response?.data?.error ||

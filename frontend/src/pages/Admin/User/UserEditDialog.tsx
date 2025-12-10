@@ -8,9 +8,9 @@ import { InputNumber } from 'primereact/inputnumber';
 import { Checkbox } from 'primereact/checkbox';
 import { Button } from 'primereact/button';
 
-import { useAppDispatch } from '../../../store';
-import { updateUserById } from '../../../store/slices/userSlice';
-import type { User } from '../../../type/user';
+import { useAppDispatch } from '@/store';
+import { updateUserById } from '@/store/slices/userSlice';
+import type { User } from '@/type/user';
 
 export interface UserEditDialogProps {
   visible: boolean;

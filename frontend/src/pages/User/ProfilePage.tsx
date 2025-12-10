@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useAppSelector, useAppDispatch } from '../../store';
-import { selectAuth } from '../../store/slices/authSlice';
-import { fetchUser, updateUser } from '../../store/slices/userSlice';
+import { useAppSelector, useAppDispatch } from '@/store';
+import { selectAuth } from '@/store/slices/authSlice';
+import { fetchUser, updateUser } from '@/store/slices/userSlice';
 import { InputText } from 'primereact/inputtext';
 import { Button } from 'primereact/button';
 import './ProfilePage.css';

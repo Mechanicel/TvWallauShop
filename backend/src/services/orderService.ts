@@ -2,6 +2,7 @@
 import { knex } from '../database';
 import {mapUser, restockOrderItems} from "../utils/helpers";
 import {sendOrderConfirmationEmail} from "../utils/mailer";
+import {InsufficientStockError} from "../errors/InsufficientStockError";
 
 // ⚠️ DB nutzt snake_case, Services liefern camelCase.
 // Struktur so, dass dein Frontend (ManageOrders.tsx) direkt damit arbeiten kann.
@@ -272,11 +273,12 @@ export const orderService = {
 
                 const available = Number(stockRow.stock);
                 if (available < quantity) {
-                    throw Object.assign(
-                        new Error(
-                            `Nicht genug Bestand für Produkt ${productId}, Größe ${sizeId}. Verfügbar: ${available}, benötigt: ${quantity}`
-                        ),
-                        { status: 400 }
+                    // Intern genaue Details – nach außen zeigen wir die später NICHT 1:1
+                    throw new InsufficientStockError(
+                        productId,
+                        sizeId ?? null,
+                        available,
+                        quantity
                     );
                 }
 

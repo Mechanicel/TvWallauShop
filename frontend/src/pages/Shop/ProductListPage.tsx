@@ -1,8 +1,8 @@
 // frontend/src/pages/Shop/ProductListPage.tsx
 
 import React, { useEffect, useState } from 'react';
-import { useAppDispatch, useAppSelector } from '../../store';
-import { fetchProducts } from '../../store/slices/productSlice';
+import { useAppDispatch, useAppSelector } from '@/store';
+import { fetchProducts } from '@/store/slices/productSlice';
 import { ProductCard } from './ProductCard';
 import { InputText } from 'primereact/inputtext';
 import { Dropdown } from 'primereact/dropdown';

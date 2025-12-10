@@ -8,13 +8,13 @@ import { Dropdown } from 'primereact/dropdown';
 import { InputText } from 'primereact/inputtext';
 import { FilterMatchMode } from 'primereact/api';
 
-import { useAppDispatch, useAppSelector } from '../../../store';
+import { useAppDispatch, useAppSelector } from '@/store';
 import {
   fetchUsers,
   updateUserById,
   deleteUser,
-} from '../../../store/slices/userSlice';
-import type { User } from '../../../type/user';
+} from '@/store/slices/userSlice';
+import type { User } from '@/type/user';
 
 import UserEditDialog from './UserEditDialog';
 import './ManageUsers.css';

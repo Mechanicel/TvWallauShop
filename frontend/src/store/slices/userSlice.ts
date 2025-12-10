@@ -1,12 +1,12 @@
 // frontend/src/store/slices/userSlice.ts
 
-import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import userService from '../../services/userService';
-import { User } from '../../type/user';
-import api from '../../services/api';
-import { RootState } from '../index';
-import { setUser as setAuthUser } from './authSlice';
-import { mapApiUserToUser } from '../../utils/helpers';
+import {createAsyncThunk, createSlice, PayloadAction} from '@reduxjs/toolkit';
+import userService from '@/services/userService';
+import {User} from '@/type/user';
+import api from '@/services/api';
+import {RootState} from '@/store';
+import {setUser as setAuthUser} from './authSlice';
+import {mapApiUserToUser} from '@/utils/helpers';
 
 interface UserState {
   users: User[]; // Liste aller User für Admin
@@ -24,16 +24,14 @@ const initialState: UserState = {
 
 // 🔹 eingeloggten User laden
 export const fetchUser = createAsyncThunk<any>('user/fetchUser', async () => {
-  const me = await userService.me();
-  return me;
+  return await userService.me();
 });
 
 // 🔹 alle User für Admin laden
 export const fetchUsers = createAsyncThunk<any[]>(
   'user/fetchUsers',
   async () => {
-    const all = await userService.getAll();
-    return all;
+    return await userService.getAll();
   },
 );
 

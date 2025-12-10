@@ -7,8 +7,8 @@ import { InputTextarea } from 'primereact/inputtextarea';
 import { InputNumber } from 'primereact/inputnumber';
 import { Button } from 'primereact/button';
 
-import type { Product, ProductSize } from '../../../type/product';
-import { resolveImageUrl } from '../../../utils/imageUrl';
+import type { Product, ProductSize } from '@/type/product';
+import { resolveImageUrl } from '@/utils/imageUrl';
 import './ManageProducts.css';
 
 export type EditableProduct = Product & { id?: number };

@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
-import api from '../../services/api';
+import api from '@/services/api';
 import { Card } from 'primereact/card';
 import { Password } from 'primereact/password';
 import { Checkbox } from 'primereact/checkbox';
 import { Dropdown } from 'primereact/dropdown';
 import { Button } from 'primereact/button';
 import './SettingsPage.css';
-import { logout } from '../../store/slices/authSlice';
-import { useAppDispatch } from '../../store';
+import { logout } from '@/store/slices/authSlice';
+import { useAppDispatch } from '@/store';
 
 export const SettingsPage: React.FC = () => {
   const dispatch = useAppDispatch();

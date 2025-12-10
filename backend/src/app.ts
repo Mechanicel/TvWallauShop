@@ -10,6 +10,7 @@ import userRoutes from './routes/userRoutes';
 import productRoutes from './routes/productRoutes';
 import orderRoutes from './routes/orderRoutes';
 import path from "path";
+import {errorHandler} from "./middlewares/errorHandler";
 
 const ENABLE_ROUTE_LOGS = process.env.ENABLE_ROUTE_LOGS === 'true';
 const DEBUG_ROUTES = process.env.DEBUG_ROUTES === 'true';
@@ -76,18 +77,12 @@ if (DEBUG_ROUTES) {
 }
 
 // --------------------
-// ❌ 404 Handler
-// --------------------
-app.use((req, res) => {
-    res.status(404).json({ error: 'Not Found' });
-});
-
-// --------------------
 // 🚨 Error Handler
 // --------------------
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-    console.error(err.stack);
-    res.status(err.status || 500).json({ error: err.message || 'Internal Server Error' });
-});
+
+
+// Zentraler Error-Handler (inkl. InsufficientStockError usw.)
+app.use(errorHandler);
+
 
 export default app;

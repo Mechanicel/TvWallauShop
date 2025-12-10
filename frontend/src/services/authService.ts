@@ -1,7 +1,7 @@
 // frontend/src/services/authService.ts
 
 import api from './api';
-import { User } from '../type/user';
+import { User } from '@/type/user';
 
 export interface LoginCredentials {
   email: string;
@@ -21,17 +21,19 @@ export interface SignupPayload {
   city: string;
   country: string;
   // Shipping (optional)
+  state?: string;
   shippingStreet?: string;
   shippingHouseNumber?: string;
   shippingPostalCode?: string;
   shippingCity?: string;
+  shippingState?: string;
   shippingCountry?: string;
   // Payment / Marketing
-  preferredPayment?: 'invoice' | 'sepa' | 'paypal';
+  preferredPayment?: string;
   newsletterOptIn?: boolean;
   // Optional Profile
-  dateOfBirth?: string;
-  gender?: 'male' | 'female' | 'diverse' | 'none';
+  dateOfBirth?: Date | null;
+  gender?: string;
 }
 
 export interface AuthResponse {

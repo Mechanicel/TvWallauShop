@@ -1,8 +1,8 @@
 // frontend/src/store/slices/productSlice.ts
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import productService, { ProductPayload } from '../../services/productService';
-import type { Product } from '../../type/product';
+import productService, { ProductPayload } from '@/services/productService';
+import type { Product } from '@/type/product';
 import type { RootState } from '..';
 
 type ProductState = {

@@ -7,7 +7,7 @@ import { Button } from 'primereact/button';
 import { InputText } from 'primereact/inputtext';
 import { FilterMatchMode } from 'primereact/api';
 
-import { useAppDispatch, useAppSelector } from '../../../store';
+import { useAppDispatch, useAppSelector } from '@/store';
 import {
   fetchProducts,
   addProduct,
@@ -18,9 +18,9 @@ import {
   selectProducts,
   selectProductLoading,
   selectProductError,
-} from '../../../store/slices/productSlice';
-import type { Product } from '../../../type/product';
-import { resolveImageUrl } from '../../../utils/imageUrl';
+} from '@/store/slices/productSlice';
+import type { Product } from '@/type/product';
+import { resolveImageUrl } from '@/utils/imageUrl';
 import ProductDialog, { EditableProduct } from './ProductDialog';
 
 import './ManageProducts.css';

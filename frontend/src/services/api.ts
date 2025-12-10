@@ -1,8 +1,8 @@
 // frontend/src/services/api.ts
 
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
-import { store } from '../store';
-import { setAccessToken, clearAuth } from '../store/slices/authSlice';
+import { store } from '@/store';
+import { setAccessToken, clearAuth } from '@/store/slices/authSlice';
 
 const api = axios.create({
   // @ts-ignore

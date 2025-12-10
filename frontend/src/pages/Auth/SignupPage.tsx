@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAppDispatch } from '../../store';
-import { signup } from '../../store/slices/authSlice';
+import { useAppDispatch } from '@/store';
+import { signup } from '@/store/slices/authSlice';
 import { InputText } from 'primereact/inputtext';
 import { Password } from 'primereact/password';
 import { Button } from 'primereact/button';

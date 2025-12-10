@@ -29,13 +29,13 @@ import {
 
 import type { Product } from '@/type/product';
 import type { User } from '@/type/user';
-import type { OrderExtended } from '../../type/order';
+import type { OrderExtended } from '@/type/order';
 
 import ProductDialog, { EditableProduct } from './Product/ProductDialog';
 import UserEditDialog from './User/UserEditDialog';
 import OrderEditDialog, { OrderStatus } from './Ordner/OrderEditDialog';
 
-import { ROUTES } from '../../utils/constants';
+import { ROUTES } from '@/utils/constants';
 
 export const AdminDashboard: React.FC = () => {
   const dispatch = useAppDispatch();

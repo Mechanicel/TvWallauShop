@@ -1,6 +1,6 @@
 // src/services/userService.ts
 import api from './api';
-import { User } from '../type/user';
+import { User } from '@/type/user';
 
 const userService = {
   // Hole aktuellen User (falls gebraucht)

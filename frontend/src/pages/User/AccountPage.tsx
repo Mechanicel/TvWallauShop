@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAppSelector } from '../../store';
-import { selectAuth } from '../../store/slices/authSlice';
+import { useAppSelector } from '@/store';
+import { selectAuth } from '@/store/slices/authSlice';
 import { Card } from 'primereact/card';
 import { Button } from 'primereact/button';
 import { Divider } from 'primereact/divider';

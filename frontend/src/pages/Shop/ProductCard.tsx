@@ -2,8 +2,8 @@
 
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ROUTES } from '../../utils/constants';
-import { resolveImageUrl } from '../../utils/imageUrl';
+import { ROUTES } from '@/utils/constants';
+import { resolveImageUrl } from '@/utils/imageUrl';
 
 type ProductCardProps = {
   id: number;

@@ -7,8 +7,8 @@ import { Button } from 'primereact/button';
 import { DataTable } from 'primereact/datatable';
 import { Column } from 'primereact/column';
 
-import type { OrderExtended } from '../../../type/order';
-import { mapApiUserToUser } from '../../../utils/helpers';
+import type { OrderExtended } from '@/type/order';
+import { mapApiUserToUser } from '@/utils/helpers';
 
 export type OrderStatus = 'Bestellt' | 'Bezahlt' | 'Storniert';
 
