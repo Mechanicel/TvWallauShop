@@ -11,143 +11,119 @@ import './CartPage.css';
 
 // Typ aus cartSlice – erweitert um imageUrl & sizeLabel
 type CartItem = {
-    productId: number;
-    sizeId: number | null;
-    sizeLabel?: string | null;
-    name: string;
-    price: number | string;
-    quantity: number;
-    imageUrl?: string | null;
+   productId: number;
+   sizeId: number | null;
+   sizeLabel?: string | null;
+   name: string;
+   price: number | string;
+   quantity: number;
+   imageUrl?: string | null;
 };
 
 export const CartPage: React.FC = () => {
-    const dispatch = useAppDispatch();
-    const navigate = useNavigate();
-    const cartItems = useAppSelector((state) => state.cart.items) as CartItem[];
+   const dispatch = useAppDispatch();
+   const navigate = useNavigate();
+   const cartItems = useAppSelector((state) => state.cart.items) as CartItem[];
 
-    const handleQuantityChange = (item: CartItem, value: number) => {
-        dispatch(
-            updateQuantity({
-                productId: item.productId,
-                sizeId: item.sizeId ?? null,
-                quantity: value,
-            }),
-        );
-    };
+   const handleQuantityChange = (item: CartItem, value: number) => {
+      dispatch(
+         updateQuantity({
+            productId: item.productId,
+            sizeId: item.sizeId ?? null,
+            quantity: value,
+         }),
+      );
+   };
 
-    const handleRemove = (item: CartItem) => {
-        dispatch(
-            removeFromCart({
-                productId: item.productId,
-                sizeId: item.sizeId ?? null,
-            }),
-        );
-    };
+   const handleRemove = (item: CartItem) => {
+      dispatch(
+         removeFromCart({
+            productId: item.productId,
+            sizeId: item.sizeId ?? null,
+         }),
+      );
+   };
 
-    const totalPrice = cartItems.reduce(
-        (sum, item) => sum + Number(item.price) * item.quantity,
-        0,
-    );
+   const totalPrice = cartItems.reduce((sum, item) => sum + Number(item.price) * item.quantity, 0);
 
-    return (
-        <div className="cart-page">
-            <h2>Warenkorb</h2>
+   return (
+      <div className="cart-page">
+         <h2>Warenkorb</h2>
 
-            {cartItems.length > 0 ? (
-                <div className="cart-table-wrapper">
-                    <DataTable
-                        value={cartItems}
-                        responsiveLayout="scroll"
-                        className="cart-table p-datatable-sm"
-                    >
-                        {/* 🖼️ Bild */}
-                        <Column
-                            header="Bild"
-                            body={(item: CartItem) => {
-                                const img = item.imageUrl
-                                    ? resolveImageUrl(item.imageUrl)
-                                    : undefined;
+         {cartItems.length > 0 ? (
+            <div className="cart-table-wrapper">
+               <DataTable value={cartItems} responsiveLayout="scroll" className="cart-table p-datatable-sm">
+                  {/* 🖼️ Bild */}
+                  <Column
+                     header="Bild"
+                     body={(item: CartItem) => {
+                        const img = item.imageUrl ? resolveImageUrl(item.imageUrl) : undefined;
 
-                                return img ? (
-                                    <img
-                                        src={img}
-                                        alt={item.name}
-                                        className="cart-table-image"
-                                    />
-                                ) : (
-                                    <span className="cart-table-image-placeholder">
-                    kein Bild
-                  </span>
-                                );
-                            }}
+                        return img ? (
+                           <img src={img} alt={item.name} className="cart-table-image" />
+                        ) : (
+                           <span className="cart-table-image-placeholder">kein Bild</span>
+                        );
+                     }}
+                  />
+
+                  {/* Produktname */}
+                  <Column field="name" header="Produkt" />
+
+                  {/* Größe */}
+                  <Column
+                     field="sizeLabel"
+                     header="Größe"
+                     body={(item: CartItem) => (item.sizeLabel ? item.sizeLabel : '-')}
+                  />
+
+                  {/* Preis */}
+                  <Column header="Preis (€)" body={(item: CartItem) => Number(item.price).toFixed(2)} />
+
+                  {/* Menge */}
+                  <Column
+                     header="Menge"
+                     body={(item: CartItem) => (
+                        <InputNumber
+                           value={item.quantity}
+                           onValueChange={(e) => handleQuantityChange(item, e.value || 0)}
+                           min={1}
+                           showButtons
+                           buttonLayout="horizontal"
+                           decrementButtonClassName="p-button-text"
+                           incrementButtonClassName="p-button-text"
                         />
+                     )}
+                  />
 
-                        {/* Produktname */}
-                        <Column field="name" header="Produkt" />
-
-                        {/* Größe */}
-                        <Column
-                            field="sizeLabel"
-                            header="Größe"
-                            body={(item: CartItem) =>
-                                item.sizeLabel ? item.sizeLabel : '-'
-                            }
-                        />
-
-                        {/* Preis */}
-                        <Column
-                            header="Preis (€)"
-                            body={(item: CartItem) => Number(item.price).toFixed(2)}
-                        />
-
-                        {/* Menge */}
-                        <Column
-                            header="Menge"
-                            body={(item: CartItem) => (
-                                <InputNumber
-                                    value={item.quantity}
-                                    onValueChange={(e) =>
-                                        handleQuantityChange(item, e.value || 0)
-                                    }
-                                    min={1}
-                                    showButtons
-                                    buttonLayout="horizontal"
-                                    decrementButtonClassName="p-button-text"
-                                    incrementButtonClassName="p-button-text"
-                                />
-                            )}
-                        />
-
-                        {/* Entfernen */}
-                        <Column
-                            header="Entfernen"
-                            body={(item: CartItem) => (
-                                <Button
-                                    icon="pi pi-trash"
-                                    className="p-button-icon-only p-button-danger"
-                                    onClick={() => handleRemove(item)}
-                                />
-                            )}
-                        />
-                    </DataTable>
-
-                    {/* Summary – optisch wie Checkout-Summe */}
-                    <div className="cart-summary-row">
-            <span className="cart-summary-label">
-              Total: {totalPrice.toFixed(2)} €
-            </span>
+                  {/* Entfernen */}
+                  <Column
+                     header="Entfernen"
+                     body={(item: CartItem) => (
                         <Button
-                            label="Zur Kasse"
-                            icon="pi pi-credit-card"
-                            onClick={() => navigate('/cart/checkout')}
-                            disabled={cartItems.length === 0}
-                            className="cart-footer-button"
+                           icon="pi pi-trash"
+                           className="p-button-icon-only p-button-danger"
+                           onClick={() => handleRemove(item)}
                         />
-                    </div>
-                </div>
-            ) : (
-                <p>Ihr Warenkorb ist leer.</p>
-            )}
-        </div>
-    );
+                     )}
+                  />
+               </DataTable>
+
+               {/* Summary – optisch wie Checkout-Summe */}
+               <div className="cart-summary-row">
+                  <span className="cart-summary-label">Total: {totalPrice.toFixed(2)} €</span>
+                  <Button
+                     label="Zur Kasse"
+                     icon="pi pi-credit-card"
+                     onClick={() => navigate('/cart/checkout')}
+                     disabled={cartItems.length === 0}
+                     className="cart-footer-button"
+                  />
+               </div>
+            </div>
+         ) : (
+            <p>Ihr Warenkorb ist leer.</p>
+         )}
+      </div>
+   );
 };

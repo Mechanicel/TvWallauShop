@@ -1,10 +1,11 @@
 // backend/src/controllers/authController.ts
 
 import { Request, Response } from 'express';
-import { authService, LoginResult, RefreshResult, SignupInput } from '../services/authService';
+import { authService } from '../services/authService';
 import { catchAsync } from '../utils/helpers';
 import { knex } from '../database';
 import { formatDate } from '../utils/helpers';
+import {LoginResult, RefreshResult, SignupInput} from "../models/userModel";
 /** Helper for required-field checks */
 function missing(fields: Record<string, any>, keys: string[]) {
     const errs: string[] = [];

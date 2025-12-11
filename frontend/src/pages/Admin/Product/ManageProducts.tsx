@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { DataTable } from 'primereact/datatable';
+import type { DataTable as DataTableType } from 'primereact/datatable';
 import { Column } from 'primereact/column';
 import { Button } from 'primereact/button';
 import { InputText } from 'primereact/inputtext';
@@ -9,235 +10,290 @@ import { FilterMatchMode } from 'primereact/api';
 
 import { useAppDispatch, useAppSelector } from '@/store';
 import {
-  fetchProducts,
-  addProduct,
-  updateProduct,
-  deleteProduct,
-  uploadProductImages,
-  deleteProductImage,
-  selectProducts,
-  selectProductLoading,
-  selectProductError,
+   fetchProducts,
+   addProduct,
+   updateProduct,
+   deleteProduct,
+   uploadProductImages,
+   deleteProductImage,
+   createProductAiJob,
+   selectProducts,
+   selectProductLoading,
+   selectProductError,
+   selectProductAiJobLoading,
+   selectProductAiJobError,
 } from '@/store/slices/productSlice';
 import type { Product } from '@/type/product';
 import { resolveImageUrl } from '@/utils/imageUrl';
 import ProductDialog, { EditableProduct } from './ProductDialog';
+import NewProductAiDialog from './ProductAiDialog';
 
 import './ManageProducts.css';
 
 export const ManageProducts: React.FC = () => {
-  const dispatch = useAppDispatch();
-  const products = useAppSelector(selectProducts);
-  const loading = useAppSelector(selectProductLoading);
-  const error = useAppSelector(selectProductError);
+   const dispatch = useAppDispatch();
+   const products = useAppSelector(selectProducts);
+   const loading = useAppSelector(selectProductLoading);
+   const error = useAppSelector(selectProductError);
 
-  const dt = useRef<DataTable<any>>(null);
+   const aiJobLoading = useAppSelector(selectProductAiJobLoading);
+   const aiJobError = useAppSelector(selectProductAiJobError);
 
-  const [displayDialog, setDisplayDialog] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<EditableProduct | null>(
-    null,
-  );
-  const [uploadFiles, setUploadFiles] = useState<File[]>([]);
-  const [globalFilter, setGlobalFilter] = useState<string>('');
+   const dt = useRef<DataTableType<any> | null>(null);
 
-  useEffect(() => {
-    dispatch(fetchProducts());
-  }, [dispatch]);
+   // Dialog für bestehende Produkte (Bearbeiten)
+   const [displayEditDialog, setDisplayEditDialog] = useState(false);
+   const [editingProduct, setEditingProduct] = useState<EditableProduct | null>(null);
 
-  const openNew = () => {
-    setEditingProduct({
-      name: '',
-      description: '',
-      price: 0,
-      imageUrl: '',
-      sizes: [],
-      images: [],
-    });
-    setUploadFiles([]);
-    setDisplayDialog(true);
-  };
+   // Dialog für neuen KI-basierten Erstellungsschritt (Bilder + Preis)
+   const [displayNewAiDialog, setDisplayNewAiDialog] = useState(false);
 
-  const editExisting = (product: Product) => {
-    setEditingProduct({ ...product });
-    setUploadFiles([]);
-    setDisplayDialog(true);
-  };
+   // Upload-Files, die sowohl von Neu-Dialog als auch Edit-Dialog genutzt werden können
+   const [uploadFiles, setUploadFiles] = useState<File[]>([]);
+   const [globalFilter, setGlobalFilter] = useState<string>('');
 
-  const hideDialog = () => {
-    setDisplayDialog(false);
-    setEditingProduct(null);
-    setUploadFiles([]);
-  };
+   useEffect(() => {
+      dispatch(fetchProducts());
+   }, [dispatch]);
 
-  const saveProduct = async () => {
-    if (!editingProduct) return;
-    const { id, name, description, price, imageUrl, sizes } = editingProduct;
+   /**
+    * Neuer Produkt-Flow:
+    * 1. Öffnet zuerst den KI-Vorbereitungsdialog (Bilder + Preis)
+    * 2. Danach wird mit den KI-Vorschlägen (sofern vorhanden) der bisherige ProductDialog geöffnet.
+    */
+   const openNew = () => {
+      setUploadFiles([]);
+      setEditingProduct(null);
+      setDisplayNewAiDialog(true);
+   };
 
-    let productId: number | undefined = id ?? undefined;
+   /**
+    * Wird aufgerufen, wenn der KI-Vorbereitungsdialog (nur Bilder + Preis)
+    * abgeschlossen ist. Hier triggern wir den KI-Job und öffnen nach
+    * erfolgreicher Antwort den ProductDialog mit vorausgefüllten Feldern.
+    */
+   const handleAiNewContinue = async (payload: { price: number; files: File[] }) => {
+      const { price, files } = payload;
+      setUploadFiles(files);
 
-    if (id != null) {
       const action = await dispatch(
-        updateProduct({
-          id,
-          changes: { name, description, price, imageUrl, sizes },
-        }),
+         createProductAiJob({
+            price,
+            files,
+         }),
       );
-      if ('payload' in action && (action as any).payload?.id != null) {
-        productId = (action as any).payload.id;
+
+      if (createProductAiJob.fulfilled.match(action)) {
+         const job = action.payload;
+         setEditingProduct({
+            name: job.result_display_name ?? '',
+            description: job.result_description ?? '',
+            price,
+            imageUrl: '',
+            sizes: [],
+            images: [],
+         });
+      } else {
+         // Fallback: Wenn KI-Job fehlschlägt, starten wir trotzdem mit leerem Produkt,
+         // damit der Admin manuell weitermachen kann.
+         setEditingProduct({
+            name: '',
+            description: '',
+            price,
+            imageUrl: '',
+            sizes: [],
+            images: [],
+         });
       }
-    } else {
+
+      setDisplayNewAiDialog(false);
+      setDisplayEditDialog(true);
+   };
+
+   /**
+    * Bestehendes Produkt bearbeiten – wie bisher.
+    */
+   const editExisting = (product: Product) => {
+      setEditingProduct({ ...(product as EditableProduct) });
+      setUploadFiles([]);
+      setDisplayEditDialog(true);
+   };
+
+   const hideEditDialog = () => {
+      setDisplayEditDialog(false);
+      setEditingProduct(null);
+      setUploadFiles([]);
+   };
+
+   /**
+    * Speichern-Logik für den ProductDialog (neu & bearbeiten).
+    */
+   const saveProduct = async () => {
+      if (!editingProduct) return;
+      const { id, name, description, price, imageUrl, sizes } = editingProduct;
+
+      let productId: number | undefined = id ?? undefined;
+
+      if (id != null) {
+         const action = await dispatch(
+            updateProduct({
+               id,
+               changes: { name, description, price, imageUrl, sizes },
+            }),
+         );
+         if ('payload' in action && (action as any).payload?.id != null) {
+            productId = (action as any).payload.id;
+         }
+      } else {
+         const action = await dispatch(addProduct({ name, description, price, imageUrl, sizes }));
+         if ('payload' in action && (action as any).payload?.id != null) {
+            productId = (action as any).payload.id;
+         }
+      }
+
+      if (productId != null && uploadFiles.length > 0) {
+         await dispatch(uploadProductImages({ id: productId, files: uploadFiles }));
+      }
+
+      hideEditDialog();
+   };
+
+   const confirmDelete = (product: Product) => {
+      if (window.confirm(`Produkt "${product.name}" wirklich löschen?`)) {
+         if (product.id != null) {
+            dispatch(deleteProduct(product.id));
+         }
+      }
+   };
+
+   const handleDeleteImage = async (imageId: number) => {
+      if (!editingProduct || editingProduct.id == null) return;
+
+      const ok = window.confirm('Dieses Bild wirklich löschen?');
+      if (!ok) return;
+
       const action = await dispatch(
-        addProduct({ name, description, price, imageUrl, sizes }),
+         deleteProductImage({
+            productId: editingProduct.id,
+            imageId,
+         }),
       );
-      if ('payload' in action && (action as any).payload?.id != null) {
-        productId = (action as any).payload.id;
+
+      if ('payload' in action && (action as any).payload) {
+         const updated = action.payload as Product;
+         setEditingProduct((prev) => (prev && prev.id === updated.id ? { ...updated } : prev));
       }
-    }
+   };
 
-    if (productId != null && uploadFiles.length > 0) {
-      await dispatch(
-        uploadProductImages({ id: productId, files: uploadFiles }),
-      );
-    }
-
-    hideDialog();
-  };
-
-  const confirmDelete = (product: Product) => {
-    if (window.confirm(`Produkt "${product.name}" wirklich löschen?`)) {
-      if (product.id != null) {
-        dispatch(deleteProduct(product.id));
-      }
-    }
-  };
-
-  const handleDeleteImage = async (imageId: number) => {
-    if (!editingProduct || editingProduct.id == null) return;
-
-    const ok = window.confirm('Dieses Bild wirklich löschen?');
-    if (!ok) return;
-
-    const action = await dispatch(
-      deleteProductImage({
-        productId: editingProduct.id,
-        imageId,
-      }),
-    );
-
-    if ('payload' in action && (action as any).payload) {
-      const updated = action.payload as Product;
-      setEditingProduct((prev) =>
-        prev && prev.id === updated.id ? { ...updated } : prev,
-      );
-    }
-  };
-
-  const header = (
-    <div className="products-toolbar">
-      <div className="products-field">
-        <InputText
-          placeholder="🔍 Suche nach Name, Beschreibung…"
-          value={globalFilter}
-          onChange={(e) => setGlobalFilter(e.target.value)}
-          className="products-input"
-        />
+   const header = (
+      <div className="products-toolbar">
+         <div className="products-field">
+            <InputText
+               placeholder="🔍 Suche nach Name, Beschreibung…"
+               value={globalFilter}
+               onChange={(e) => setGlobalFilter(e.target.value)}
+               className="products-input"
+            />
+         </div>
+         <div className="products-actions">
+            <Button icon="pi pi-plus" label="Neues Produkt" onClick={openNew} className="products-button" />
+            <Button
+               icon="pi pi-file-excel"
+               label="CSV export"
+               onClick={() => dt.current?.exportCSV()}
+               className="products-button"
+            />
+         </div>
       </div>
-      <div className="products-actions">
-        <Button
-          icon="pi pi-plus"
-          label="Neues Produkt"
-          onClick={openNew}
-          className="products-button"
-        />
-        <Button
-          icon="pi pi-file-excel"
-          label="CSV export"
-          onClick={() => dt.current?.exportCSV()}
-          className="products-button"
-        />
+   );
+
+   const filters = {
+      global: { value: globalFilter, matchMode: FilterMatchMode.CONTAINS },
+   };
+
+   return (
+      <div className="products-page">
+         <h2>Produkte verwalten</h2>
+
+         {error && <p className="products-error">{error}</p>}
+
+         <DataTable
+            ref={dt}
+            value={products}
+            paginator
+            rows={10}
+            loading={loading}
+            header={header}
+            filters={filters}
+            dataKey="id"
+            responsiveLayout="scroll"
+            className="products-table"
+         >
+            <Column field="id" header="ID" sortable />
+            <Column field="name" header="Name" sortable />
+            <Column field="description" header="Beschreibung" />
+            <Column field="price" header="Preis" body={(row: Product) => `${row.price.toFixed(2)} €`} sortable />
+            <Column
+               field="imageUrl"
+               header="Bild"
+               body={(row: Product) =>
+                  row.imageUrl ? (
+                     <img
+                        src={resolveImageUrl(row.imageUrl)}
+                        alt={row.name}
+                        style={{
+                           width: '60px',
+                           height: '60px',
+                           objectFit: 'cover',
+                        }}
+                     />
+                  ) : (
+                     <span>–</span>
+                  )
+               }
+            />
+            <Column
+               header="Aktionen"
+               body={(row: Product) => (
+                  <div className="row-actions">
+                     <Button
+                        icon="pi pi-pencil"
+                        className="p-button-text p-button-sm"
+                        onClick={() => editExisting(row)}
+                     />
+                     <Button
+                        icon="pi pi-trash"
+                        className="p-button-text p-button-sm p-button-danger"
+                        onClick={() => confirmDelete(row)}
+                     />
+                  </div>
+               )}
+            />
+         </DataTable>
+
+         {/* Neuer KI-Vorbereitungsdialog (Step 1: Bilder + Preis) */}
+         <NewProductAiDialog
+            visible={displayNewAiDialog}
+            onHide={() => setDisplayNewAiDialog(false)}
+            onContinue={handleAiNewContinue}
+            loading={aiJobLoading}
+            error={aiJobError}
+         />
+
+         {/* Bisheriger Produktdialog (Step 2: Details, Größen, etc.) */}
+         <ProductDialog
+            visible={displayEditDialog}
+            title="Produkt"
+            product={editingProduct}
+            uploadFiles={uploadFiles}
+            onProductChange={setEditingProduct}
+            onUploadFilesChange={setUploadFiles}
+            onHide={hideEditDialog}
+            onSave={saveProduct}
+            onDeleteImage={handleDeleteImage}
+         />
       </div>
-    </div>
-  );
-
-  const filters = {
-    global: { value: globalFilter, matchMode: FilterMatchMode.CONTAINS },
-  };
-
-  return (
-    <div className="products-page">
-      <h2>Produkte verwalten</h2>
-
-      {error && <p className="error-message">{error}</p>}
-
-      <DataTable
-        ref={dt}
-        value={products}
-        paginator
-        rows={10}
-        loading={loading}
-        header={header}
-        filters={filters}
-        dataKey="id"
-        responsiveLayout="scroll"
-      >
-        <Column field="id" header="ID" sortable />
-        <Column field="name" header="Name" sortable />
-        <Column field="description" header="Beschreibung" />
-        <Column
-          field="price"
-          header="Preis"
-          body={(row: Product) => `${row.price.toFixed(2)} €`}
-          sortable
-        />
-        <Column
-          field="imageUrl"
-          header="Bild"
-          body={(row: Product) =>
-            row.imageUrl ? (
-              <img
-                src={resolveImageUrl(row.imageUrl)}
-                alt={row.name}
-                style={{
-                  width: '60px',
-                  height: '60px',
-                  objectFit: 'cover',
-                }}
-              />
-            ) : (
-              <span>–</span>
-            )
-          }
-        />
-        <Column
-          header="Aktionen"
-          body={(row: Product) => (
-            <div className="actions-column">
-              <Button
-                icon="pi pi-pencil"
-                className="p-button-text p-button-sm"
-                onClick={() => editExisting(row)}
-              />
-              <Button
-                icon="pi pi-trash"
-                className="p-button-text p-button-sm p-button-danger"
-                onClick={() => confirmDelete(row)}
-              />
-            </div>
-          )}
-        />
-      </DataTable>
-
-      <ProductDialog
-        visible={displayDialog}
-        title="Produkt"
-        product={editingProduct}
-        uploadFiles={uploadFiles}
-        onProductChange={setEditingProduct}
-        onUploadFilesChange={setUploadFiles}
-        onHide={hideDialog}
-        onSave={saveProduct}
-        onDeleteImage={handleDeleteImage}
-      />
-    </div>
-  );
+   );
 };
+
+export default ManageProducts;

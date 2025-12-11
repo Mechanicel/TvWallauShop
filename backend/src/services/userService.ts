@@ -1,10 +1,15 @@
 // backend/src/services/userService.ts
 // Erweiterung um Shop-relevante Felder – minimal-invasiv
 
-import { knex } from '../database';
-import {User} from "../models/userModel";
-import bcrypt from "bcrypt";
-import {formatDate} from "../utils/helpers";
+import {knex} from '../database';
+import {
+    User,
+    UserRole,
+    PaymentMethod,
+    Gender,
+} from '../models/userModel';
+import bcrypt from 'bcrypt';
+import {formatDate} from '../utils/helpers';
 
 export interface UserView {
     id: number;
@@ -12,7 +17,7 @@ export interface UserView {
     lastName: string;
     email: string;
     phone: string | null;
-    role: 'customer' | 'admin';
+    role: UserRole;
     isVerified: boolean;
     createdAt: Date;
 
@@ -33,12 +38,12 @@ export interface UserView {
     shippingCountry: string | null;
 
     // Zahlungsinfo
-    preferredPayment: 'invoice' | 'paypal' | 'creditcard' | 'banktransfer';
+    preferredPayment: PaymentMethod;
 
     // Marketing / Sonstiges
     newsletterOptIn: boolean;
-    dateOfBirth: String | null;
-    gender: 'male' | 'female' | 'other' | null;
+    dateOfBirth: string | null;
+    gender: Gender | null;
 
     // Shop-spezifisch
     loyaltyPoints: number;
@@ -82,22 +87,38 @@ function mapUserRow(row: any): UserView {
     };
 }
 
+type PreferencesUpdateRow = {
+    id: number;
+    email: string;
+    newsletter_opt_in: boolean;
+    preferred_payment: PaymentMethod;
+};
+
 export const userService = {
-    async changePassword(userId: number, oldPassword: string, newPassword: string): Promise<boolean> {
-        const user = await knex('users').where({ id: userId }).first();
+    async changePassword(
+        userId: number,
+        oldPassword: string,
+        newPassword: string
+    ): Promise<boolean> {
+        const user = await knex<User>('users').where({id: userId}).first();
         if (!user) return false;
 
         const match = await bcrypt.compare(oldPassword, user.password_hash);
         if (!match) return false;
 
         const newHash = await bcrypt.hash(newPassword, 10);
-        await knex('users').where({ id: userId }).update({ password_hash: newHash });
+        await knex<User>('users')
+            .where({id: userId})
+            .update({password_hash: newHash});
         return true;
     },
 
-    async updatePreferences(userId: number, data: { newsletterOptIn?: boolean; preferredPayment?: string }) {
-        const updated = await knex('users')
-            .where({ id: userId })
+    async updatePreferences(
+        userId: number,
+        data: { newsletterOptIn?: boolean; preferredPayment?: PaymentMethod }
+    ): Promise<PreferencesUpdateRow> {
+        const updated = await knex<User>('users')
+            .where({id: userId})
             .update(
                 {
                     newsletter_opt_in: data.newsletterOptIn,
@@ -105,29 +126,34 @@ export const userService = {
                 },
                 ['id', 'email', 'newsletter_opt_in', 'preferred_payment']
             );
-        return updated[0];
+
+        // Knex-Update mit returning(...) liefert hier ein Array
+        return updated[0] as PreferencesUpdateRow;
     },
 
-    async deleteUser(userId: number) {
-        await knex('users').where({ id: userId }).delete();
+    async deleteUser(userId: number): Promise<void> {
+        await knex<User>('users').where({id: userId}).delete();
     },
+
     async getAllUsers(): Promise<UserView[]> {
-        const rows = await knex('users').select('*');
+        const rows = await knex<User>('users').select('*');
         return rows.map(mapUserRow);
     },
 
     async getUserById(id: number): Promise<UserView> {
-        const row = await knex('users').where({ id }).first();
-        if (!row) throw Object.assign(new Error('User not found'), { status: 404 });
+        const row = await knex<User>('users').where({id}).first();
+        if (!row) {
+            throw Object.assign(new Error('User not found'), {status: 404});
+        }
         return mapUserRow(row);
     },
-    async deleteUserTokens(userId: number) {
-        await knex('refresh_tokens').where({ user_id: userId }).delete();
+
+    async deleteUserTokens(userId: number): Promise<void> {
+        await knex('refresh_tokens').where({user_id: userId}).delete();
     },
 
     async updateUser(id: number, updates: Partial<User>): Promise<UserView> {
-        console.log(updates);
-        const allowedFields = [
+        const allowedFields: (keyof User)[] = [
             'first_name',
             'last_name',
             'phone',
@@ -147,20 +173,26 @@ export const userService = {
             'preferred_payment',
             'newsletter_opt_in',
             'date_of_birth',
-            'gender'
+            'gender',
         ];
 
-        const data: any = {};
+        const data: Partial<User> = {};
+
         for (const key of allowedFields) {
-            if (updates[key as keyof User] !== undefined) {
-                data[key] = updates[key as keyof User];
+            const k = key as keyof User;
+            const value = updates[k];
+
+            if (value !== undefined) {
+                // TS-sicheres Mapping: value ist User[k]
+                (data as any)[k] = value;
             }
         }
 
         if (Object.keys(data).length === 0) {
             throw new Error('Keine gültigen Felder zum Aktualisieren');
         }
-        await knex<User>('users').where({ id }).update(data);
+
+        await knex<User>('users').where({id}).update(data);
 
         const updated = await this.getUserById(id);
         if (!updated) {
@@ -168,5 +200,5 @@ export const userService = {
         }
 
         return updated;
-    }
+    },
 };

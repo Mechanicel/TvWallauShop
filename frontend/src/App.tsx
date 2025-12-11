@@ -28,90 +28,63 @@ import { SettingsPage } from './pages/User/SettingsPage';
 import { ROUTES } from './utils/constants';
 
 const App: React.FC = () => {
-  const { user } = useAppSelector(selectAuth);
+   const { user } = useAppSelector(selectAuth);
 
-  const requireAdmin = (element: React.ReactNode) => {
-    if (!user) {
-      return <Navigate to={ROUTES.LOGIN} replace />;
-    }
-    if (user.role !== 'admin') {
-      return <Navigate to={ROUTES.HOME} replace />;
-    }
-    return element;
-  };
-  const requireUser = (element: React.ReactNode) => {
-    if (!user) {
-      return <Navigate to={ROUTES.LOGIN} replace />;
-    }
-    if (user.role !== 'customer') {
-      return <Navigate to={ROUTES.HOME} replace />;
-    }
-    return element;
-  };
+   const requireAdmin = (element: React.ReactNode) => {
+      if (!user) {
+         return <Navigate to={ROUTES.LOGIN} replace />;
+      }
+      if (user.role !== 'admin') {
+         return <Navigate to={ROUTES.HOME} replace />;
+      }
+      return element;
+   };
+   const requireUser = (element: React.ReactNode) => {
+      if (!user) {
+         return <Navigate to={ROUTES.LOGIN} replace />;
+      }
+      if (user.role !== 'customer') {
+         return <Navigate to={ROUTES.HOME} replace />;
+      }
+      return element;
+   };
 
-  return (
-    <>
-      <Header />
-      <main style={{ minHeight: '80vh' }}>
-        <Routes>
-          {/* Öffentliche Routen */}
-          <Route path={ROUTES.HOME} element={<ProductListPage />} />
-          <Route
-            path={ROUTES.PRODUCT_DETAIL(':id')}
-            element={<ProductDetailPage />}
-          />
-          <Route path={ROUTES.CART} element={<CartPage />} />
-          <Route path={ROUTES.CHECKOUT} element={<CheckoutPage />} />
-          <Route path={ROUTES.LOGIN} element={<LoginPage />} />
-          <Route path={ROUTES.SIGNUP} element={<SignupPage />} />
+   return (
+      <>
+         <Header />
+         <main style={{ minHeight: '80vh' }}>
+            <Routes>
+               {/* Öffentliche Routen */}
+               <Route path={ROUTES.HOME} element={<ProductListPage />} />
+               <Route path={ROUTES.PRODUCT_DETAIL(':id')} element={<ProductDetailPage />} />
+               <Route path={ROUTES.CART} element={<CartPage />} />
+               <Route path={ROUTES.CHECKOUT} element={<CheckoutPage />} />
+               <Route path={ROUTES.LOGIN} element={<LoginPage />} />
+               <Route path={ROUTES.SIGNUP} element={<SignupPage />} />
 
-          {/* Admin-Routen – nur für user.role==='admin' */}
-          <Route
-            path={ROUTES.ADMIN_DASHBOARD}
-            element={requireAdmin(<AdminDashboard />)}
-          />
-          <Route
-            path={ROUTES.MANAGE_PRODUCTS}
-            element={requireAdmin(<ManageProducts />)}
-          />
-          <Route
-            path={ROUTES.MANAGE_ORDERS}
-            element={requireAdmin(<ManageOrders />)}
-          />
-          <Route
-            path={ROUTES.MANAGE_USERS} // ← neu
-            element={requireAdmin(<ManageUsers />)} // ← neu
-          />
-          {/* User-Routen – nur für user.role==='customer' */}
-          <Route
-            path={ROUTES.USER_ACCOUNT}
-            element={requireUser(<AccountPage />)}
-          />
-          <Route
-            path={ROUTES.USER_PROFILE}
-            element={requireUser(<ProfilePage />)}
-          />
-          <Route
-            path={ROUTES.USER_ORDERS}
-            element={requireUser(<OrdersPage />)}
-          />
-          <Route
-            path={ROUTES.USER_ORDER_DETAIL(':id')}
-            element={requireUser(<OrderDetailPage />)}
-          />
-          <Route
-            path={ROUTES.USER_SETTINGS}
-            element={requireUser(<SettingsPage />)}
-          />
+               {/* Admin-Routen – nur für user.role==='admin' */}
+               <Route path={ROUTES.ADMIN_DASHBOARD} element={requireAdmin(<AdminDashboard />)} />
+               <Route path={ROUTES.MANAGE_PRODUCTS} element={requireAdmin(<ManageProducts />)} />
+               <Route path={ROUTES.MANAGE_ORDERS} element={requireAdmin(<ManageOrders />)} />
+               <Route
+                  path={ROUTES.MANAGE_USERS} // ← neu
+                  element={requireAdmin(<ManageUsers />)} // ← neu
+               />
+               {/* User-Routen – nur für user.role==='customer' */}
+               <Route path={ROUTES.USER_ACCOUNT} element={requireUser(<AccountPage />)} />
+               <Route path={ROUTES.USER_PROFILE} element={requireUser(<ProfilePage />)} />
+               <Route path={ROUTES.USER_ORDERS} element={requireUser(<OrdersPage />)} />
+               <Route path={ROUTES.USER_ORDER_DETAIL(':id')} element={requireUser(<OrderDetailPage />)} />
+               <Route path={ROUTES.USER_SETTINGS} element={requireUser(<SettingsPage />)} />
 
-          {/* Fallback */}
-          <Route path="*" element={<Navigate to={ROUTES.HOME} replace />} />
-        </Routes>
-      </main>
-      <Footer />
-      <Toast />
-    </>
-  );
+               {/* Fallback */}
+               <Route path="*" element={<Navigate to={ROUTES.HOME} replace />} />
+            </Routes>
+         </main>
+         <Footer />
+         <Toast />
+      </>
+   );
 };
 
 export default App;

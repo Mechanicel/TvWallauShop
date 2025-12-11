@@ -1,156 +1,156 @@
 /* Seite – wie cart-page */
 .checkout-page {
-    padding: 1rem 1.25rem;
-    background: #f7f8fb;
-    border-radius: 12px;
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    width: 100%;
-    box-sizing: border-box;
+   padding: 1rem 1.25rem;
+   background: #f7f8fb;
+   border-radius: 12px;
+   display: flex;
+   flex-direction: column;
+   align-items: stretch;
+   width: 100%;
+   box-sizing: border-box;
 }
 
 /* Überschrift – exakt wie im Warenkorb */
 .checkout-page h2 {
-    font-size: 1.6rem;
-    font-weight: 700;
-    color: #172133;
-    margin: 0 0 1rem 0;
+   font-size: 1.6rem;
+   font-weight: 700;
+   color: #172133;
+   margin: 0 0 1rem 0;
 }
 
 .checkout-wrapper {
-    width: 100%;
-    box-sizing: border-box;
+   width: 100%;
+   box-sizing: border-box;
 }
 
 /* "Tabelle" – gleiche Card-Optik wie .cart-table */
 .checkout-table {
-    border: 1px solid #e5e7eb;
-    border-radius: 12px;
-    overflow: hidden;
-    background: #ffffff;
-    width: 100%;
-    box-sizing: border-box;
-    margin-bottom: 1rem;
+   border: 1px solid #e5e7eb;
+   border-radius: 12px;
+   overflow: hidden;
+   background: #ffffff;
+   width: 100%;
+   box-sizing: border-box;
+   margin-bottom: 1rem;
 }
 
 /* Kopfzeile – gleiche Farben wie im Warenkorb */
 .checkout-table-head {
-    display: grid;
-    grid-template-columns: auto 1fr auto;
-    column-gap: 1rem;
-    background: #f3f4f6;
-    color: #0f172a;
-    font-weight: 700;
-    font-size: 0.9rem;
-    padding: 0.7rem 0.75rem;
-    border-bottom: 1px solid #eef0f4;
+   display: grid;
+   grid-template-columns: auto 1fr auto;
+   column-gap: 1rem;
+   background: #f3f4f6;
+   color: #0f172a;
+   font-weight: 700;
+   font-size: 0.9rem;
+   padding: 0.7rem 0.75rem;
+   border-bottom: 1px solid #eef0f4;
 }
 
 .checkout-head-col {
-    display: flex;
-    align-items: center;
+   display: flex;
+   align-items: center;
 }
 
 .checkout-head-col--image {
-    justify-content: flex-start;
+   justify-content: flex-start;
 }
 
 .checkout-head-col--details {
-    justify-content: flex-start;
+   justify-content: flex-start;
 }
 
 .checkout-head-col--price {
-    justify-content: flex-end;
+   justify-content: flex-end;
 }
 
 /* Item-Liste */
 .checkout-items-list {
-    display: flex;
-    flex-direction: column;
+   display: flex;
+   flex-direction: column;
 }
 
 /* Zeilen – ähnlich zu Datatable-Zeilen */
 .checkout-order-item {
-    display: grid;
-    grid-template-columns: auto 1fr auto;
-    column-gap: 1rem;
-    align-items: center;
-    padding: 0.7rem 0.75rem;
-    border-top: 1px solid #eef0f4;
-    font-size: 0.92rem;
-    color: #111827;
+   display: grid;
+   grid-template-columns: auto 1fr auto;
+   column-gap: 1rem;
+   align-items: center;
+   padding: 0.7rem 0.75rem;
+   border-top: 1px solid #eef0f4;
+   font-size: 0.92rem;
+   color: #111827;
 }
 
 .checkout-order-item--insufficient {
-    background-color: #ffebee;
-    border-top-color: #f44336;
+   background-color: #ffebee;
+   border-top-color: #f44336;
 }
 
 /* Bild links */
 .checkout-order-item-image {
-    width: 48px;
-    height: 48px;
-    border-radius: 8px;
-    overflow: hidden;
-    background: #f3f4f6;
+   width: 48px;
+   height: 48px;
+   border-radius: 8px;
+   overflow: hidden;
+   background: #f3f4f6;
 }
 
 .checkout-order-item-image img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
+   width: 100%;
+   height: 100%;
+   object-fit: cover;
 }
 
 /* Details Mitte */
 .checkout-order-item-info {
-    display: flex;
-    flex-direction: column;
+   display: flex;
+   flex-direction: column;
 }
 
 .checkout-order-item-name {
-    font-weight: 600;
-    margin-bottom: 2px;
+   font-weight: 600;
+   margin-bottom: 2px;
 }
 
 .checkout-order-item-meta {
-    font-size: 0.85rem;
-    color: #6b7280;
+   font-size: 0.85rem;
+   color: #6b7280;
 }
 
 .checkout-order-item-warning {
-    font-size: 0.8rem;
-    color: #c62828;
-    margin-top: 4px;
+   font-size: 0.8rem;
+   color: #c62828;
+   margin-top: 4px;
 }
 
 /* Preis rechts */
 .checkout-order-item-price {
-    text-align: right;
-    min-width: 100px;
+   text-align: right;
+   min-width: 100px;
 }
 
 .checkout-order-item-price-total {
-    font-weight: 600;
+   font-weight: 600;
 }
 
 .checkout-order-item-price-unit {
-    font-size: 0.8rem;
-    color: #6b7280;
+   font-size: 0.8rem;
+   color: #6b7280;
 }
 
 /* Summe – wie cart-footer */
 .checkout-summary-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.75rem 0.9rem;
-    border-top: 1px solid #e5e7eb;
-    background: #f9fafb;
-    font-weight: 600;
+   display: flex;
+   justify-content: space-between;
+   align-items: center;
+   padding: 0.75rem 0.9rem;
+   border-top: 1px solid #e5e7eb;
+   background: #f9fafb;
+   font-weight: 600;
 }
 
 /* Abholer-Card leicht absetzen */
 .checkout-info-card {
-    margin-top: 1rem;
+   margin-top: 1rem;
 }

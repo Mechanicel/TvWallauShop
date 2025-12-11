@@ -7,16 +7,16 @@ import { API_BASE_URL } from './constants';
 const BACKEND_BASE_URL = API_BASE_URL.replace(/\/api\/?$/, '');
 
 export function resolveImageUrl(imageUrl: string | null | undefined): string {
-  if (!imageUrl) {
-    // Fallback – passe den Pfad ggf. an deine Struktur an
-    return '/assets/placeholder.png';
-  }
+   if (!imageUrl) {
+      // Fallback – passe den Pfad ggf. an deine Struktur an
+      return '/assets/placeholder.png';
+   }
 
-  // Wenn bereits eine absolute URL kommt, nichts verändern
-  if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
-    return imageUrl;
-  }
+   // Wenn bereits eine absolute URL kommt, nichts verändern
+   if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+      return imageUrl;
+   }
 
-  // Relativen Pfad an die Backend-Base anhängen
-  return `${BACKEND_BASE_URL}${imageUrl}`;
+   // Relativen Pfad an die Backend-Base anhängen
+   return `${BACKEND_BASE_URL}${imageUrl}`;
 }

@@ -3,40 +3,16 @@ import {knex} from '../database';
 import {mapUser, restockOrderItems} from "../utils/helpers";
 import {sendOrderConfirmationEmail} from "../utils/mailer";
 import {InsufficientStockError} from "../errors/InsufficientStockError";
+import {Order, OrderItem, OrderItemRow, OrderListQuery, ProductPriceRow} from "../models/orderModel";
 
 // ⚠️ DB nutzt snake_case, Services liefern camelCase.
 // Struktur so, dass dein Frontend (ManageOrders.tsx) direkt damit arbeiten kann.
 
-export interface Order {
-    id: number;
-    status: string;
-    createdAt: Date;
-    user: {
-        id: number;
-        email: string;
-        firstName: string;
-        lastName: string;
-        phone: string | null;
-        role: 'customer' | 'admin';
-        createdAt: Date;
-    };
-    items: OrderItem[];
-    total: number;
-}
 
-export interface OrderItem {
-    id: string; // synthetische ID: orderId-productId-sizeId
-    orderId: number;
-    productId: number;
-    productName: string;
-    sizeId: number;
-    sizeLabel: string;
-    quantity: number;
-    price: number;
-}
 
 // Helper fürs Mapping eines Items
-function mapOrderItem(row: any): OrderItem {
+function mapOrderItem(row: OrderItemRow): OrderItem {
+
     return {
         id: `${row.order_id}-${row.product_id}-${row.size_id}`,
         orderId: row.order_id,
@@ -51,7 +27,10 @@ function mapOrderItem(row: any): OrderItem {
 
 export const orderService = {
     // Alle Orders laden (Admin sieht alle, User nur eigene)
-    async getOrders(user: { id: number; role: string }, query: any): Promise<Order[]> {
+    async getOrders(
+        user: { id: number; role: 'customer' | 'admin' },
+        query: OrderListQuery
+    ): Promise<Order[]> {
         let sql = knex('orders as o')
             .join('users as u', 'o.user_id', 'u.id')
             .select(
@@ -224,16 +203,17 @@ export const orderService = {
 
             // 2) Preise holen
             const productIds = Array.from(new Set(data.items.map((i) => i.productId)));
-            const products = await trx('products')
+            const products: ProductPriceRow[] = await trx('products')
                 .select('id', 'price', 'name')
                 .whereIn('id', productIds);
 
             const priceMap = new Map<number, { price: number; name: string }>(
-                products.map((p: any) => [
+                products.map((p) => [
                     Number(p.id),
-                    {price: Number(p.price), name: p.name},
+                    { price: Number(p.price), name: p.name },
                 ])
             );
+
 
             // 3) Lagerbestand prüfen & reservieren
             //    -> wir aggregieren pro (productId, sizeId), damit Mehrfach-Einträge korrekt sind
@@ -521,7 +501,23 @@ export const orderService = {
             )
             .where('o.user_id', userId);
 
-        const grouped: any = {};
+
+        const grouped: Record<
+            number,
+            {
+                id: number;
+                status: string;
+                createdAt: Date;
+                items: {
+                    productName: string;
+                    sizeLabel: string;
+                    quantity: number;
+                    price: number;
+                }[];
+                total: number;
+            }
+        > = {};
+
         for (const row of rows) {
             if (!grouped[row.order_id]) {
                 grouped[row.order_id] = {
@@ -532,16 +528,16 @@ export const orderService = {
                     total: 0,
                 };
             }
-            if (row.product_name) {
-                grouped[row.order_id].items.push({
-                    productName: row.product_name,
-                    sizeLabel: row.size_label,
-                    quantity: row.quantity,
-                    price: row.price,
-                });
-                grouped[row.order_id].total += row.price * row.quantity;
-            }
+
+            grouped[row.order_id].items.push({
+                productName: row.product_name,
+                sizeLabel: row.size_label,
+                quantity: row.quantity,
+                price: Number(row.price),
+            });
+            grouped[row.order_id].total += Number(row.price) * row.quantity;
         }
+
         return Object.values(grouped);
     }
 

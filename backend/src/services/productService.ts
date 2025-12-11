@@ -6,32 +6,10 @@
 import { knex } from '../database';
 import path from "path";
 import fs from "fs";
+import {Product, ProductImage, ProductImageRow, ProductQuery, ProductRow, ProductSize} from "../models/productModel";
 
-export interface ProductSize {
-    id: number;
-    label: string;
-    stock: number;
-}
 
-export interface ProductImage {
-    id: number;
-    url: string;
-    sortOrder: number;
-    isPrimary: boolean;
-}
-
-export interface Product {
-    id: number;
-    name: string;
-    description: string | null;
-    price: number;
-    imageUrl: string | null;      // Hauptbild (für Frontend)
-    createdAt?: Date;
-    sizes: ProductSize[];
-    images: ProductImage[];
-}
-
-function mapProductRow(row: any): Product {
+function mapProductRow(row: ProductRow): Product {
     return {
         id: row.id,
         name: row.name,
@@ -44,7 +22,7 @@ function mapProductRow(row: any): Product {
     };
 }
 
-function mapSizeRow(row: any): ProductSize {
+function mapSizeRow(row: ProductSize): ProductSize {
     return {
         id: row.id,
         label: row.label,
@@ -52,7 +30,7 @@ function mapSizeRow(row: any): ProductSize {
     };
 }
 
-function mapImageRow(row: any): ProductImage {
+function mapImageRow(row: ProductImageRow): ProductImage {
     return {
         id: row.id,
         url: row.url,
@@ -64,14 +42,10 @@ function mapImageRow(row: any): ProductImage {
 export const productService = {
     // Liste mit optionalen Filtern (q, minPrice, maxPrice).
     // Jetzt IMMER inkl. sizes UND images.
-    async getAllProducts(query: any): Promise<Product[]> {
-        const { q, minPrice, maxPrice } = (query || {}) as {
-            q?: string;
-            minPrice?: string | number;
-            maxPrice?: string | number;
-        };
+    async getAllProducts(query: ProductQuery = {}): Promise<Product[]> {
+        const { q, minPrice, maxPrice } = query;
 
-        let sql = knex('products').select('*');
+        let sql = knex<ProductRow>('products').select('*');
 
         if (q && String(q).trim()) {
             sql = sql.where('name', 'like', `%${String(q).trim()}%`);
@@ -97,7 +71,7 @@ export const productService = {
             .whereIn('ps.product_id', productIds);
 
         // Images
-        let allImages: any[] = [];
+        let allImages: ProductImageRow[] = [];
         try {
             allImages = await knex('product_images')
                 .select('id', 'product_id', 'url', 'sort_order', 'is_primary')
@@ -116,6 +90,7 @@ export const productService = {
             const imagesForProduct = allImages
                 .filter((img) => img.product_id === p.id)
                 .map(mapImageRow);
+
 
             p.images = imagesForProduct;
 
@@ -148,7 +123,7 @@ export const productService = {
 
         product.sizes = sizeRows.map(mapSizeRow);
 
-        let imageRows: any[] = [];
+        let imageRows: ProductImageRow[] = [];
         try {
             imageRows = await knex('product_images')
                 .select('id', 'product_id', 'url', 'sort_order', 'is_primary')
@@ -242,7 +217,7 @@ export const productService = {
             return await this.getProductById(productId);
         }
 
-        let existingImages: any[] = [];
+        let existingImages: ProductImageRow[] = [];
         try {
             existingImages = await knex('product_images')
                 .where({ product_id: productId })

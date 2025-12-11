@@ -1,141 +1,253 @@
 // frontend/src/store/slices/productSlice.ts
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import productService, { ProductPayload } from '@/services/productService';
+import productService, { ProductPayload, ProductAiJob, CreateProductAiJobParams } from '@/services/productService';
 import type { Product } from '@/type/product';
 import type { RootState } from '..';
 
 type ProductState = {
-  products: Product[];
-  loading: boolean;
-  error: string | null;
+   products: Product[];
+   loading: boolean;
+   error: string | null;
+
+   aiJobLoading: boolean;
+   aiJobError: string | null;
+   currentAiJob: ProductAiJob | null;
 };
 
 const initialState: ProductState = {
-  products: [],
-  loading: false,
-  error: null,
+   products: [],
+   loading: false,
+   error: null,
+
+   aiJobLoading: false,
+   aiJobError: null,
+   currentAiJob: null,
+};
+
+// --- Helper für Fehlertexte ---
+
+const toErrorMessage = (err: unknown): string => {
+   if (err && typeof err === 'object') {
+      const anyErr = err as any;
+      if (anyErr.response?.data?.message) {
+         return String(anyErr.response.data.message);
+      }
+      if (anyErr.message) {
+         return String(anyErr.message);
+      }
+   }
+   return 'Unbekannter Fehler bei der Produktanfrage';
 };
 
 // --- Thunks ---
 
-export const fetchProducts = createAsyncThunk<Product[]>(
-  'products/fetchAll',
-  async () => {
-    return await productService.getProducts();
-  },
+export const fetchProducts = createAsyncThunk<Product[], void, { rejectValue: string }>(
+   'product/fetchAll',
+   async (_, { rejectWithValue }) => {
+      try {
+         return await productService.getProducts();
+      } catch (err) {
+         return rejectWithValue(toErrorMessage(err));
+      }
+   },
 );
 
-export const addProduct = createAsyncThunk<Product, ProductPayload>(
-  'products/add',
-  async (payload) => {
-    return await productService.addProduct(payload);
-  },
+export const addProduct = createAsyncThunk<Product, ProductPayload, { rejectValue: string }>(
+   'product/add',
+   async (payload, { rejectWithValue }) => {
+      try {
+         return await productService.addProduct(payload);
+      } catch (err) {
+         return rejectWithValue(toErrorMessage(err));
+      }
+   },
 );
 
 export const updateProduct = createAsyncThunk<
-  Product,
-  { id: number; changes: Partial<ProductPayload> }
->('products/update', async ({ id, changes }) => {
-  return await productService.updateProduct(id, changes);
+   Product,
+   { id: number; changes: Partial<ProductPayload> },
+   { rejectValue: string }
+>('product/update', async ({ id, changes }, { rejectWithValue }) => {
+   try {
+      return await productService.updateProduct(id, changes);
+   } catch (err) {
+      return rejectWithValue(toErrorMessage(err));
+   }
 });
 
-export const deleteProduct = createAsyncThunk<number, number>(
-  'products/delete',
-  async (id) => {
-    await productService.deleteProduct(id);
-    return id;
-  },
+export const deleteProduct = createAsyncThunk<number, number, { rejectValue: string }>(
+   'product/delete',
+   async (id, { rejectWithValue }) => {
+      try {
+         return await productService.deleteProduct(id);
+      } catch (err) {
+         return rejectWithValue(toErrorMessage(err));
+      }
+   },
 );
 
-export const uploadProductImages = createAsyncThunk<
-  Product,
-  { id: number; files: File[] }
->('products/uploadImages', async ({ id, files }) => {
-  return await productService.uploadProductImages(id, files);
+export const uploadProductImages = createAsyncThunk<Product, { id: number; files: File[] }, { rejectValue: string }>(
+   'product/uploadImages',
+   async ({ id, files }, { rejectWithValue }) => {
+      try {
+         return await productService.uploadProductImages(id, files);
+      } catch (err) {
+         return rejectWithValue(toErrorMessage(err));
+      }
+   },
+);
+
+export const deleteProductImage = createAsyncThunk<
+   Product,
+   { productId: number; imageId: number },
+   { rejectValue: string }
+>('product/deleteImage', async ({ productId, imageId }, { rejectWithValue }) => {
+   try {
+      return await productService.deleteProductImage(productId, imageId);
+   } catch (err) {
+      return rejectWithValue(toErrorMessage(err));
+   }
 });
 
-// 👇 NEU: Bild löschen
-export const deleteProductImage = createAsyncThunk<
-  Product,
-  { productId: number; imageId: number }
->('products/deleteImage', async ({ productId, imageId }) => {
-  return await productService.deleteProductImage(productId, imageId);
-});
+// KI-Job anlegen (Bilder + Preis -> product_ai_jobs-Eintrag)
+
+export const createProductAiJob = createAsyncThunk<ProductAiJob, CreateProductAiJobParams, { rejectValue: string }>(
+   'product/createAiJob',
+   async (params, { rejectWithValue }) => {
+      try {
+         return await productService.createProductAiJob(params);
+      } catch (err) {
+         return rejectWithValue(toErrorMessage(err));
+      }
+   },
+);
 
 // --- Slice ---
 
 const productSlice = createSlice({
-  name: 'product',
-  initialState,
-  reducers: {},
-  extraReducers: (builder) => {
-    // fetch
-    builder.addCase(fetchProducts.pending, (state) => {
-      state.loading = true;
-      state.error = null;
-    });
-    builder.addCase(
-      fetchProducts.fulfilled,
-      (state, action: PayloadAction<Product[]>) => {
-        state.products = action.payload;
-        state.loading = false;
+   name: 'product',
+   initialState,
+   reducers: {
+      resetProductError(state) {
+         state.error = null;
       },
-    );
-    builder.addCase(fetchProducts.rejected, (state, action) => {
-      state.loading = false;
-      state.error = action.error.message ?? 'Fehler beim Laden der Produkte';
-    });
+      resetAiJobState(state) {
+         state.aiJobLoading = false;
+         state.aiJobError = null;
+         state.currentAiJob = null;
+      },
+   },
+   extraReducers: (builder) => {
+      // fetchProducts
+      builder.addCase(fetchProducts.pending, (state) => {
+         state.loading = true;
+         state.error = null;
+      });
+      builder.addCase(fetchProducts.fulfilled, (state, action: PayloadAction<Product[]>) => {
+         state.loading = false;
+         state.products = action.payload;
+      });
+      builder.addCase(fetchProducts.rejected, (state, action) => {
+         state.loading = false;
+         state.error = action.payload ?? 'Produkte konnten nicht geladen werden';
+      });
 
-    // add
-    builder.addCase(
-      addProduct.fulfilled,
-      (state, action: PayloadAction<Product>) => {
-        state.products.push(action.payload);
-      },
-    );
+      // addProduct
+      builder.addCase(addProduct.pending, (state) => {
+         state.loading = true;
+         state.error = null;
+      });
+      builder.addCase(addProduct.fulfilled, (state, action: PayloadAction<Product>) => {
+         state.loading = false;
+         state.products.push(action.payload);
+      });
+      builder.addCase(addProduct.rejected, (state, action) => {
+         state.loading = false;
+         state.error = action.payload ?? 'Produkt konnte nicht erstellt werden';
+      });
 
-    // update
-    builder.addCase(
-      updateProduct.fulfilled,
-      (state, action: PayloadAction<Product>) => {
-        const idx = state.products.findIndex((p) => p.id === action.payload.id);
-        if (idx >= 0) state.products[idx] = action.payload;
-      },
-    );
+      // updateProduct
+      builder.addCase(updateProduct.pending, (state) => {
+         state.loading = true;
+         state.error = null;
+      });
+      builder.addCase(updateProduct.fulfilled, (state, action: PayloadAction<Product>) => {
+         state.loading = false;
+         const idx = state.products.findIndex((p) => p.id === action.payload.id);
+         if (idx !== -1) {
+            state.products[idx] = action.payload;
+         }
+      });
+      builder.addCase(updateProduct.rejected, (state, action) => {
+         state.loading = false;
+         state.error = action.payload ?? 'Produkt konnte nicht aktualisiert werden';
+      });
 
-    // delete
-    builder.addCase(
-      deleteProduct.fulfilled,
-      (state, action: PayloadAction<number>) => {
-        state.products = state.products.filter((p) => p.id !== action.payload);
-      },
-    );
+      // deleteProduct
+      builder.addCase(deleteProduct.pending, (state) => {
+         state.loading = true;
+         state.error = null;
+      });
+      builder.addCase(deleteProduct.fulfilled, (state, action: PayloadAction<number>) => {
+         state.loading = false;
+         state.products = state.products.filter((p) => p.id !== action.payload);
+      });
+      builder.addCase(deleteProduct.rejected, (state, action) => {
+         state.loading = false;
+         state.error = action.payload ?? 'Produkt konnte nicht gelöscht werden';
+      });
 
-    // upload images
-    builder.addCase(
-      uploadProductImages.fulfilled,
-      (state, action: PayloadAction<Product>) => {
-        const idx = state.products.findIndex((p) => p.id === action.payload.id);
-        if (idx >= 0) {
-          state.products[idx] = action.payload;
-        } else {
-          state.products.push(action.payload);
-        }
-      },
-    );
+      // uploadProductImages
+      builder.addCase(uploadProductImages.pending, (state) => {
+         state.loading = true;
+         state.error = null;
+      });
+      builder.addCase(uploadProductImages.fulfilled, (state, action: PayloadAction<Product>) => {
+         state.loading = false;
+         const idx = state.products.findIndex((p) => p.id === action.payload.id);
+         if (idx !== -1) {
+            state.products[idx] = action.payload;
+         }
+      });
+      builder.addCase(uploadProductImages.rejected, (state, action) => {
+         state.loading = false;
+         state.error = action.payload ?? 'Bilder konnten nicht hochgeladen werden';
+      });
 
-    // 👇 Bild löschen – Produkt im State aktualisieren
-    builder.addCase(
-      deleteProductImage.fulfilled,
-      (state, action: PayloadAction<Product>) => {
-        const idx = state.products.findIndex((p) => p.id === action.payload.id);
-        if (idx >= 0) {
-          state.products[idx] = action.payload;
-        }
-      },
-    );
-  },
+      // deleteProductImage
+      builder.addCase(deleteProductImage.pending, (state) => {
+         state.loading = true;
+         state.error = null;
+      });
+      builder.addCase(deleteProductImage.fulfilled, (state, action: PayloadAction<Product>) => {
+         state.loading = false;
+         const idx = state.products.findIndex((p) => p.id === action.payload.id);
+         if (idx !== -1) {
+            state.products[idx] = action.payload;
+         }
+      });
+      builder.addCase(deleteProductImage.rejected, (state, action) => {
+         state.loading = false;
+         state.error = action.payload ?? 'Bild konnte nicht gelöscht werden';
+      });
+
+      // createProductAiJob
+      builder.addCase(createProductAiJob.pending, (state) => {
+         state.aiJobLoading = true;
+         state.aiJobError = null;
+         state.currentAiJob = null;
+      });
+      builder.addCase(createProductAiJob.fulfilled, (state, action: PayloadAction<ProductAiJob>) => {
+         state.aiJobLoading = false;
+         state.currentAiJob = action.payload;
+      });
+      builder.addCase(createProductAiJob.rejected, (state, action) => {
+         state.aiJobLoading = false;
+         state.aiJobError = action.payload ?? 'KI-Job konnte nicht angelegt werden';
+         state.currentAiJob = null;
+      });
+   },
 });
 
 // --- Selectors ---
@@ -143,5 +255,11 @@ const productSlice = createSlice({
 export const selectProducts = (state: RootState) => state.product.products;
 export const selectProductLoading = (state: RootState) => state.product.loading;
 export const selectProductError = (state: RootState) => state.product.error;
+
+export const selectProductAiJobLoading = (state: RootState) => state.product.aiJobLoading;
+export const selectProductAiJobError = (state: RootState) => state.product.aiJobError;
+export const selectCurrentProductAiJob = (state: RootState) => state.product.currentAiJob;
+
+export const { resetProductError, resetAiJobState } = productSlice.actions;
 
 export default productSlice.reducer;

@@ -1,186 +1,186 @@
 /* Seite */
 .users-page {
-  padding: 1rem 1.25rem;
-  background: #f7f8fb;
-  border-radius: 12px;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  width: 100%;
-  box-sizing: border-box;
+   padding: 1rem 1.25rem;
+   background: #f7f8fb;
+   border-radius: 12px;
+   display: flex;
+   flex-direction: column;
+   align-items: stretch;
+   width: 100%;
+   box-sizing: border-box;
 }
 
 .users-page h2 {
-  font-size: 1.6rem;
-  font-weight: 700;
-  color: #172133;
-  margin: 0 0 1rem 0;
+   font-size: 1.6rem;
+   font-weight: 700;
+   color: #172133;
+   margin: 0 0 1rem 0;
 }
 
 .users-error {
-  margin-bottom: 8px;
+   margin-bottom: 8px;
 }
 
 /* ─────────────────────────────────────────
    Toolbar – identisch zu Orders/Produkten
    ───────────────────────────────────────── */
 .users-toolbar {
-  display: flex;
-  align-items: stretch;
-  gap: 12px;
-  padding: 10px;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  box-shadow: 0 2px 6px rgba(16, 24, 40, 0.04);
-  margin-bottom: 12px;
+   display: flex;
+   align-items: stretch;
+   gap: 12px;
+   padding: 10px;
+   background: #ffffff;
+   border: 1px solid #e5e7eb;
+   border-radius: 12px;
+   box-shadow: 0 2px 6px rgba(16, 24, 40, 0.04);
+   margin-bottom: 12px;
 }
 
 .users-field {
-  flex: 1 1 0;
-  min-width: 260px;
-  display: flex;
+   flex: 1 1 0;
+   min-width: 260px;
+   display: flex;
 }
 
 .users-actions {
-  flex: 0 0 auto;
-  display: flex;
+   flex: 0 0 auto;
+   display: flex;
 }
 
 .users-input,
 .users-button {
-  width: 100%;
-  height: 42px;
+   width: 100%;
+   height: 42px;
 }
 
 /* Input im gleichen Look wie bei Orders */
 .users-toolbar .p-inputtext {
-  width: 100%;
-  border-radius: 10px;
-  border: 1px solid #d7dbe7;
-  padding: 0.5rem 0.75rem;
-  font-size: 0.95rem;
-  box-sizing: border-box;
+   width: 100%;
+   border-radius: 10px;
+   border: 1px solid #d7dbe7;
+   padding: 0.5rem 0.75rem;
+   font-size: 0.95rem;
+   box-sizing: border-box;
 }
 
 .users-toolbar .p-inputtext:focus {
-  border-color: #4f46e5;
-  box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.18);
-  outline: none;
+   border-color: #4f46e5;
+   box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.18);
+   outline: none;
 }
 
 /* Button-Stil wie bei Orders/Produkten */
 .users-toolbar .p-button {
-  border-radius: 10px;
-  background: #4f46e5;
-  border: none;
-  font-weight: 600;
+   border-radius: 10px;
+   background: #4f46e5;
+   border: none;
+   font-weight: 600;
 }
 .users-toolbar .p-button:hover {
-  background: #4338ca;
+   background: #4338ca;
 }
 
 /* Responsive Verhalten */
 @media (max-width: 720px) {
-  .users-toolbar {
-    flex-wrap: wrap;
-  }
-  .users-actions {
-    width: 100%;
-  }
+   .users-toolbar {
+      flex-wrap: wrap;
+   }
+   .users-actions {
+      width: 100%;
+   }
 }
 
 /* ─────────────────────────────────────────
    Tabelle – gleiche Card wie Orders
    ───────────────────────────────────────── */
 .users-table {
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  overflow: hidden;
-  background: #fff;
-  width: 100%;
-  box-sizing: border-box;
+   border: 1px solid #e5e7eb;
+   border-radius: 12px;
+   overflow: hidden;
+   background: #fff;
+   width: 100%;
+   box-sizing: border-box;
 }
 
 .p-datatable.users-table .p-datatable-thead > tr > th {
-  background: #f3f4f6;
-  color: #0f172a;
-  font-weight: 700;
-  padding: 0.7rem 0.75rem;
-  border: none;
+   background: #f3f4f6;
+   color: #0f172a;
+   font-weight: 700;
+   padding: 0.7rem 0.75rem;
+   border: none;
 }
 
 .p-datatable.users-table .p-datatable-tbody > tr > td {
-  padding: 0.7rem 0.75rem;
-  vertical-align: middle;
-  border: none;
-  border-top: 1px solid #eef0f4;
-  font-size: 0.92rem;
-  color: #111827;
+   padding: 0.7rem 0.75rem;
+   vertical-align: middle;
+   border: none;
+   border-top: 1px solid #eef0f4;
+   font-size: 0.92rem;
+   color: #111827;
 }
 
 /* ─────────────────────────────────────────
    Expansion-Details (wie gehabt)
    ───────────────────────────────────────── */
 .user-expansion {
-  background: #f9fafb;
-  border-radius: 10px;
-  padding: 0.85rem;
-  border: 1px solid #e5e7eb;
+   background: #f9fafb;
+   border-radius: 10px;
+   padding: 0.85rem;
+   border: 1px solid #e5e7eb;
 }
 
 .user-expansion h5 {
-  margin: 0 0 0.75rem 0;
-  font-size: 1.05rem;
-  color: #111827;
+   margin: 0 0 0.75rem 0;
+   font-size: 1.05rem;
+   color: #111827;
 }
 
 .kv {
-  list-style: none;
-  margin: 0 0 1rem 0;
-  padding: 0;
+   list-style: none;
+   margin: 0 0 1rem 0;
+   padding: 0;
 }
 
 .kv li {
-  display: grid;
-  grid-template-columns: 160px 1fr;
-  gap: 8px;
-  padding: 6px 8px;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  margin-bottom: 6px;
+   display: grid;
+   grid-template-columns: 160px 1fr;
+   gap: 8px;
+   padding: 6px 8px;
+   background: #ffffff;
+   border: 1px solid #e5e7eb;
+   border-radius: 8px;
+   margin-bottom: 6px;
 }
 
 .kv li span:first-child {
-  color: #6b7280;
+   color: #6b7280;
 }
 .kv li span:last-child {
-  color: #0f172a;
-  font-weight: 600;
+   color: #0f172a;
+   font-weight: 600;
 }
 
 .user-expansion__actions {
-  margin-top: 0.75rem;
-  display: flex;
-  gap: 0.75rem;
+   margin-top: 0.75rem;
+   display: flex;
+   gap: 0.75rem;
 }
 
 /* Dialog-Tweaks (falls du sie nutzt) */
 .user-edit-dialog .p-dialog-header {
-  border-bottom: 1px solid #e5e7eb;
+   border-bottom: 1px solid #e5e7eb;
 }
 
 .user-edit-dialog__grid {
-  margin-top: 0.25rem;
+   margin-top: 0.25rem;
 }
 
 .user-edit-dialog__newsletter {
-  display: flex;
-  align-items: center;
-  margin-top: 2rem;
+   display: flex;
+   align-items: center;
+   margin-top: 2rem;
 }
 
 .user-edit-dialog__newsletter label {
-  margin-left: 0.5rem;
+   margin-left: 0.5rem;
 }

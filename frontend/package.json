@@ -76,6 +76,12 @@
   "prettier": {
     "semi": true,
     "singleQuote": true,
-    "printWidth": 80
+    "printWidth": 120,
+    "tabWidth": 3,
+    "useTabs": false,
+    "trailingComma": "all",
+    "bracketSpacing": true,
+    "arrowParens": "always",
+    "bracketSameLine": false
   }
 }
