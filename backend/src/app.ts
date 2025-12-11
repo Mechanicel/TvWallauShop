@@ -11,6 +11,7 @@ import productRoutes from './routes/productRoutes';
 import orderRoutes from './routes/orderRoutes';
 import path from "path";
 import {errorHandler} from "./middlewares/errorHandler";
+import aiRoutes from "./routes/aiRoutes";
 
 const ENABLE_ROUTE_LOGS = process.env.ENABLE_ROUTE_LOGS === 'true';
 const DEBUG_ROUTES = process.env.DEBUG_ROUTES === 'true';
@@ -51,6 +52,11 @@ app.use('/uploads', express.static(uploadsPath));
 // --------------------
 app.use('/api/orders', orderRoutes);
 
+// --------------------
+// AI Routes
+// --------------------
+
+app.use('/api/ai', aiRoutes);
 // --------------------
 // ⚙️ Debug Routes
 // --------------------

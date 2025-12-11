@@ -11,8 +11,16 @@ if (!ACCESS_TOKEN_SECRET) {
     throw new Error('JWT_SECRET muss gesetzt sein');
 }
 
+// Lokaler Typ: Request inkl. User (vom Middleware gesetzt)
+type RequestWithUser = Request & {
+    user?: {
+        id: number;
+        role: UserRole;
+    };
+};
+
 /**
- * Prüft das Access-Token, lädt den User und hängt ihn als req.user an.
+ * Prüft das Access-Token, lädt den User und hängt ihn an req.user.
  */
 export const authMiddleware: RequestHandler = async (
     req: Request,
@@ -26,8 +34,8 @@ export const authMiddleware: RequestHandler = async (
         const authHeader = req.headers['authorization'];
         if (authHeader?.startsWith('Bearer ')) {
             token = authHeader.substring(7);
-        } else if (req.cookies?.accessToken) {
-            token = String(req.cookies.accessToken);
+        } else if ((req as any).cookies?.accessToken) {
+            token = String((req as any).cookies.accessToken);
         }
 
         if (!token) {
@@ -58,22 +66,19 @@ export const authMiddleware: RequestHandler = async (
             return res.status(401).json({ error: 'Ungültiger Token-User' });
         }
 
-        // 4) an Request hängen (typisiert via express.d.ts)
-        req.user = {
+        // 4) an Request hängen – über den lokalen Typ
+        const reqWithUser = req as RequestWithUser;
+        reqWithUser.user = {
             id: user.id,
             role: user.role as UserRole,
         };
 
         next();
     } catch (err: any) {
-        // 🔇 Token abgelaufen → kein riesiger Stacktrace im Log
         if (err instanceof TokenExpiredError || err?.name === 'TokenExpiredError') {
-            // optional leicht loggen:
-            // console.info('[authMiddleware] Access-Token abgelaufen');
             return res.status(401).json({ error: 'Token abgelaufen' });
         }
 
-        // Nur „echte“ Fehler loggen
         console.error('[authMiddleware] Fehler beim Token-Check:', err?.message);
         return res.status(401).json({ error: 'Token ungültig oder abgelaufen' });
     }
@@ -85,7 +90,7 @@ export const authMiddleware: RequestHandler = async (
  */
 export const requireRole = (role: UserRole) => {
     return (req: Request, res: Response, next: NextFunction) => {
-        const user = req.user;
+        const { user } = req as RequestWithUser;
 
         if (!user || user.role !== role) {
             return res

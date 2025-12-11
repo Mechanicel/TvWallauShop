@@ -1,7 +1,7 @@
 // backend/src/routes/userRoutes.ts
 // User-bezogene Routen (geschützt)
 
-import { Router, Request, Response, NextFunction } from 'express';
+import { Router, Request } from 'express';
 import {
     getMe,
     updateMe,
@@ -14,10 +14,19 @@ import {
     updatePreferences,
 } from '../controllers/userController';
 import { authMiddleware, requireRole } from '../middlewares/authMiddleware';
+import { UserRole } from '../models/userModel';
 
 const router = Router();
 
-// Alle Routen ab hier sind geschützt
+// Lokaler Typ für Requests MIT User (vom authMiddleware gesetzt)
+type RequestWithUser = Request & {
+    user?: {
+        id: number;
+        role: UserRole;
+    };
+};
+
+// alle Routen sind ab hier geschützt
 router.use(authMiddleware);
 
 /**
@@ -30,30 +39,28 @@ router.put('/me/password', updatePassword);
 router.put('/me/preferences', updatePreferences);
 
 /**
- * 👥 Admin: alle User sehen
+ * 👥 Admin: alle User
  */
 router.get('/', requireRole('admin'), getAllUsers);
 
 /**
  * 👤 Admin ODER User selbst: einzelnes Profil
  */
-router.get(
-    '/:id',
-    (req: Request, res: Response, next: NextFunction) => {
-        const user = req.user;
-        if (!user) {
-            return res.status(401).json({ error: 'Unauthorized' });
-        }
+router.get('/:id', (req, res, next) => {
+    const { user } = req as RequestWithUser;
 
-        const requestedId = Number(req.params.id);
-
-        if (user.role === 'admin' || user.id === requestedId) {
-            return getUserById(req, res, next);
-        }
-
-        return res.status(403).json({ error: 'Forbidden' });
+    if (!user) {
+        return res.status(401).json({ error: 'Unauthorized' });
     }
-);
+
+    const requestedId = Number(req.params.id);
+
+    if (user.role === 'admin' || user.id === requestedId) {
+        return getUserById(req, res, next);
+    }
+
+    return res.status(403).json({ error: 'Forbidden' });
+});
 
 /**
  * ✏️ Admin: beliebigen User per ID aktualisieren
@@ -63,22 +70,20 @@ router.put('/:id', requireRole('admin'), updateUserById);
 /**
  * 🗑️ Admin ODER User selbst: löschen
  */
-router.delete(
-    '/:id',
-    (req: Request, res: Response, next: NextFunction) => {
-        const user = req.user;
-        if (!user) {
-            return res.status(401).json({ error: 'Unauthorized' });
-        }
+router.delete('/:id', (req, res, next) => {
+    const { user } = req as RequestWithUser;
 
-        const requestedId = Number(req.params.id);
-
-        if (user.role === 'admin' || user.id === requestedId) {
-            return deleteUser(req, res, next);
-        }
-
-        return res.status(403).json({ error: 'Forbidden' });
+    if (!user) {
+        return res.status(401).json({ error: 'Unauthorized' });
     }
-);
+
+    const requestedId = Number(req.params.id);
+
+    if (user.role === 'admin' || user.id === requestedId) {
+        return deleteUser(req, res, next);
+    }
+
+    return res.status(403).json({ error: 'Forbidden' });
+});
 
 export default router;
