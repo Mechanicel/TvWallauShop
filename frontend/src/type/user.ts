@@ -1,7 +1,4 @@
 // frontend/src/types/user.ts
-import { createAsyncThunk } from '@reduxjs/toolkit';
-import userService from '@/services/userService';
-
 export interface User {
    id: number;
    first_name: string;

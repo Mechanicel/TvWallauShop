@@ -1,8 +1,6 @@
 // frontend/src/type/order.ts
 
 import { User } from './user';
-import { createAsyncThunk } from '@reduxjs/toolkit';
-import orderService from '@/services/orderService';
 
 export interface OrderItem {
    productId: number;
