@@ -49,6 +49,7 @@ export interface Product {
     createdAt?: Date;
     sizes: ProductSize[];
     images: ProductImage[];
+    tags?: string[];
 }
 
 // KI-Job-Typen für product_ai_jobs

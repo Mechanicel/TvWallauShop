@@ -2,12 +2,19 @@
 // Ziel: camelCase im Service/Frontend, Snake-Case bleibt nur in der DB.
 // - Alle Produkte haben IMMER ein sizes-Array (leer wenn keine vorhanden).
 // - Alle Produkte haben IMMER ein images-Array (leer wenn keine vorhanden).
+// - Tags werden in tags/product_tags gespeichert und als string[] zurückgegeben.
 
 import { knex } from '../database';
-import path from "path";
-import fs from "fs";
-import {Product, ProductImage, ProductImageRow, ProductQuery, ProductRow, ProductSize} from "../models/productModel";
-
+import path from 'path';
+import fs from 'fs';
+import {
+    Product,
+    ProductImage,
+    ProductImageRow,
+    ProductQuery,
+    ProductRow,
+    ProductSize,
+} from '../models/productModel';
 
 function mapProductRow(row: ProductRow): Product {
     return {
@@ -19,6 +26,7 @@ function mapProductRow(row: ProductRow): Product {
         createdAt: row.created_at,
         sizes: [],
         images: [],
+        tags: [], // wird später gefüllt
     };
 }
 
@@ -39,9 +47,49 @@ function mapImageRow(row: ProductImageRow): ProductImage {
     };
 }
 
+/**
+ * Tags für ein Produkt in der DB setzen.
+ * - vorhandene product_tags für dieses Produkt werden gelöscht
+ * - tags-Records werden (falls nicht vorhanden) erstellt
+ * - neue product_tags-Einträge werden angelegt
+ */
+async function setTagsForProduct(
+    productId: number,
+    tags?: string[]
+): Promise<void> {
+    if (!tags) return;
+
+    // vorhandene Links löschen
+    await knex('product_tags').where({ product_id: productId }).del();
+
+    // trimmen + duplikate entfernen
+    const cleaned = Array.from(
+        new Set(
+            tags
+                .map((t) => t.trim())
+                .filter((t) => t.length > 0)
+        )
+    );
+
+    if (cleaned.length === 0) return;
+
+    for (const name of cleaned) {
+        let tag = await knex('tags').where({ name }).first<{ id: number }>();
+        if (!tag) {
+            const [newTagId] = await knex('tags').insert({ name });
+            tag = { id: newTagId };
+        }
+
+        await knex('product_tags').insert({
+            product_id: productId,
+            tag_id: tag.id,
+        });
+    }
+}
+
 export const productService = {
     // Liste mit optionalen Filtern (q, minPrice, maxPrice).
-    // Jetzt IMMER inkl. sizes UND images.
+    // Jetzt IMMER inkl. sizes, images und tags.
     async getAllProducts(query: ProductQuery = {}): Promise<Product[]> {
         const { q, minPrice, maxPrice } = query;
 
@@ -82,15 +130,25 @@ export const productService = {
             allImages = [];
         }
 
+        // Tags
+        const tagRows = await knex('product_tags as pt')
+            .join('tags as t', 'pt.tag_id', 't.id')
+            .select<{ product_id: number; name: string }[]>(
+                'pt.product_id',
+                't.name'
+            )
+            .whereIn('pt.product_id', productIds);
+
         for (const p of products) {
+            // Größen
             p.sizes = allSizes
-                .filter((s) => s.product_id === p.id)
+                .filter((s: any) => s.product_id === p.id)
                 .map(mapSizeRow);
 
+            // Bilder
             const imagesForProduct = allImages
                 .filter((img) => img.product_id === p.id)
                 .map(mapImageRow);
-
 
             p.images = imagesForProduct;
 
@@ -102,14 +160,19 @@ export const productService = {
             if (primary) {
                 p.imageUrl = primary.url;
             }
+
+            // Tags
+            p.tags = tagRows
+                .filter((t) => t.product_id === p.id)
+                .map((t) => t.name);
         }
 
         return products;
     },
 
-    // Einzelnes Produkt inkl. Sizes UND Images
+    // Einzelnes Produkt inkl. Sizes, Images und Tags
     async getProductById(id: number): Promise<Product> {
-        const productRow = await knex('products').where({ id }).first();
+        const productRow = await knex<ProductRow>('products').where({ id }).first();
         if (!productRow) {
             throw Object.assign(new Error('Product not found'), { status: 404 });
         }
@@ -145,10 +208,20 @@ export const productService = {
             product.imageUrl = primary.url;
         }
 
+        // Tags
+        const tagRows = await knex('product_tags as pt')
+            .join('tags as t', 'pt.tag_id', 't.id')
+            .select<{ name: string }[]>('t.name')
+            .where('pt.product_id', id);
+
+        product.tags = tagRows.map((t) => t.name);
+
         return product;
     },
 
     async createProduct(data: Partial<Product>): Promise<Product> {
+        console.log('createProduct payload:', data);
+
         if (!data || typeof data.name !== 'string' || typeof data.price !== 'number') {
             throw Object.assign(new Error('name and price are required'), { status: 400 });
         }
@@ -160,11 +233,15 @@ export const productService = {
             image_url: data.imageUrl ?? null,
         });
 
+        // Tags für neues Produkt setzen (falls übergeben)
+        await setTagsForProduct(newId, data.tags);
+
         return await this.getProductById(newId);
     },
 
     async updateProduct(id: number, data: Partial<Product>): Promise<Product> {
-        const existing = await knex('products').where({ id }).first();
+        console.log('updateProduct payload:', data);
+        const existing = await knex<ProductRow>('products').where({ id }).first();
         if (!existing) {
             throw Object.assign(new Error('Product not found'), { status: 404 });
         }
@@ -181,6 +258,7 @@ export const productService = {
                 image_url: data.imageUrl ?? existing.image_url,
             });
 
+        // Größen aktualisieren (wie bisher)
         if (data.sizes) {
             await knex('product_sizes').where({ product_id: id }).del();
 
@@ -189,15 +267,20 @@ export const productService = {
 
                 if (!size) {
                     const [newId] = await knex('sizes').insert({ label: s.label });
-                    size = { id: newId, label: s.label };
+                    size = { id: newId, label: s.label } as any;
                 }
 
                 await knex('product_sizes').insert({
                     product_id: id,
-                    size_id: size.id,
+                    size_id: (size as any).id,
                     stock: s.stock ?? 0,
                 });
             }
+        }
+
+        // Tags aktualisieren (nur wenn data.tags übergeben wurde)
+        if (data.tags) {
+            await setTagsForProduct(id, data.tags);
         }
 
         return await this.getProductById(id);
@@ -208,7 +291,7 @@ export const productService = {
         productId: number,
         imageUrls: string[]
     ): Promise<Product> {
-        const existing = await knex('products').where({ id: productId }).first();
+        const existing = await knex<ProductRow>('products').where({ id: productId }).first();
         if (!existing) {
             throw Object.assign(new Error('Product not found'), { status: 404 });
         }
@@ -258,7 +341,6 @@ export const productService = {
         return await this.getProductById(productId);
     },
 
-    // 👇 NEU: einzelnes Bild löschen + Primary/Hauptbild sauber nachziehen
     async deleteProductImage(
         productId: number,
         imageId: number
@@ -277,10 +359,8 @@ export const productService = {
 
             const deletedImageUrl: string = image.url;
 
-            // Bild löschen
             await trx('product_images').where({ id: imageId }).del();
 
-            // Übrige Bilder holen
             const remaining = await trx('product_images')
                 .where({ product_id: productId })
                 .orderBy('sort_order', 'asc');
@@ -288,7 +368,6 @@ export const productService = {
             let newPrimaryUrl: string | null = null;
 
             if (remaining.length > 0) {
-                // Primary-Bild bestimmen
                 let primary = remaining.find((img: any) => img.is_primary);
                 if (!primary) {
                     primary = remaining[0];
@@ -296,7 +375,6 @@ export const productService = {
 
                 newPrimaryUrl = primary.url;
 
-                // Primary-Flags neu setzen
                 await trx('product_images')
                     .where({ product_id: productId })
                     .update({ is_primary: 0 });
@@ -305,7 +383,6 @@ export const productService = {
                     .update({ is_primary: 1 });
             }
 
-            // products.image_url aktualisieren (kann auch null sein)
             await trx('products')
                 .where({ id: productId })
                 .update({ image_url: newPrimaryUrl });
@@ -315,25 +392,24 @@ export const productService = {
             const product = await this.getProductById(productId);
             return { product, deletedImageUrl };
         } catch (err) {
-            (await knex.transaction()).rollback; // safety
+            (await knex.transaction()).rollback;
             throw err;
         }
     },
 
     async deleteProduct(id: number): Promise<void> {
-        const existing = await knex('products').where({ id }).first();
+        const existing = await knex<ProductRow>('products').where({ id }).first();
         if (!existing) {
             throw Object.assign(new Error('Product not found'), { status: 404 });
         }
 
-        // 1) DB-Bereinigung in einer Transaktion
         await knex.transaction(async (trx) => {
             await trx('product_images').where({ product_id: id }).del();
             await trx('product_sizes').where({ product_id: id }).del();
+            await trx('product_tags').where({ product_id: id }).del();
             await trx('products').where({ id }).del();
         });
 
-        // 2) Upload-Ordner auf Dateisystem löschen: /uploads/products/<id>
         const productDir = path.join(process.cwd(), 'uploads', 'products', String(id));
         fs.rm(productDir, { recursive: true, force: true }, (err) => {
             if (err && (err as any).code !== 'ENOENT') {

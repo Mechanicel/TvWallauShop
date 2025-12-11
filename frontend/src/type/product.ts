@@ -21,6 +21,7 @@ export interface Product {
    imageUrl: string;
    sizes: ProductSize[];
    images: ProductImage[]; // 👈 neu: alle Bilder aus product_images
+   tags?: string[];
 }
 export interface ProductPayload {
    name: string;
@@ -28,6 +29,7 @@ export interface ProductPayload {
    price: number;
    imageUrl: string;
    sizes: { id: string | number; label: string; stock: number }[];
+   tags?: string[];
 }
 
 // --- KI-Job Typen ---

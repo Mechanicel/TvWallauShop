@@ -188,3 +188,47 @@
    justify-content: flex-end;
    gap: 8px;
 }
+/* Tag-Liste im Produktdialog */
+
+.tag-list {
+   display: flex;
+   flex-wrap: wrap;
+   gap: 0.35rem;
+   margin-bottom: 0.4rem;
+}
+
+.tag-empty {
+   font-size: 0.8rem;
+   color: #6b7280;
+}
+
+.tag-pill {
+   display: inline-flex;
+   align-items: center;
+   gap: 0.25rem;
+   padding: 0.2rem 0.6rem;
+   border-radius: 999px;
+   background: #e5e7eb;
+   font-size: 0.8rem;
+   color: #111827;
+}
+
+.tag-pill button {
+   border: none;
+   background: transparent;
+   cursor: pointer;
+   font-size: 0.9rem;
+   line-height: 1;
+   padding: 0;
+   color: #6b7280;
+}
+
+.tag-pill button:hover {
+   color: #b91c1c;
+}
+
+.tag-input-row {
+   display: flex;
+   gap: 0.5rem;
+   align-items: center;
+}

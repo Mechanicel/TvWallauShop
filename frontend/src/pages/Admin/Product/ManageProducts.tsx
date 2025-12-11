@@ -56,22 +56,12 @@ export const ManageProducts: React.FC = () => {
       dispatch(fetchProducts());
    }, [dispatch]);
 
-   /**
-    * Neuer Produkt-Flow:
-    * 1. Öffnet zuerst den KI-Vorbereitungsdialog (Bilder + Preis)
-    * 2. Danach wird mit den KI-Vorschlägen (sofern vorhanden) der bisherige ProductDialog geöffnet.
-    */
    const openNew = () => {
       setUploadFiles([]);
       setEditingProduct(null);
       setDisplayNewAiDialog(true);
    };
 
-   /**
-    * Wird aufgerufen, wenn der KI-Vorbereitungsdialog (nur Bilder + Preis)
-    * abgeschlossen ist. Hier triggern wir den KI-Job und öffnen nach
-    * erfolgreicher Antwort den ProductDialog mit vorausgefüllten Feldern.
-    */
    const handleAiNewContinue = async (payload: { price: number; files: File[] }) => {
       const { price, files } = payload;
       setUploadFiles(files);
@@ -92,6 +82,7 @@ export const ManageProducts: React.FC = () => {
             imageUrl: '',
             sizes: [],
             images: [],
+            tags: job.result_tags ?? [], // 🟢 KI-Tags übernehmen
          });
       } else {
          // Fallback: Wenn KI-Job fehlschlägt, starten wir trotzdem mit leerem Produkt,
@@ -103,6 +94,7 @@ export const ManageProducts: React.FC = () => {
             imageUrl: '',
             sizes: [],
             images: [],
+            tags: [], // 🟢 vorbereitet auf Tags
          });
       }
 
@@ -110,9 +102,6 @@ export const ManageProducts: React.FC = () => {
       setDisplayEditDialog(true);
    };
 
-   /**
-    * Bestehendes Produkt bearbeiten – wie bisher.
-    */
    const editExisting = (product: Product) => {
       setEditingProduct({ ...(product as EditableProduct) });
       setUploadFiles([]);
@@ -125,12 +114,18 @@ export const ManageProducts: React.FC = () => {
       setUploadFiles([]);
    };
 
-   /**
-    * Speichern-Logik für den ProductDialog (neu & bearbeiten).
-    */
    const saveProduct = async () => {
       if (!editingProduct) return;
-      const { id, name, description, price, imageUrl, sizes } = editingProduct;
+
+      const {
+         id,
+         name,
+         description,
+         price,
+         imageUrl,
+         sizes,
+         tags, // 🟢 NEU: tags mit aus dem Dialog holen
+      } = editingProduct;
 
       let productId: number | undefined = id ?? undefined;
 
@@ -138,14 +133,30 @@ export const ManageProducts: React.FC = () => {
          const action = await dispatch(
             updateProduct({
                id,
-               changes: { name, description, price, imageUrl, sizes },
+               changes: {
+                  name,
+                  description,
+                  price,
+                  imageUrl,
+                  sizes,
+                  tags: tags ?? [], // 🟢 Tags beim Update mitschicken
+               },
             }),
          );
          if ('payload' in action && (action as any).payload?.id != null) {
             productId = (action as any).payload.id;
          }
       } else {
-         const action = await dispatch(addProduct({ name, description, price, imageUrl, sizes }));
+         const action = await dispatch(
+            addProduct({
+               name,
+               description,
+               price,
+               imageUrl,
+               sizes,
+               tags: tags ?? [], // 🟢 Tags beim Create mitschicken
+            }),
+         );
          if ('payload' in action && (action as any).payload?.id != null) {
             productId = (action as any).payload.id;
          }
@@ -271,7 +282,6 @@ export const ManageProducts: React.FC = () => {
             />
          </DataTable>
 
-         {/* Neuer KI-Vorbereitungsdialog (Step 1: Bilder + Preis) */}
          <NewProductAiDialog
             visible={displayNewAiDialog}
             onHide={() => setDisplayNewAiDialog(false)}
@@ -280,7 +290,6 @@ export const ManageProducts: React.FC = () => {
             error={aiJobError}
          />
 
-         {/* Bisheriger Produktdialog (Step 2: Details, Größen, etc.) */}
          <ProductDialog
             visible={displayEditDialog}
             title="Produkt"

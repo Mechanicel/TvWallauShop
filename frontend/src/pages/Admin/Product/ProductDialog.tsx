@@ -72,6 +72,8 @@ const ProductDialog: React.FC<ProductDialogProps> = ({
    onSave,
    onDeleteImage,
 }) => {
+   const [newTag, setNewTag] = useState('');
+
    const updateField = (field: keyof Omit<Product, 'id' | 'sizes' | 'images'>, value: string | number) => {
       if (!product) return;
       onProductChange({ ...product, [field]: value });
@@ -99,6 +101,30 @@ const ProductDialog: React.FC<ProductDialogProps> = ({
       if (!product) return;
       const sizes = product.sizes.map((s, i) => (i === index ? { ...s, [field]: value } : s));
       onProductChange({ ...product, sizes });
+   };
+
+   const handleAddTag = () => {
+      if (!product) return;
+      const tag = newTag.trim();
+      if (!tag) return;
+
+      const current = product.tags ?? [];
+      if (current.includes(tag)) {
+         setNewTag('');
+         return;
+      }
+
+      onProductChange({ ...product, tags: [...current, tag] });
+      setNewTag('');
+   };
+
+   const handleRemoveTag = (tagToRemove: string) => {
+      if (!product) return;
+      const current = product.tags ?? [];
+      onProductChange({
+         ...product,
+         tags: current.filter((t) => t !== tagToRemove),
+      });
    };
 
    const footer = (
@@ -142,9 +168,41 @@ const ProductDialog: React.FC<ProductDialogProps> = ({
                   />
                </div>
 
-               {/* ——————————————————————————————— */}
-               {/* 🟢 BILD-URL wurde ENTFERNT — komplett raus */}
-               {/* ——————————————————————————————— */}
+               {/* Tags */}
+               <div className="p-field">
+                  <label>Tags</label>
+                  <div className="tag-list">
+                     {(product.tags ?? []).length === 0 && (
+                        <span className="tag-empty">Noch keine Tags – die KI kann hier Vorschläge machen.</span>
+                     )}
+                     {(product.tags ?? []).map((tag) => (
+                        <span key={tag} className="tag-pill">
+                           <span>{tag}</span>
+                           <button
+                              type="button"
+                              onClick={() => handleRemoveTag(tag)}
+                              aria-label={`Tag ${tag} entfernen`}
+                           >
+                              ×
+                           </button>
+                        </span>
+                     ))}
+                  </div>
+                  <div className="tag-input-row">
+                     <InputText
+                        value={newTag}
+                        onChange={(e) => setNewTag(e.target.value)}
+                        placeholder="Neuen Tag eingeben"
+                     />
+                     <Button
+                        type="button"
+                        icon="pi pi-plus"
+                        label="Hinzufügen"
+                        className="p-button-sm"
+                        onClick={handleAddTag}
+                     />
+                  </div>
+               </div>
 
                {/* Upload */}
                <div className="p-field">
