@@ -1,25 +1,64 @@
+/* Seite – im Stil von Cart/Checkout */
 .account-page {
+   padding: 1rem 1.25rem;
+   background: #f7f8fb;
+   border-radius: 12px;
    display: flex;
-   justify-content: center;
-   padding: 2rem;
-   background-color: #f7f8fb;
-   min-height: calc(100vh - 100px); /* Platz unter Header/Footer */
-}
-
-.account-card {
+   flex-direction: column;
+   align-items: stretch;
    width: 100%;
-   max-width: 600px;
-   padding: 2rem;
-   border-radius: 16px;
-   box-shadow: 0 4px 10px rgba(16, 24, 40, 0.08);
-   background: #ffffff;
-   border: 1px solid #e5e7eb;
+   box-sizing: border-box;
 }
 
-.account-header {
+.account-page h2 {
+   font-size: 1.6rem;
+   font-weight: 700;
+   color: #172133;
+   margin: 0 0 1rem 0;
+}
+
+/* Wrapper: gleiche "Card"-Optik wie Checkout/Cart */
+.account-wrapper {
+   border: 1px solid #e5e7eb;
+   border-radius: 12px;
+   background: #ffffff;
+   width: 100%;
+   box-sizing: border-box;
+   padding: 1rem;
+}
+
+/* Empty State */
+.account-empty {
+   display: flex;
+   flex-direction: column;
+   gap: 0.75rem;
+}
+
+.account-empty-text {
+   margin: 0;
+   color: #111827;
+}
+
+.account-empty-actions {
+   display: flex;
+   gap: 0.75rem;
+   flex-wrap: wrap;
+}
+
+/* Hero */
+.account-hero {
+   display: flex;
+   justify-content: space-between;
+   align-items: center;
+   gap: 1rem;
+   flex-wrap: wrap;
+}
+
+.account-hero-left {
    display: flex;
    align-items: center;
-   gap: 1.2rem;
+   gap: 1rem;
+   min-width: 260px;
 }
 
 .account-avatar {
@@ -28,32 +67,128 @@
    font-size: 1.4rem !important;
 }
 
+.account-hero-meta {
+   display: flex;
+   flex-direction: column;
+   gap: 0.15rem;
+}
+
+.account-name {
+   margin: 0;
+   font-size: 1.25rem;
+   font-weight: 700;
+   color: #172133;
+}
+
 .account-email {
    font-size: 0.95rem;
    color: #6b7280;
-   margin: 0.2rem 0 0;
+   margin: 0;
 }
 
-.account-actions {
-   display: grid;
-   gap: 1rem;
-   margin-top: 1.5rem;
-}
-
-.account-btn {
-   justify-content: flex-start;
+.account-logout {
+   border-radius: 10px;
    font-weight: 600;
-   padding: 0.9rem 1rem;
-   border-radius: 10px !important;
-   transition: all 0.2s ease-in-out;
 }
 
-.account-btn .pi {
-   margin-right: 0.5rem;
+/* Divider */
+.account-divider {
+   height: 1px;
+   background: #e5e7eb;
+   margin: 1rem 0;
 }
 
-.account-btn:hover {
-   background-color: #eef2ff !important;
-   border-color: #4338ca !important;
-   color: #4338ca !important;
+/* Grid */
+.account-grid {
+   display: grid;
+   grid-template-columns: repeat(2, minmax(0, 1fr));
+   gap: 1rem;
+}
+
+@media (max-width: 900px) {
+   .account-grid {
+      grid-template-columns: 1fr;
+   }
+}
+
+/* Tiles */
+.account-tile {
+   border: 1px solid #e5e7eb;
+   border-radius: 12px;
+   background: #f9fafb;
+   padding: 0.9rem;
+   display: flex;
+   justify-content: space-between;
+   align-items: center;
+   gap: 1rem;
+   box-sizing: border-box;
+}
+
+.account-tile-admin {
+   background: #eef2ff;
+   border-color: #c7d2fe;
+}
+
+.account-tile-primary {
+   background: #eef2ff;
+   border-color: #c7d2fe;
+}
+
+.account-tile-head {
+   display: flex;
+   gap: 0.75rem;
+   align-items: flex-start;
+}
+
+.account-tile-icon {
+   font-size: 1.2rem;
+   color: #4f46e5;
+   margin-top: 0.15rem;
+}
+
+.account-tile-title {
+   font-weight: 700;
+   color: #0f172a;
+   margin-bottom: 0.1rem;
+}
+
+.account-tile-desc {
+   color: #6b7280;
+   font-size: 0.92rem;
+}
+
+.account-tile-arrow {
+   color: #9ca3af;
+   font-size: 1.15rem;
+}
+
+/* Make whole tile clickable */
+.account-tile-clickable {
+   cursor: pointer;
+   transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+}
+
+.account-tile-clickable:hover {
+   transform: translateY(-1px);
+   box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+   border-color: #d1d5db;
+}
+
+.account-tile-clickable:focus {
+   outline: none;
+}
+
+.account-tile-clickable:focus-visible {
+   outline: 2px solid rgba(79, 70, 229, 0.35);
+   outline-offset: 2px;
+}
+
+/* Primary Button (für Empty-State Login) */
+.account-primary-btn {
+   background: #4f46e5 !important;
+   border: none !important;
+}
+
+.account-primary-btn:hover {
+   background: #4338ca !important;
 }
