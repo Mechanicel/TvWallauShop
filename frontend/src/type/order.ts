@@ -37,3 +37,57 @@ export type OrderErrorPayload = {
    status?: number; // HTTP-Status, z.B. 400, 500, 200 bei Business-Fehler
    details?: unknown; // hier kommen unsere productId/sizeId-Details rein
 };
+// Payload für neue Bestellungen
+export interface PlaceOrderPayload {
+   name: string;
+   email: string;
+   address: string;
+   items: {
+      productId: number;
+      quantity: number;
+      price: number;
+      sizeId?: number;
+   }[];
+}
+
+// Response-Form für den fachlichen Fehler "INSUFFICIENT_STOCK"
+export interface InsufficientStockResponseDetails {
+   productId: number;
+   sizeId: number | null;
+   available: number;
+   requested: number;
+}
+
+export interface InsufficientStockResponse {
+   success?: false;
+   code: 'INSUFFICIENT_STOCK';
+   message?: string;
+   details?: InsufficientStockResponseDetails | InsufficientStockResponseDetails[];
+}
+
+/** User-Order (me) – minimaler Shape wie dein /orders/me Endpoint */
+export interface OrderMeItem {
+   productName: string;
+   sizeLabel: string;
+   quantity: number;
+   price: number;
+}
+
+export interface OrderMe {
+   id: number;
+   status: string;
+   createdAt: string;
+   items: OrderMeItem[];
+   total: number;
+}
+
+/** Detail (GET /orders/:id) – kommt bei dir inkl. total */
+export interface OrderDetailResponse {
+   id: number;
+   status: string;
+   createdAt: string;
+   items: OrderMeItem[];
+   total: number;
+   // user wird ggf. mitgeliefert (backend), brauchen wir hier nicht zwingend
+   user?: any;
+}

@@ -1,37 +1,15 @@
 // frontend/src/services/orderService.ts
 
 import api from './api';
-import type { OrderExtended } from '@/type/order';
+import type {
+   InsufficientStockResponse,
+   OrderDetailResponse,
+   OrderExtended,
+   OrderMe,
+   PlaceOrderPayload,
+} from '@/type/order';
 
-// Payload für neue Bestellungen
-export interface PlaceOrderPayload {
-   name: string;
-   email: string;
-   address: string;
-   items: {
-      productId: number;
-      quantity: number;
-      price: number;
-      sizeId?: number;
-   }[];
-}
-
-// Response-Form für den fachlichen Fehler "INSUFFICIENT_STOCK"
-export interface InsufficientStockResponseDetails {
-   productId: number;
-   sizeId: number | null;
-   available: number;
-   requested: number;
-}
-
-export interface InsufficientStockResponse {
-   success?: false;
-   code: 'INSUFFICIENT_STOCK';
-   message?: string;
-   details?: InsufficientStockResponseDetails | InsufficientStockResponseDetails[];
-}
-
-// Alle Orders laden
+// Alle Orders laden (Admin)
 const getOrders = async (): Promise<OrderExtended[]> => {
    const { data } = await api.get('/orders');
    return data;
@@ -44,6 +22,24 @@ const updateOrderStatus = async (orderId: number, status: string): Promise<Order
 
 const deleteOrder = async (orderId: number): Promise<void> => {
    await api.delete(`/orders/${orderId}`);
+};
+
+// ✅ NEU: eigene Orders laden
+const getMyOrders = async (): Promise<OrderMe[]> => {
+   const { data } = await api.get('/orders/me');
+   return data;
+};
+
+// ✅ NEU: Order Detail laden
+const getOrderById = async (orderId: number): Promise<OrderDetailResponse> => {
+   const { data } = await api.get(`/orders/${orderId}`);
+   return data;
+};
+
+// ✅ NEU: eigene Order stornieren
+const cancelMyOrder = async (orderId: number): Promise<OrderMe> => {
+   const { data } = await api.post(`/orders/me/${orderId}/cancel`);
+   return data;
 };
 
 // Neue Bestellung anlegen
@@ -76,6 +72,11 @@ const orderService = {
    updateOrderStatus,
    deleteOrder,
    placeOrder,
+
+   // ✅ user-features
+   getMyOrders,
+   getOrderById,
+   cancelMyOrder,
 };
 
 export default orderService;

@@ -232,3 +232,194 @@
    gap: 0.5rem;
    align-items: center;
 }
+.products-ai-status {
+   margin-bottom: 0.75rem;
+   padding: 0.5rem 0.75rem;
+   border-radius: 6px;
+   display: flex;
+   align-items: center;
+   justify-content: space-between;
+   font-size: 0.9rem;
+}
+
+.products-ai-status-main {
+   display: flex;
+   flex-wrap: wrap;
+   gap: 0.25rem;
+}
+
+/* Farben grob nach Status */
+.products-ai-status--success {
+   background: #ecfdf3;
+   border: 1px solid #22c55e33;
+}
+
+.products-ai-status--failed {
+   background: #fef2f2;
+   border: 1px solid #ef444433;
+}
+
+.products-ai-status--processing,
+.products-ai-status--pending {
+   background: #eff6ff;
+   border: 1px solid #3b82f633;
+}
+.products-ai-queue {
+   margin-bottom: 1rem;
+   padding: 0.75rem 1rem;
+   border-radius: 8px;
+   background: #f9fafb;
+   border: 1px solid #e5e7eb;
+   display: flex;
+   flex-direction: column;
+   gap: 0.5rem;
+}
+
+.products-ai-queue h3 {
+   margin: 0 0 0.25rem;
+   font-size: 1rem;
+}
+
+.products-ai-item {
+   padding: 0.5rem 0.75rem;
+   border-radius: 6px;
+   display: flex;
+   justify-content: space-between;
+   gap: 0.5rem;
+   align-items: center;
+   font-size: 0.9rem;
+}
+
+.products-ai-item-main {
+   display: flex;
+   flex-direction: column;
+   gap: 0.15rem;
+}
+
+/* Farb-Coding nach Status */
+.products-ai-item--success {
+   background: #ecfdf3;
+   border: 1px solid #22c55e33;
+}
+
+.products-ai-item--failed {
+   background: #fef2f2;
+   border: 1px solid #ef444433;
+}
+
+.products-ai-item--processing,
+.products-ai-item--pending {
+   background: #eff6ff;
+   border: 1px solid #3b82f633;
+}
+
+.products-ai-item-error {
+   color: #b91c1c;
+   font-size: 0.85rem;
+}
+
+.products-ai-item-actions {
+   display: flex;
+   gap: 0.25rem;
+}
+/* KI-Queue-Bereich */
+.products-ai-queue {
+   margin-bottom: 1rem;
+   padding: 0.75rem 1rem;
+   border-radius: 8px;
+   background: #f9fafb;
+   border: 1px solid #e5e7eb;
+   display: flex;
+   flex-direction: column;
+   gap: 0.5rem;
+}
+
+.products-ai-queue h3 {
+   margin: 0 0 0.25rem;
+   font-size: 1rem;
+}
+
+.products-ai-item {
+   padding: 0.5rem 0.75rem;
+   border-radius: 6px;
+   display: flex;
+   justify-content: space-between;
+   gap: 0.5rem;
+   align-items: center;
+   font-size: 0.9rem;
+}
+
+.products-ai-item-main {
+   display: flex;
+   flex-direction: column;
+   gap: 0.15rem;
+}
+
+.products-ai-item-header {
+   display: flex;
+   align-items: center;
+   gap: 0.4rem;
+}
+
+/* Farb-Coding nach Status */
+.products-ai-item--success {
+   background: #ecfdf3;
+   border: 1px solid #22c55e33;
+}
+
+.products-ai-item--failed {
+   background: #fef2f2;
+   border: 1px solid #ef444433;
+}
+
+.products-ai-item--processing,
+.products-ai-item--pending {
+   background: #eff6ff;
+   border: 1px solid #3b82f633;
+}
+
+.products-ai-item-error {
+   color: #b91c1c;
+   font-size: 0.85rem;
+}
+
+.products-ai-item-actions {
+   display: flex;
+   gap: 0.25rem;
+}
+
+/* Kleine Ladeanimation (3 Punkte) für PENDING/PROCESSING */
+.products-ai-spinner {
+   display: inline-flex;
+   gap: 3px;
+   align-items: center;
+}
+
+.products-ai-spinner .dot {
+   width: 6px;
+   height: 6px;
+   border-radius: 999px;
+   background: #3b82f6;
+   animation: products-ai-bounce 1s infinite ease-in-out;
+}
+
+.products-ai-spinner .dot2 {
+   animation-delay: 0.15s;
+}
+
+.products-ai-spinner .dot3 {
+   animation-delay: 0.3s;
+}
+
+@keyframes products-ai-bounce {
+   0%,
+   80%,
+   100% {
+      transform: translateY(0);
+      opacity: 0.6;
+   }
+   40% {
+      transform: translateY(-3px);
+      opacity: 1;
+   }
+}

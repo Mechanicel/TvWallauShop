@@ -16,18 +16,19 @@ export const updateOrderStatus = catchAsync(async (req, res) => {
     res.status(200).json(order);
 });
 
-
 // GET /api/orders/:id
-export const getOrderById = catchAsync(async (
-    req: Request,
-    res: Response,
-    _next?: NextFunction,
-    routeUser?: { id: number; role: 'admin' | 'customer' }
-) => {
-    const authUser = routeUser ?? (req as any).user;
-    const order = await orderService.getOrderById(Number(req.params.id), authUser);
-    res.status(200).json(order);
-});
+export const getOrderById = catchAsync(
+    async (
+        req: Request,
+        res: Response,
+        _next?: NextFunction,
+        routeUser?: { id: number; role: 'admin' | 'customer' },
+    ) => {
+        const authUser = routeUser ?? (req as any).user;
+        const order = await orderService.getOrderById(Number(req.params.id), authUser);
+        res.status(200).json(order);
+    },
+);
 
 // POST /api/orders
 export const createOrder = catchAsync(async (req: Request, res: Response) => {
@@ -41,15 +42,19 @@ export const deleteOrder = catchAsync(async (req: Request, res: Response) => {
     await orderService.deleteOrder(Number(req.params.id));
     res.sendStatus(204);
 });
-export const getMyOrders = async (req: Request, res: Response) => {
-    console.log("TEST!!!!");
-    try {
-        const userId = (req as any).user.id;
-        console.log('[getMyOrders] userId:', (req as any).user?.id);
-        const orders = await orderService.getOrdersByUser(userId);
-        res.json(orders);
-    } catch (err: any) {
-        console.error('[getMyOrders]', err);
-        res.status(500).json({ error: 'Fehler beim Laden der Bestellungen' });
-    }
-};
+
+// GET /api/orders/me
+export const getMyOrders = catchAsync(async (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    const orders = await orderService.getOrdersByUser(userId);
+    res.json(orders);
+});
+
+// ✅ POST /api/orders/me/:id/cancel
+export const cancelMyOrder = catchAsync(async (req: Request, res: Response) => {
+    const userId = (req as any).user.id;
+    const orderId = Number(req.params.id);
+
+    const updated = await orderService.cancelMyOrder(orderId, userId);
+    res.status(200).json(updated);
+});
