@@ -81,3 +81,8 @@ export interface ProductAiJobResponse {
     created_at: string;
     updated_at: string;
 }
+// kleiner Helper-Typ: wir brauchen nur label + stock für die Speicherung
+export type ProductSizeInput = {
+    label: string;
+    stock?: number | null;
+};

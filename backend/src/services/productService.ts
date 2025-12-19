@@ -13,7 +13,7 @@ import {
     ProductImageRow,
     ProductQuery,
     ProductRow,
-    ProductSize,
+    ProductSize, ProductSizeInput,
 } from '../models/productModel';
 
 function mapProductRow(row: ProductRow): Product {
@@ -83,6 +83,42 @@ async function setTagsForProduct(
         await knex('product_tags').insert({
             product_id: productId,
             tag_id: tag.id,
+        });
+    }
+}
+
+
+/**
+ * Setzt die Größen für ein Produkt:
+ * - löscht bestehende Einträge aus product_sizes
+ * - legt alle benötigten sizes (Label) in sizes an (falls noch nicht vorhanden)
+ * - verknüpft in product_sizes (mit stock)
+ */
+async function setSizesForProduct(productId: number, sizes?: ProductSizeInput[] | null) {
+    if (!sizes || sizes.length === 0) {
+        // Falls du hier ALLE Größen entfernen willst:
+        await knex('product_sizes').where({ product_id: productId }).del();
+        return;
+    }
+
+    // Erst alle bestehenden Größenverknüpfungen entfernen
+    await knex('product_sizes').where({ product_id: productId }).del();
+
+    for (const s of sizes) {
+        if (!s.label || !s.label.trim()) continue;
+
+        // Größe nach Label suchen oder neu anlegen
+        let size = await knex('sizes').where({ label: s.label }).first();
+
+        if (!size) {
+            const [newSizeId] = await knex('sizes').insert({ label: s.label });
+            size = { id: newSizeId, label: s.label } as any;
+        }
+
+        await knex('product_sizes').insert({
+            product_id: productId,
+            size_id: (size as any).id,
+            stock: s.stock ?? 0,
         });
     }
 }
@@ -233,6 +269,16 @@ export const productService = {
             image_url: data.imageUrl ?? null,
         });
 
+        // Größen für neues Produkt setzen (falls übergeben)
+        if (data.sizes) {
+            // data.sizes enthält im Frontend ggf. id als UUID (lokal) → ignorieren, wir nutzen nur label + stock
+            const sizeInput: ProductSizeInput[] = data.sizes.map((s: any) => ({
+                label: s.label,
+                stock: s.stock,
+            }));
+            await setSizesForProduct(newId, sizeInput);
+        }
+
         // Tags für neues Produkt setzen (falls übergeben)
         await setTagsForProduct(newId, data.tags);
 
@@ -258,24 +304,13 @@ export const productService = {
                 image_url: data.imageUrl ?? existing.image_url,
             });
 
-        // Größen aktualisieren (wie bisher)
+        // Größen aktualisieren
         if (data.sizes) {
-            await knex('product_sizes').where({ product_id: id }).del();
-
-            for (const s of data.sizes) {
-                let size = await knex('sizes').where({ label: s.label }).first();
-
-                if (!size) {
-                    const [newId] = await knex('sizes').insert({ label: s.label });
-                    size = { id: newId, label: s.label } as any;
-                }
-
-                await knex('product_sizes').insert({
-                    product_id: id,
-                    size_id: (size as any).id,
-                    stock: s.stock ?? 0,
-                });
-            }
+            const sizeInput: ProductSizeInput[] = data.sizes.map((s: any) => ({
+                label: s.label,
+                stock: s.stock,
+            }));
+            await setSizesForProduct(id, sizeInput);
         }
 
         // Tags aktualisieren (nur wenn data.tags übergeben wurde)

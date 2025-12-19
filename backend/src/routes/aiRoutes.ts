@@ -29,6 +29,13 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
+/**
+ * POST /api/ai/product-job
+ * Admin-only
+ * multipart/form-data:
+ *  - price
+ *  - images[]
+ */
 router.post(
     '/product-job',
     authMiddleware,
@@ -37,4 +44,35 @@ router.post(
     productAiController.createProductAiJob
 );
 
+/**
+ * POST /api/ai/product-job/:id/retry
+ * Admin-only
+ * Startet einen FAILED/PENDING Job erneut
+ */
+router.post(
+    '/product-job/:id/retry',
+    authMiddleware,
+    requireRole('admin'),
+    productAiController.retryProductAiJob
+);
+/**
+ * GET /api/ai/product-jobs/open
+ * Admin-only
+ */
+router.get(
+    '/product-jobs/open',
+    authMiddleware,
+    requireRole('admin'),
+    productAiController.getOpenProductAiJobs
+);
+/**
+ * DELETE /api/ai/product-job/:id
+ * Admin-only
+ */
+router.delete(
+    '/product-job/:id',
+    authMiddleware,
+    requireRole('admin'),
+    productAiController.deleteProductAiJob
+);
 export default router;

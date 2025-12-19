@@ -4,14 +4,14 @@
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import morgan from 'morgan';
+import path from 'path';
 
 import authRoutes from './routes/authRoutes';
 import userRoutes from './routes/userRoutes';
 import productRoutes from './routes/productRoutes';
 import orderRoutes from './routes/orderRoutes';
-import path from "path";
-import {errorHandler} from "./middlewares/errorHandler";
-import aiRoutes from "./routes/aiRoutes";
+import aiRoutes from './routes/aiRoutes';
+import { errorHandler } from './middlewares/errorHandler';
 
 const ENABLE_ROUTE_LOGS = process.env.ENABLE_ROUTE_LOGS === 'true';
 const DEBUG_ROUTES = process.env.DEBUG_ROUTES === 'true';
@@ -28,6 +28,11 @@ if (ENABLE_ROUTE_LOGS) {
     app.use(morgan('dev'));
 }
 
+
+app.get('/health', (_req, res) => {
+    res.status(200).json({ ok: true });
+});
+
 // --------------------
 // 🔑 Auth Routes (public)
 // --------------------
@@ -43,7 +48,7 @@ app.use('/api/users', userRoutes);
 // --------------------
 app.use('/api/products', productRoutes);
 
-// >>> HIER neu: statische Auslieferung der Uploads
+// >>> Statische Auslieferung der Uploads
 const uploadsPath = path.join(__dirname, '..', 'uploads');
 app.use('/uploads', express.static(uploadsPath));
 
@@ -53,10 +58,10 @@ app.use('/uploads', express.static(uploadsPath));
 app.use('/api/orders', orderRoutes);
 
 // --------------------
-// AI Routes
+// 🤖 AI Routes
 // --------------------
-
 app.use('/api/ai', aiRoutes);
+
 // --------------------
 // ⚙️ Debug Routes
 // --------------------
@@ -67,13 +72,22 @@ if (DEBUG_ROUTES) {
 
     app.get('/api/debug/routes', (req, res) => {
         const routes: string[] = [];
+        // @ts-ignore – Express intern
         app._router.stack.forEach((middleware: any) => {
             if (middleware.route) {
-                routes.push(`${Object.keys(middleware.route.methods).join(',').toUpperCase()} ${middleware.route.path}`);
+                routes.push(
+                    `${Object.keys(middleware.route.methods)
+                        .join(',')
+                        .toUpperCase()} ${middleware.route.path}`,
+                );
             } else if (middleware.name === 'router') {
                 middleware.handle.stack.forEach((handler: any) => {
                     if (handler.route) {
-                        routes.push(`${Object.keys(handler.route.methods).join(',').toUpperCase()} ${handler.route.path}`);
+                        routes.push(
+                            `${Object.keys(handler.route.methods)
+                                .join(',')
+                                .toUpperCase()} ${handler.route.path}`,
+                        );
                     }
                 });
             }
@@ -85,10 +99,6 @@ if (DEBUG_ROUTES) {
 // --------------------
 // 🚨 Error Handler
 // --------------------
-
-
-// Zentraler Error-Handler (inkl. InsufficientStockError usw.)
 app.use(errorHandler);
-
 
 export default app;
