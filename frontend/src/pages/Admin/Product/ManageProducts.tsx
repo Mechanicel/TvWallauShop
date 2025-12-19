@@ -65,12 +65,12 @@ export const ManageProducts: React.FC = () => {
 
    const setRetryLoading = (jobId: number, value: boolean) => {
       setRetryLoadingByJobId((prev) => {
-         if (!!prev[jobId] === value) return prev;
+         if (prev[jobId] === value) return prev;
          return { ...prev, [jobId]: value };
       });
    };
 
-   const isRetrying = (jobId: number) => !!retryLoadingByJobId[jobId];
+   const isRetrying = (jobId: number) => retryLoadingByJobId[jobId];
 
    const mergeOpenAiJobs = (jobs: ProductAiJob[]) => {
       setQueuedAiItems((prev) => {
@@ -271,7 +271,7 @@ export const ManageProducts: React.FC = () => {
       if (!editingProduct) return;
 
       const { id, name, description, price, imageUrl, sizes, tags } = editingProduct;
-      let productId: number | undefined = id ?? undefined;
+      let productId: number | undefined;
 
       if (id != null) {
          const action = await dispatch(
@@ -390,7 +390,9 @@ export const ManageProducts: React.FC = () => {
             <Column
                field="imageUrl"
                header="Bild"
-               body={(p: Product) => (p.imageUrl ? <img src={resolveImageUrl(p.imageUrl)} width={50} /> : '–')}
+               body={(p: Product) =>
+                  p.imageUrl ? <img src={resolveImageUrl(p.imageUrl)} width={50} alt={'Fehler'} /> : '–'
+               }
             />
             <Column
                header="Aktionen"
