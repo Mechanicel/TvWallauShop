@@ -1,6 +1,6 @@
 // frontend/src/pages/Admin/ManageProducts.tsx
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { DataTable } from 'primereact/datatable';
 import type { DataTable as DataTableType } from 'primereact/datatable';
 import { Column } from 'primereact/column';
@@ -15,13 +15,13 @@ import {
    updateProduct,
    deleteProduct,
    uploadProductImages,
-   deleteProductImage,
    createProductAiJob,
    selectProducts,
    selectProductLoading,
    selectProductError,
    selectProductAiJobLoading,
    selectProductAiJobError,
+   resetAiJobState,
 } from '@/store/slices/productSlice';
 
 import type { Product, ProductAiJob, ProductAiJobStatus } from '@/type/product';
@@ -56,8 +56,49 @@ export const ManageProducts: React.FC = () => {
    const [displayNewAiDialog, setDisplayNewAiDialog] = useState(false);
    const [uploadFiles, setUploadFiles] = useState<File[]>([]);
    const [globalFilter, setGlobalFilter] = useState<string>('');
+
    const [queuedAiItems, setQueuedAiItems] = useState<QueuedAiItem[]>([]);
    const [completingJobId, setCompletingJobId] = useState<number | null>(null);
+
+   // ✅ UI-Verbesserung: pro Job eigenes Retry-Loading
+   const [retryLoadingByJobId, setRetryLoadingByJobId] = useState<Record<number, boolean>>({});
+
+   const setRetryLoading = (jobId: number, value: boolean) => {
+      setRetryLoadingByJobId((prev) => {
+         if (!!prev[jobId] === value) return prev;
+         return { ...prev, [jobId]: value };
+      });
+   };
+
+   const isRetrying = (jobId: number) => !!retryLoadingByJobId[jobId];
+
+   const mergeOpenAiJobs = (jobs: ProductAiJob[]) => {
+      setQueuedAiItems((prev) => {
+         const prevById = new Map(prev.map((q) => [q.job.id, q]));
+         const merged: QueuedAiItem[] = [];
+
+         // Backend-Quelle ist "Truth" für job.* Felder, lokale price/files bleiben erhalten.
+         for (const job of jobs) {
+            const existing = prevById.get(job.id);
+            if (existing) {
+               merged.push({ ...existing, job: { ...existing.job, ...job } });
+               prevById.delete(job.id);
+            } else {
+               merged.push({ job, price: 0, files: [] });
+            }
+         }
+
+         // Jobs, die lokal existieren aber (kurzzeitig) nicht im Backend-Response sind, behalten wir.
+         for (const leftover of prevById.values()) merged.push(leftover);
+
+         return merged;
+      });
+   };
+
+   const refreshOpenAiJobs = async () => {
+      const jobs = await productService.getOpenProductAiJobs();
+      mergeOpenAiJobs(jobs);
+   };
 
    /* =======================
       Daten laden
@@ -67,29 +108,11 @@ export const ManageProducts: React.FC = () => {
       dispatch(fetchProducts());
    }, [dispatch]);
 
-   // 🔁 Offene KI-Jobs beim Laden wiederherstellen
+   // 🔁 Offene KI-Jobs beim Laden wiederherstellen (Queue-Restore nach Reload)
    useEffect(() => {
-      (async () => {
-         try {
-            const jobs = await productService.getOpenProductAiJobs();
-
-            setQueuedAiItems((prev) => {
-               const existingIds = new Set(prev.map((q) => q.job.id));
-
-               const restored: QueuedAiItem[] = jobs
-                  .filter((job) => !existingIds.has(job.id))
-                  .map((job) => ({
-                     job,
-                     price: 0,
-                     files: [],
-                  }));
-
-               return [...restored, ...prev];
-            });
-         } catch (err) {
-            console.error('[AI] Failed to load open AI jobs', err);
-         }
-      })();
+      void refreshOpenAiJobs().catch((err) => {
+         console.error('[AI] Failed to load open AI jobs', err);
+      });
    }, []);
 
    /* =======================
@@ -99,16 +122,36 @@ export const ManageProducts: React.FC = () => {
    useEffect(() => {
       const socket = getSocket();
 
-      const handleAiJobCompleted = (job: ProductAiJob) => {
-         console.log('[WebSocket] aiJob:completed empfangen:', job);
-         setQueuedAiItems((prev) =>
-            prev.map((item) => (item.job.id === job.id ? { ...item, job: { ...item.job, ...job } } : item)),
-         );
+      const applyJobUpdate = (job: ProductAiJob) => {
+         setQueuedAiItems((prev) => {
+            const idx = prev.findIndex((item) => item.job.id === job.id);
+            if (idx === -1) {
+               return [...prev, { job, price: 0, files: [] }];
+            }
+            const next = [...prev];
+            next[idx] = { ...next[idx], job: { ...next[idx].job, ...job } };
+            return next;
+         });
+
+         // Retry-Loading beenden sobald irgendein Update kommt
+         setRetryLoading(job.id, false);
       };
 
+      const handleAiJobUpdated = (job: ProductAiJob) => {
+         console.log('[WebSocket] aiJob:updated empfangen:', job);
+         applyJobUpdate(job);
+      };
+
+      const handleAiJobCompleted = (job: ProductAiJob) => {
+         console.log('[WebSocket] aiJob:completed empfangen:', job);
+         applyJobUpdate(job);
+      };
+
+      socket.on('aiJob:updated', handleAiJobUpdated);
       socket.on('aiJob:completed', handleAiJobCompleted);
 
       return () => {
+         socket.off('aiJob:updated', handleAiJobUpdated);
          socket.off('aiJob:completed', handleAiJobCompleted);
       };
    }, []);
@@ -118,6 +161,7 @@ export const ManageProducts: React.FC = () => {
    ======================= */
 
    const openNew = () => {
+      dispatch(resetAiJobState());
       setUploadFiles([]);
       setEditingProduct(null);
       setDisplayNewAiDialog(true);
@@ -127,7 +171,22 @@ export const ManageProducts: React.FC = () => {
       const action = await dispatch(createProductAiJob({ price, files }));
 
       if (createProductAiJob.fulfilled.match(action)) {
-         setQueuedAiItems((prev) => [...prev, { job: action.payload, price, files }]);
+         const createdJob = action.payload;
+
+         // ✅ Upsert, damit kein Duplicate entsteht, falls ein Socket-Update bereits vorher ankam
+         setQueuedAiItems((prev) => {
+            const idx = prev.findIndex((q) => q.job.id === createdJob.id);
+            if (idx === -1) return [...prev, { job: createdJob, price, files }];
+
+            const next = [...prev];
+            next[idx] = {
+               ...next[idx],
+               job: { ...next[idx].job, ...createdJob },
+               price,
+               files,
+            };
+            return next;
+         });
       }
 
       setDisplayNewAiDialog(false);
@@ -151,11 +210,38 @@ export const ManageProducts: React.FC = () => {
    };
 
    const handleRetryAiJob = async (item: QueuedAiItem) => {
+      const jobId = item.job.id;
+      if (isRetrying(jobId)) return;
+
+      setRetryLoading(jobId, true);
+
+      // Optimistisch: sofort Feedback im UI (ohne Reload)
+      setQueuedAiItems((prev) =>
+         prev.map((q) =>
+            q.job.id === jobId
+               ? { ...q, job: { ...q.job, status: 'PROCESSING' as ProductAiJobStatus, error_message: null } }
+               : q,
+         ),
+      );
+
       try {
-         const updatedJob = await productService.retryProductAiJob(item.job.id);
-         setQueuedAiItems((prev) => prev.map((q) => (q.job.id === item.job.id ? { ...q, job: updatedJob } : q)));
+         const updatedJob = await productService.retryProductAiJob(jobId);
+
+         setQueuedAiItems((prev) =>
+            prev.map((q) => (q.job.id === jobId ? { ...q, job: { ...q.job, ...updatedJob } } : q)),
+         );
+
+         await refreshOpenAiJobs();
       } catch (err) {
          console.error('[AI] retry failed', err);
+
+         try {
+            await refreshOpenAiJobs();
+         } catch (e) {
+            console.error('[AI] refresh after retry failed', e);
+         }
+      } finally {
+         setRetryLoading(jobId, false);
       }
    };
 
@@ -167,16 +253,12 @@ export const ManageProducts: React.FC = () => {
       try {
          await productService.deleteProductAiJob(jobId);
          setQueuedAiItems((prev) => prev.filter((q) => q.job.id !== jobId));
-         if (completingJobId === jobId) setCompletingJobId(null);
+         setRetryLoading(jobId, false);
       } catch (err) {
-         console.error('[AI] deleteProductAiJob failed', err);
-         alert('KI-Job konnte nicht gelöscht werden.');
+         console.error('[AI] delete job failed', err);
+         window.alert('Job konnte nicht gelöscht werden.');
       }
    };
-
-   /* =======================
-      Produkt speichern
-   ======================= */
 
    const hideEditDialog = () => {
       setDisplayEditDialog(false);
@@ -205,7 +287,7 @@ export const ManageProducts: React.FC = () => {
          await dispatch(uploadProductImages({ id: productId, files: uploadFiles }));
       }
 
-      // 🔥 KI-Bilder + Job nach erfolgreicher Fertigstellung löschen
+      // 🔥 KI-Job nach erfolgreicher Fertigstellung löschen
       if (completingJobId !== null) {
          try {
             await productService.deleteProductAiJob(completingJobId);
@@ -224,16 +306,19 @@ export const ManageProducts: React.FC = () => {
       UI
    ======================= */
 
+   const filters = useMemo(
+      () => ({
+         global: { value: null, matchMode: FilterMatchMode.CONTAINS },
+      }),
+      [],
+   );
+
    const header = (
       <div className="products-toolbar">
          <InputText placeholder="🔍 Suche…" value={globalFilter} onChange={(e) => setGlobalFilter(e.target.value)} />
          <Button icon="pi pi-plus" label="Neues Produkt" onClick={openNew} />
       </div>
    );
-
-   const filters = {
-      global: { value: globalFilter, matchMode: FilterMatchMode.CONTAINS },
-   };
 
    const renderAiQueue = () =>
       queuedAiItems.length === 0 ? null : (
@@ -242,8 +327,10 @@ export const ManageProducts: React.FC = () => {
 
             {queuedAiItems.map((item) => {
                const { job, price } = item;
-               const isSuccess = job.status === 'SUCCESS';
-               const isFailed = job.status === 'FAILED';
+               const success = job.status === 'SUCCESS';
+               const failed = job.status === 'FAILED';
+
+               const retrying = isRetrying(job.id);
 
                return (
                   <div key={job.id} className={`products-ai-item products-ai-item--${job.status.toLowerCase()}`}>
@@ -258,17 +345,20 @@ export const ManageProducts: React.FC = () => {
                         <Button
                            label="Fertigstellen"
                            icon="pi pi-check"
-                           disabled={!isSuccess}
+                           disabled={!success || retrying}
                            onClick={() => handleCompleteFromAi(item)}
                         />
-                        {isFailed && (
+
+                        {failed && (
                            <Button
-                              label="Erneut versuchen"
-                              icon="pi pi-refresh"
+                              label={retrying ? 'Retry läuft…' : 'Erneut versuchen'}
+                              icon={retrying ? 'pi pi-spin pi-spinner' : 'pi pi-refresh'}
+                              disabled={retrying}
                               onClick={() => handleRetryAiJob(item)}
                            />
                         )}
-                        <Button icon="pi pi-times" onClick={() => handleRemoveAiItem(job.id)} />
+
+                        <Button icon="pi pi-times" disabled={retrying} onClick={() => handleRemoveAiItem(job.id)} />
                      </div>
                   </div>
                );
@@ -281,6 +371,7 @@ export const ManageProducts: React.FC = () => {
          <h2>Produkte verwalten</h2>
 
          {renderAiQueue()}
+
          {error && <p className="products-error">{error}</p>}
 
          <DataTable
@@ -324,7 +415,10 @@ export const ManageProducts: React.FC = () => {
 
          <NewProductAiDialog
             visible={displayNewAiDialog}
-            onHide={() => setDisplayNewAiDialog(false)}
+            onHide={() => {
+               dispatch(resetAiJobState());
+               setDisplayNewAiDialog(false);
+            }}
             onContinue={handleAiNewContinue}
             loading={aiJobLoading}
             error={aiJobError}
