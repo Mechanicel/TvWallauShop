@@ -4,6 +4,7 @@ import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
 import type { RootState } from '@/store';
 import authService, { AuthResponse, LoginCredentials, SignupPayload } from '../../services/authService';
 import { User } from '@/type/user';
+import userService from '@/services/userService';
 
 /**
  * Auth-Status für die App.
@@ -115,7 +116,15 @@ export const refreshAccessToken = createAsyncThunk<AuthResponse, void, { rejectV
    'auth/refresh',
    async (_, { rejectWithValue }) => {
       try {
-         return await authService.refresh();
+         // 1) Refresh holt nur den neuen Access Token
+         const refreshRes = await authService.refresh(); // backend: { accessToken }
+         const accessToken = refreshRes.accessToken;
+
+         // 2) User über bestehende Backend-Route holen
+         const user = await userService.me();
+
+         // 3) So bleibt dein Slice-Handling identisch (accessToken + user)
+         return { accessToken, user };
       } catch (error: any) {
          const message = error?.response?.data?.error || error?.message || 'Token-Refresh fehlgeschlagen';
          return rejectWithValue(message);

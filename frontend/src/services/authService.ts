@@ -79,8 +79,8 @@ const authService = {
     * Holt mit Hilfe des httpOnly-Refresh-Cookies einen neuen Access-Token.
     * Der Refresh-Token wird NICHT im Body gesendet.
     */
-   async refresh(): Promise<AuthResponse> {
-      const response = await api.post<AuthResponse>('/auth/refresh', undefined, {
+   async refresh(): Promise<{ accessToken: string }> {
+      const response = await api.post<{ accessToken: string }>('/auth/refresh', undefined, {
          withCredentials: true,
       });
       return response.data;
