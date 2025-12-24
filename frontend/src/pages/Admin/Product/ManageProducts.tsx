@@ -1,8 +1,8 @@
 // frontend/src/pages/Admin/ManageProducts.tsx
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { DataTable } from 'primereact/datatable';
-import type { DataTable as DataTableType } from 'primereact/datatable';
+import type { DataTable as DataTableType, DataTableFilterMeta } from 'primereact/datatable';
 import { Column } from 'primereact/column';
 import { Button } from 'primereact/button';
 import { InputText } from 'primereact/inputtext';
@@ -64,7 +64,12 @@ export const ManageProducts: React.FC = () => {
    const [editingProduct, setEditingProduct] = useState<EditableProduct | null>(null);
    const [displayNewAiDialog, setDisplayNewAiDialog] = useState(false);
    const [uploadFiles, setUploadFiles] = useState<File[]>([]);
+
+   // ✅ Global Search (PrimeReact DataTable)
    const [globalFilter, setGlobalFilter] = useState<string>('');
+   const [filters, setFilters] = useState<DataTableFilterMeta>({
+      global: { value: null, matchMode: FilterMatchMode.CONTAINS },
+   });
 
    const [queuedAiItems, setQueuedAiItems] = useState<QueuedAiItem[]>([]);
    const [completingJobId, setCompletingJobId] = useState<number | null>(null);
@@ -315,16 +320,20 @@ export const ManageProducts: React.FC = () => {
       UI
    ======================= */
 
-   const filters = useMemo(
-      () => ({
-         global: { value: null, matchMode: FilterMatchMode.CONTAINS },
-      }),
-      [],
-   );
+   const onGlobalFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const value = e.target.value ?? '';
+      setGlobalFilter(value);
+
+      // ✅ WICHTIG: PrimeReact DataTable filtert nur, wenn filters.global.value gesetzt wird
+      setFilters((prev) => ({
+         ...prev,
+         global: { value, matchMode: FilterMatchMode.CONTAINS },
+      }));
+   };
 
    const header = (
       <div className="products-toolbar">
-         <InputText placeholder="🔍 Suche…" value={globalFilter} onChange={(e) => setGlobalFilter(e.target.value)} />
+         <InputText placeholder="🔍 Suche…" value={globalFilter} onChange={onGlobalFilterChange} />
          <Button icon="pi pi-plus" label="Neues Produkt" onClick={openNew} />
       </div>
    );
@@ -435,6 +444,8 @@ export const ManageProducts: React.FC = () => {
             loading={loading}
             header={header}
             filters={filters}
+            onFilter={(e) => setFilters(e.filters as DataTableFilterMeta)}
+            globalFilterFields={['id', 'name', 'price']}
             dataKey="id"
          >
             <Column field="id" header="ID" />
