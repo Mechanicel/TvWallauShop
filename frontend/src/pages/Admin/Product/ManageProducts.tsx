@@ -40,6 +40,15 @@ type QueuedAiItem = {
    files: File[];
 };
 
+// Kleine Ladeanimation (3 Punkte) – nutzt deine vorhandenen CSS Klassen
+const SpinnerDots: React.FC = () => (
+   <span className="products-ai-spinner" aria-hidden="true">
+      <span className="dot" />
+      <span className="dot dot2" />
+      <span className="dot dot3" />
+   </span>
+);
+
 export const ManageProducts: React.FC = () => {
    const dispatch = useAppDispatch();
    const products = useAppSelector(selectProducts);
@@ -70,7 +79,7 @@ export const ManageProducts: React.FC = () => {
       });
    };
 
-   const isRetrying = (jobId: number) => retryLoadingByJobId[jobId];
+   const isRetrying = (jobId: number) => !!retryLoadingByJobId[jobId];
 
    const mergeOpenAiJobs = (jobs: ProductAiJob[]) => {
       setQueuedAiItems((prev) => {
@@ -320,6 +329,45 @@ export const ManageProducts: React.FC = () => {
       </div>
    );
 
+   const renderAiBadge = (status: ProductAiJobStatus, retrying: boolean) => {
+      if (retrying) {
+         return (
+            <span className="products-ai-badge products-ai-badge--retry">
+               retry…
+               <SpinnerDots />
+            </span>
+         );
+      }
+
+      if (status === 'PENDING') {
+         return (
+            <span className="products-ai-badge products-ai-badge--pending">
+               wartet…
+               <SpinnerDots />
+            </span>
+         );
+      }
+
+      if (status === 'PROCESSING') {
+         return (
+            <span className="products-ai-badge products-ai-badge--processing">
+               läuft…
+               <SpinnerDots />
+            </span>
+         );
+      }
+
+      if (status === 'SUCCESS') {
+         return <span className="products-ai-badge products-ai-badge--success">bereit</span>;
+      }
+
+      if (status === 'FAILED') {
+         return <span className="products-ai-badge products-ai-badge--failed">fehler</span>;
+      }
+
+      return null;
+   };
+
    const renderAiQueue = () =>
       queuedAiItems.length === 0 ? null : (
          <div className="products-ai-queue">
@@ -334,8 +382,13 @@ export const ManageProducts: React.FC = () => {
 
                return (
                   <div key={job.id} className={`products-ai-item products-ai-item--${job.status.toLowerCase()}`}>
-                     <div>
-                        <strong>Job #{job.id}</strong> – {job.status}
+                     <div className="products-ai-item-main">
+                        <div className="products-ai-item-header">
+                           <strong>Job #{job.id}</strong>
+                           <span className="products-ai-status-inline">– {job.status}</span>
+                           {renderAiBadge(job.status as ProductAiJobStatus, retrying)}
+                        </div>
+
                         {job.result_display_name && <div>{job.result_display_name}</div>}
                         <div>Preis: {price.toFixed(2)} €</div>
                         {job.error_message && <div className="products-ai-item-error">{job.error_message}</div>}

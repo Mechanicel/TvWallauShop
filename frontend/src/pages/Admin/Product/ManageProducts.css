@@ -423,3 +423,49 @@
       opacity: 1;
    }
 }
+
+/* =========================================================
+   ✅ NEU: Status-Inline + Badge neben Status (ohne Layoutbruch)
+   ========================================================= */
+
+.products-ai-status-inline {
+   color: #334155;
+   font-weight: 600;
+}
+
+.products-ai-badge {
+   display: inline-flex;
+   align-items: center;
+   gap: 0.35rem;
+   padding: 0.14rem 0.55rem;
+   border-radius: 999px;
+   font-size: 0.75rem;
+   line-height: 1;
+   border: 1px solid transparent;
+   background: rgba(0, 0, 0, 0.06);
+}
+
+.products-ai-badge--pending {
+   background: #eff6ff;
+   border-color: #3b82f633;
+}
+
+.products-ai-badge--processing {
+   background: #eff6ff;
+   border-color: #3b82f633;
+}
+
+.products-ai-badge--success {
+   background: #ecfdf3;
+   border-color: #22c55e33;
+}
+
+.products-ai-badge--failed {
+   background: #fef2f2;
+   border-color: #ef444433;
+}
+
+.products-ai-badge--retry {
+   background: rgba(156, 39, 176, 0.14);
+   border-color: rgba(156, 39, 176, 0.22);
+}
