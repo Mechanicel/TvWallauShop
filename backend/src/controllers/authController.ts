@@ -6,6 +6,8 @@ import { catchAsync } from '../utils/helpers';
 import { knex } from '../database';
 import { formatDate } from '../utils/helpers';
 import {LoginResult, RefreshResult, SignupInput} from "../models/userModel";
+const REFRESH_COOKIE_MAX_AGE_MS =
+    Number(process.env.REFRESH_COOKIE_MAX_AGE_MS) || 1000 * 60 * 60 * 24 * 7; // 7 Tage
 /** Helper for required-field checks */
 function missing(fields: Record<string, any>, keys: string[]) {
     const errs: string[] = [];
@@ -104,6 +106,7 @@ export const login = catchAsync(async (req: Request, res: Response) => {
             sameSite: 'lax',
             secure: isRequestSecure(req),
             path: '/', // einheitliche Basis
+            maxAge: REFRESH_COOKIE_MAX_AGE_MS,
         });
     }
 
@@ -149,12 +152,15 @@ function isRequestSecure(req: Request): boolean {
     return req.protocol === 'https';
 }
 
-function clearAuthCookiesEverywhere(res: Response, req: Request) {
-    const base = { sameSite: 'lax' as const, secure: isRequestSecure(req), httpOnly: true as const };
-    const paths = ['/', '/auth', '/api', '/logout']; // belt & suspenders
+function clearAuthCookiesEverywhere(res: Response) {
+    const base = { sameSite: 'lax' as const, httpOnly: true as const };
+    const paths = ['/', '/auth', '/api', '/logout'];
+
     for (const p of paths) {
-        res.clearCookie('refreshToken', { path: p, ...base });
-        res.clearCookie('accessToken', { path: p, ...base });
+        for (const secure of [false, true]) {
+            res.clearCookie('refreshToken', { path: p, secure, ...base });
+            res.clearCookie('accessToken', { path: p, secure, ...base });
+        }
     }
 }
 
@@ -172,6 +178,7 @@ export const refresh = catchAsync(async (req: Request, res: Response) => {
         sameSite: 'lax',
         secure: isRequestSecure(req),
         path: '/',             // WICHTIG: immer '/'
+        maxAge: REFRESH_COOKIE_MAX_AGE_MS,
     });
 
     return res.status(200).json({
@@ -187,7 +194,7 @@ export const logout = catchAsync(async (req: Request, res: Response) => {
         }
 
         // alle potentiellen Duplikate aufräumen
-        clearAuthCookiesEverywhere(res, req);
+        clearAuthCookiesEverywhere(res);
 
         return res.status(200).json({ message: 'Logout erfolgreich' });
     } catch (err: any) {
