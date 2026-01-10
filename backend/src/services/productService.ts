@@ -11,6 +11,12 @@ import path from 'path';
 import fs from 'fs';
 import type { Product, ProductImage, ProductSize } from '@tvwallaushop/contracts';
 import {
+    ProductImageNotFoundError,
+    ProductImageTableMissingError,
+    ProductNotFoundError,
+    ProductValidationError,
+} from '../errors/ProductServiceError';
+import {
     ProductImageRow,
     ProductQuery,
     ProductRow,
@@ -47,6 +53,30 @@ function mapImageRow(row: ProductImageRow): ProductImage {
         sortOrder: row.sort_order ?? 0,
         isPrimary: Boolean(row.is_primary),
     };
+}
+
+function assertValidId(value: number, label: string): void {
+    if (!Number.isFinite(value) || value <= 0) {
+        throw new ProductValidationError(`Invalid ${label}`, { [label]: value });
+    }
+}
+
+function assertValidName(value: unknown): void {
+    if (typeof value !== 'string' || value.trim().length === 0) {
+        throw new ProductValidationError('name is required', { field: 'name' });
+    }
+}
+
+function assertValidPrice(value: unknown): void {
+    if (typeof value !== 'number' || Number.isNaN(value) || value < 0) {
+        throw new ProductValidationError('price is required', { field: 'price' });
+    }
+}
+
+function normalizeImageUrls(imageUrls: string[]): string[] {
+    return imageUrls
+        .map((url) => (typeof url === 'string' ? url.trim() : ''))
+        .filter((url) => url.length > 0);
 }
 
 /**
@@ -255,9 +285,9 @@ export const productService = {
                 .first();
 
             if (!stockRow) {
-                throw Object.assign(
-                    new Error(`Lagerbestand für Produkt ${productId}, Größe ${sizeId} nicht gefunden`),
-                    { status: 400 },
+                throw new ProductValidationError(
+                    `Lagerbestand für Produkt ${productId}, Größe ${sizeId} nicht gefunden`,
+                    { productId, sizeId },
                 );
             }
 
@@ -285,9 +315,10 @@ export const productService = {
 
     // Einzelnes Produkt inkl. Sizes, Images und Tags
     async getProductById(id: number): Promise<Product> {
+        assertValidId(id, 'productId');
         const productRow = await knex<ProductRow>('products').where({ id }).first();
         if (!productRow) {
-            throw Object.assign(new Error('Product not found'), { status: 404 });
+            throw new ProductNotFoundError(id);
         }
 
         const product = mapProductRow(productRow);
@@ -335,9 +366,11 @@ export const productService = {
     async createProduct(data: Partial<Product>): Promise<Product> {
         console.log('createProduct payload:', data);
 
-        if (!data || typeof data.name !== 'string' || typeof data.price !== 'number') {
-            throw Object.assign(new Error('name and price are required'), { status: 400 });
+        if (!data) {
+            throw new ProductValidationError('Invalid payload');
         }
+        assertValidName(data.name);
+        assertValidPrice(data.price);
 
         const [newId] = await knex('products').insert({
             name: data.name,
@@ -364,9 +397,13 @@ export const productService = {
 
     async updateProduct(id: number, data: Partial<Product>): Promise<Product> {
         console.log('updateProduct payload:', data);
+        assertValidId(id, 'productId');
+        if (!data) {
+            throw new ProductValidationError('Invalid payload');
+        }
         const existing = await knex<ProductRow>('products').where({ id }).first();
         if (!existing) {
-            throw Object.assign(new Error('Product not found'), { status: 404 });
+            throw new ProductNotFoundError(id);
         }
 
         await knex('products')
@@ -375,7 +412,7 @@ export const productService = {
                 name: data.name ?? existing.name,
                 description: data.description ?? existing.description,
                 price:
-                    typeof data.price === 'number'
+                    typeof data.price === 'number' && !Number.isNaN(data.price) && data.price >= 0
                         ? data.price
                         : Number(existing.price),
                 image_url: data.imageUrl ?? existing.image_url,
@@ -403,12 +440,14 @@ export const productService = {
         productId: number,
         imageUrls: string[]
     ): Promise<Product> {
+        assertValidId(productId, 'productId');
         const existing = await knex<ProductRow>('products').where({ id: productId }).first();
         if (!existing) {
-            throw Object.assign(new Error('Product not found'), { status: 404 });
+            throw new ProductNotFoundError(productId);
         }
 
-        if (!imageUrls || imageUrls.length === 0) {
+        const sanitizedUrls = normalizeImageUrls(imageUrls ?? []);
+        if (sanitizedUrls.length === 0) {
             return await this.getProductById(productId);
         }
 
@@ -418,12 +457,7 @@ export const productService = {
                 .where({ product_id: productId })
                 .orderBy('sort_order', 'asc');
         } catch {
-            throw Object.assign(
-                new Error(
-                    'Table "product_images" not found. Please create it in the database.'
-                ),
-                { status: 500 }
-            );
+            throw new ProductImageTableMissingError();
         }
 
         const hasPrimaryAlready = existingImages.some(
@@ -435,7 +469,7 @@ export const productService = {
                 existingImages.length - 1) + 1
                 : 0;
 
-        const inserts = imageUrls.map((url, index) => ({
+        const inserts = sanitizedUrls.map((url, index) => ({
             product_id: productId,
             url,
             sort_order: nextSortOrder + index,
@@ -457,6 +491,8 @@ export const productService = {
         productId: number,
         imageId: number
     ): Promise<{ product: Product; deletedImageUrl: string }> {
+        assertValidId(productId, 'productId');
+        assertValidId(imageId, 'imageId');
         const trx = await knex.transaction();
 
         try {
@@ -466,7 +502,7 @@ export const productService = {
 
             if (!image) {
                 await trx.rollback();
-                throw Object.assign(new Error('Image not found'), { status: 404 });
+                throw new ProductImageNotFoundError(productId, imageId);
             }
 
             const deletedImageUrl: string = image.url;
@@ -504,15 +540,16 @@ export const productService = {
             const product = await this.getProductById(productId);
             return { product, deletedImageUrl };
         } catch (err) {
-            (await knex.transaction()).rollback;
+            await trx.rollback();
             throw err;
         }
     },
 
     async deleteProduct(id: number): Promise<void> {
+        assertValidId(id, 'productId');
         const existing = await knex<ProductRow>('products').where({ id }).first();
         if (!existing) {
-            throw Object.assign(new Error('Product not found'), { status: 404 });
+            throw new ProductNotFoundError(id);
         }
 
         await knex.transaction(async (trx) => {

@@ -4,6 +4,7 @@ import { Request, Response } from 'express';
 import fs from 'fs';
 import path from 'path';
 import { catchAsync } from '../utils/helpers';
+import { ProductValidationError } from '../errors/ProductServiceError';
 import { productService } from '../services/productService';
 
 export const getAllProducts = catchAsync(async (req: Request, res: Response) => {
@@ -39,14 +40,14 @@ export const uploadProductImages = catchAsync(async (req: Request, res: Response
     const productId = Number(req.params.id);
 
     if (!Number.isFinite(productId)) {
-        throw Object.assign(new Error('Invalid product id'), { status: 400 });
+        throw new ProductValidationError('Invalid product id', { productId });
     }
 
     const anyReq = req as any;
     const files = (anyReq.files ?? []) as { filename: string }[];
 
     if (!files.length) {
-        throw Object.assign(new Error('No files uploaded'), { status: 400 });
+        throw new ProductValidationError('No files uploaded');
     }
 
     const imageUrls: string[] = files.map((file) => {
@@ -65,7 +66,7 @@ export const deleteProductImage = catchAsync(async (req: Request, res: Response)
     const imageId = Number(req.params.imageId);
 
     if (!Number.isFinite(productId) || !Number.isFinite(imageId)) {
-        throw Object.assign(new Error('Invalid id'), { status: 400 });
+        throw new ProductValidationError('Invalid id', { productId, imageId });
     }
 
     const { product, deletedImageUrl } =
