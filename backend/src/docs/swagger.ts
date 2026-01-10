@@ -1,7 +1,9 @@
 import swaggerJSDoc from 'swagger-jsdoc';
 
+import { API_CONTRACT_VERSION } from '../contracts';
+
 const withBuildPaths = (apis: string[]) => {
-    const buildPaths = apis.map((api) => api.replace(/^src\\//, 'dist/').replace(/\\.ts$/, '.js'));
+    const buildPaths = apis.map((api) => api.replace(/^src\//, 'dist/').replace(/\.ts$/, '.js'));
     return [...new Set([...apis, ...buildPaths])];
 };
 
@@ -18,11 +20,17 @@ const baseDefinition = {
     },
 };
 
-const createSwaggerSpec = (info: { title: string; description: string }, apis: string[]) =>
+const createSwaggerSpec = (
+    info: { title: string; description: string; version?: string },
+    apis: string[]
+) =>
     swaggerJSDoc({
         definition: {
             ...baseDefinition,
-            info,
+            info: {
+                ...info,
+                version: info.version ?? API_CONTRACT_VERSION,
+            },
             servers: [
                 { url: '/api', description: 'Default API base' },
                 { url: '/api/v1', description: 'Versioned API base' },
