@@ -12,6 +12,7 @@ import type { AxiosError } from 'axios';
 import { isAxiosError } from 'axios';
 import type { PlaceOrderPayload } from '@/services/orderService';
 import { resolveImageUrl } from '@/utils/imageUrl';
+import { getApiErrorMessage } from '@/utils/error';
 import './CheckoutPage.css';
 
 type CartItem = {
@@ -71,7 +72,7 @@ export const CheckoutPage: React.FC = () => {
       if (isAxiosError(err)) {
          const axiosErr = err as AxiosError<any>;
          const status = axiosErr.response?.status;
-         const data = axiosErr.response?.data as { code?: string; message?: string } | undefined;
+         const data = axiosErr.response?.data as { code?: string; message?: string; error?: string } | undefined;
 
          if (data?.code === 'INSUFFICIENT_STOCK') {
             return (
@@ -88,15 +89,15 @@ export const CheckoutPage: React.FC = () => {
             return 'Auf dem Server ist ein Fehler aufgetreten. Bitte versuche es später erneut.';
          }
 
-         if (status === 400 && data?.message) {
-            return data.message;
+         if (status === 400 && (data?.message || data?.error)) {
+            return String(data?.message ?? data?.error);
          }
 
          if (axiosErr.message) {
             return axiosErr.message;
          }
 
-         return fallback;
+         return getApiErrorMessage(err, fallback);
       }
 
       if (anyErr && typeof anyErr === 'object' && typeof anyErr.message === 'string') {
@@ -107,7 +108,7 @@ export const CheckoutPage: React.FC = () => {
          return err.message;
       }
 
-      return fallback;
+      return getApiErrorMessage(err, fallback);
    };
 
    const handlePlaceOrder = async () => {
