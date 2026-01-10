@@ -2,7 +2,14 @@ import express from 'express';
 import swaggerUi from 'swagger-ui-express';
 
 import { API_BASE_PATH, VERSIONED_API_BASE_PATH } from '../contracts';
-import { aiOpenApi, authOpenApi, catalogOpenApi, gatewayOpenApi, orderOpenApi } from '../docs/swagger';
+import {
+    aiOpenApi,
+    allServicesOpenApi,
+    authOpenApi,
+    catalogOpenApi,
+    gatewayOpenApi,
+    orderOpenApi,
+} from '../docs/swagger';
 import { aiServiceApp, aiUploadsRouter } from '../services/ai/app';
 import { authServiceApp } from '../services/auth/app';
 import { catalogServiceApp } from '../services/catalog/app';

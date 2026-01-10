@@ -39,6 +39,29 @@ const createSwaggerSpec = (
         apis: withBuildPaths(apis),
     });
 
+const sortSwaggerSpec = (spec: Record<string, any>) => {
+    if (!spec?.paths) {
+        return spec;
+    }
+
+    const sortedPaths = Object.keys(spec.paths)
+        .sort()
+        .reduce<Record<string, any>>((accumulator, pathKey) => {
+            accumulator[pathKey] = spec.paths[pathKey];
+            return accumulator;
+        }, {});
+
+    const sortedTags = Array.isArray(spec.tags)
+        ? [...spec.tags].sort((left, right) => left.name.localeCompare(right.name))
+        : spec.tags;
+
+    return {
+        ...spec,
+        paths: sortedPaths,
+        tags: sortedTags,
+    };
+};
+
 export const gatewayOpenApi = createSwaggerSpec(
     {
         title: 'TV Wallau Shop Gateway API',
@@ -77,4 +100,21 @@ export const aiOpenApi = createSwaggerSpec(
         description: 'AI media processing and job management endpoints.',
     },
     ['src/routes/aiRoutes.ts']
+);
+
+export const allServicesOpenApi = sortSwaggerSpec(
+    createSwaggerSpec(
+        {
+            title: 'TV Wallau Shop API',
+            description: 'All service endpoints sorted in a single OpenAPI document.',
+        },
+        [
+            'src/gateway/app.ts',
+            'src/routes/authRoutes.ts',
+            'src/routes/userRoutes.ts',
+            'src/routes/productRoutes.ts',
+            'src/routes/orderRoutes.ts',
+            'src/routes/aiRoutes.ts',
+        ]
+    )
 );
