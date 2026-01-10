@@ -45,6 +45,8 @@ const upload = multer({
  *     responses:
  *       200:
  *         description: Product list.
+ *       default:
+ *         $ref: '#/components/responses/ErrorResponse'
  */
 router.get('/', productController.getAllProducts);
 /**
@@ -62,6 +64,8 @@ router.get('/', productController.getAllProducts);
  *     responses:
  *       200:
  *         description: Product details.
+ *       default:
+ *         $ref: '#/components/responses/ErrorResponse'
  */
 router.get('/:id', productController.getProductById);
 
@@ -83,6 +87,8 @@ router.get('/:id', productController.getProductById);
  *     responses:
  *       201:
  *         description: Product created.
+ *       default:
+ *         $ref: '#/components/responses/ErrorResponse'
  */
 router.post(
     '/',
@@ -114,6 +120,8 @@ router.post(
  *     responses:
  *       200:
  *         description: Product updated.
+ *       default:
+ *         $ref: '#/components/responses/ErrorResponse'
  */
 router.put(
     '/:id',
@@ -139,6 +147,8 @@ router.put(
  *     responses:
  *       204:
  *         description: Product deleted.
+ *       default:
+ *         $ref: '#/components/responses/ErrorResponse'
  */
 router.delete(
     '/:id',
@@ -177,6 +187,8 @@ router.delete(
  *     responses:
  *       200:
  *         description: Images uploaded.
+ *       default:
+ *         $ref: '#/components/responses/ErrorResponse'
  */
 router.post(
     '/:id/images',
@@ -210,6 +222,8 @@ router.post(
  *     responses:
  *       204:
  *         description: Image deleted.
+ *       default:
+ *         $ref: '#/components/responses/ErrorResponse'
  */
 router.delete(
     '/:id/images/:imageId',

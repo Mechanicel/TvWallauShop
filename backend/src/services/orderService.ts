@@ -7,6 +7,57 @@ import { productService } from './productService';
 import { userService, UserView } from './userService';
 import type { Knex } from 'knex';
 
+type OrderStatus = 'Bestellt' | 'Bezahlt' | 'Storniert';
+
+const ORDER_STATUSES: OrderStatus[] = ['Bestellt', 'Bezahlt', 'Storniert'];
+
+type OrderErrorDetails =
+    | { fields: string[] }
+    | { invalidItems: Array<{ index: number; issues: string[] }> }
+    | { missingProductIds: number[] }
+    | { currentStatus?: string; nextStatus?: string };
+
+type OrderServiceError = Error & {
+    status: number;
+    code: string;
+    details?: OrderErrorDetails;
+};
+
+function createOrderError(
+    message: string,
+    status: number,
+    code: string,
+    details?: OrderErrorDetails,
+): OrderServiceError {
+    const err = new Error(message) as OrderServiceError;
+    err.status = status;
+    err.code = code;
+    if (details) {
+        err.details = details;
+    }
+    return err;
+}
+
+function assertPositiveInteger(value: number, field: string): void {
+    if (!Number.isInteger(value) || value <= 0) {
+        throw createOrderError(`Ungültiger Wert für ${field}`, 400, 'ORDER_INVALID_INPUT', {
+            fields: [field],
+        });
+    }
+}
+
+function assertOrderStatus(status: string, context: string): OrderStatus {
+    if (!ORDER_STATUSES.includes(status as OrderStatus)) {
+        throw createOrderError(
+            `Ungültiger Order-Status für ${context}`,
+            400,
+            'ORDER_STATUS_INVALID',
+            { fields: ['status'] },
+        );
+    }
+    return status as OrderStatus;
+}
+
 type OrderItemView = OrderItem & { orderId: number };
 
 // Helper fürs Mapping eines Items
@@ -72,13 +123,16 @@ async function restockOrderItems(
 
 // ✅ Helper: Order im "me"-Format laden (wie getOrdersByUser)
 async function getOrderSummaryByUserAndId(userId: number, orderId: number): Promise<OrderSummary> {
+    assertPositiveInteger(userId, 'userId');
+    assertPositiveInteger(orderId, 'orderId');
+
     const orderRow = await knex('orders')
         .select('id', 'status', 'created_at')
         .where({ id: orderId, user_id: userId })
         .first();
 
     if (!orderRow) {
-        throw Object.assign(new Error('Order not found'), { status: 404 });
+        throw createOrderError('Order not found', 404, 'ORDER_NOT_FOUND');
     }
 
     const itemRows = await knex('order_items')
@@ -111,7 +165,9 @@ export const orderService = {
 
         if (user.role === 'admin') {
             if (query.userId) {
-                sql = sql.where('o.user_id', Number(query.userId));
+                const requestedUserId = Number(query.userId);
+                assertPositiveInteger(requestedUserId, 'userId');
+                sql = sql.where('o.user_id', requestedUserId);
             }
         } else {
             sql = sql.where('o.user_id', user.id);
@@ -192,15 +248,18 @@ export const orderService = {
     },
 
     async getOrderById(id: number, user: { id: number; role: string }): Promise<Order> {
+        assertPositiveInteger(id, 'orderId');
         const orderRow = await knex('orders as o')
             .select('o.id as order_id', 'o.status', 'o.created_at as order_created_at', 'o.user_id')
             .where('o.id', id)
             .first();
 
-        if (!orderRow) throw Object.assign(new Error('Order not found'), { status: 404 });
+        if (!orderRow) {
+            throw createOrderError('Order not found', 404, 'ORDER_NOT_FOUND');
+        }
 
         if (user.role !== 'admin' && orderRow.user_id !== user.id) {
-            throw Object.assign(new Error('Forbidden'), { status: 403 });
+            throw createOrderError('Forbidden', 403, 'ORDER_FORBIDDEN');
         }
 
         const [itemRows, userView] = await Promise.all([
@@ -240,7 +299,48 @@ export const orderService = {
         user: { id: number; role: string },
     ): Promise<Order> {
         if (!Array.isArray(data.items) || data.items.length === 0) {
-            throw Object.assign(new Error('items are required'), { status: 400 });
+            throw createOrderError('items are required', 400, 'ORDER_ITEMS_REQUIRED', {
+                fields: ['items'],
+            });
+        }
+
+        const invalidItems: Array<{ index: number; issues: string[] }> = [];
+        data.items.forEach((item, index) => {
+            const issues: string[] = [];
+            if (!Number.isInteger(item.productId) || item.productId <= 0) {
+                issues.push('productId');
+            }
+            if (!Number.isInteger(item.sizeId) || item.sizeId <= 0) {
+                issues.push('sizeId');
+            }
+            if (!Number.isInteger(item.quantity) || item.quantity <= 0) {
+                issues.push('quantity');
+            }
+            if (issues.length > 0) {
+                invalidItems.push({ index, issues });
+            }
+        });
+
+        if (invalidItems.length > 0) {
+            throw createOrderError('Ungültige Order-Positionen', 400, 'ORDER_INVALID_ITEMS', {
+                invalidItems,
+            });
+        }
+
+        if (user.role === 'admin' && typeof data.userId === 'number') {
+            assertPositiveInteger(data.userId, 'userId');
+        }
+
+        const requestedStatus = typeof data.status === 'string' ? data.status : undefined;
+        const orderStatus: OrderStatus =
+            user.role === 'admin' && requestedStatus
+                ? assertOrderStatus(requestedStatus, 'createOrder')
+                : 'Bestellt';
+
+        if (user.role !== 'admin' && requestedStatus && requestedStatus !== 'Bestellt') {
+            throw createOrderError('Status darf nur von Admin gesetzt werden', 403, 'ORDER_STATUS_FORBIDDEN', {
+                fields: ['status'],
+            });
         }
 
         const targetUserId = user.role === 'admin' && typeof data.userId === 'number' ? data.userId : user.id;
@@ -248,13 +348,20 @@ export const orderService = {
         return await knex.transaction(async (trx) => {
             const [orderId] = await trx('orders').insert({
                 user_id: targetUserId,
-                status: data.status || 'Bestellt',
+                status: orderStatus,
             });
 
             const productIds = Array.from(new Set(data.items.map((i) => i.productId)));
             const priceMap = await productService.getProductPricingByIds(productIds, trx);
 
             const aggregated = new Map<string, { productId: number; sizeId: number; quantity: number }>();
+
+            const missingProductIds = productIds.filter((productId) => !priceMap.has(productId));
+            if (missingProductIds.length > 0) {
+                throw createOrderError('Produkt nicht gefunden', 400, 'ORDER_PRODUCT_NOT_FOUND', {
+                    missingProductIds,
+                });
+            }
 
             for (const it of data.items) {
                 const key = `${it.productId}-${it.sizeId}`;
@@ -271,7 +378,9 @@ export const orderService = {
             const rows = data.items.map((it) => {
                 const prod = priceMap.get(it.productId);
                 if (!prod) {
-                    throw Object.assign(new Error(`Product ${it.productId} not found`), { status: 400 });
+                    throw createOrderError('Produkt nicht gefunden', 400, 'ORDER_PRODUCT_NOT_FOUND', {
+                        missingProductIds: [it.productId],
+                    });
                 }
                 return {
                     order_id: orderId,
@@ -331,16 +440,17 @@ export const orderService = {
 
     // Order löschen
     async deleteOrder(id: number): Promise<void> {
+        assertPositiveInteger(id, 'orderId');
         const row = await knex('orders').where({ id }).first();
         if (!row) {
-            throw Object.assign(new Error('Order not found'), { status: 404 });
+            throw createOrderError('Order not found', 404, 'ORDER_NOT_FOUND');
         }
 
         await knex.transaction(async (trx) => {
             const current = await trx('orders').where({ id }).forUpdate().first();
 
             if (!current) {
-                throw Object.assign(new Error('Order not found'), { status: 404 });
+                throw createOrderError('Order not found', 404, 'ORDER_NOT_FOUND');
             }
 
             if (current.status !== 'Storniert') {
@@ -354,20 +464,37 @@ export const orderService = {
 
     // Order-Status ändern
     async updateOrderStatus(id: number, status: string): Promise<Order> {
+        assertPositiveInteger(id, 'orderId');
+        if (typeof status !== 'string' || status.trim().length === 0) {
+            throw createOrderError('Status ist erforderlich', 400, 'ORDER_STATUS_REQUIRED', {
+                fields: ['status'],
+            });
+        }
+        const newStatus = assertOrderStatus(status, 'updateOrderStatus');
+
         const existing = await knex('orders').where({ id }).first();
         if (!existing) {
-            throw Object.assign(new Error('Order not found'), { status: 404 });
+            throw createOrderError('Order not found', 404, 'ORDER_NOT_FOUND');
         }
 
         await knex.transaction(async (trx) => {
             const current = await trx('orders').where({ id }).forUpdate().first();
 
             if (!current) {
-                throw Object.assign(new Error('Order not found'), { status: 404 });
+                throw createOrderError('Order not found', 404, 'ORDER_NOT_FOUND');
             }
 
             const oldStatus = current.status;
-            const newStatus = status;
+            if (oldStatus === 'Storniert' && newStatus !== 'Storniert') {
+                throw createOrderError('Order ist storniert und kann nicht geändert werden', 409, 'ORDER_STATUS_IMMUTABLE', {
+                    currentStatus: oldStatus,
+                    nextStatus: newStatus,
+                });
+            }
+
+            if (oldStatus === newStatus) {
+                return;
+            }
 
             if (oldStatus !== 'Storniert' && newStatus === 'Storniert') {
                 await restockOrderItems(trx, id);
@@ -409,6 +536,8 @@ export const orderService = {
 
     // ✅ NEU: User cancelt eigene Order (nur Status "Bestellt")
     async cancelMyOrder(orderId: number, userId: number): Promise<OrderSummary> {
+        assertPositiveInteger(orderId, 'orderId');
+        assertPositiveInteger(userId, 'userId');
         await knex.transaction(async (trx) => {
             const current = await trx('orders')
                 .where({ id: orderId })
@@ -416,11 +545,11 @@ export const orderService = {
                 .first();
 
             if (!current) {
-                throw Object.assign(new Error('Order not found'), { status: 404 });
+                throw createOrderError('Order not found', 404, 'ORDER_NOT_FOUND');
             }
 
             if (Number(current.user_id) !== Number(userId)) {
-                throw Object.assign(new Error('Forbidden'), { status: 403 });
+                throw createOrderError('Forbidden', 403, 'ORDER_FORBIDDEN');
             }
 
             // idempotent: wenn schon storniert → OK
@@ -431,7 +560,9 @@ export const orderService = {
             // nur "Bestellt" darf der User stornieren
             if (current.status !== 'Bestellt') {
                 // "Bezahlt" / "Versendet" / etc.
-                throw Object.assign(new Error('Order kann nicht storniert werden'), { status: 409 });
+                throw createOrderError('Order kann nicht storniert werden', 409, 'ORDER_CANCEL_NOT_ALLOWED', {
+                    currentStatus: current.status,
+                });
             }
 
             // Restock + Status auf Storniert
@@ -444,6 +575,7 @@ export const orderService = {
     },
 
     async getOrdersByUser(userId: number): Promise<OrderSummary[]> {
+        assertPositiveInteger(userId, 'userId');
         const orderRows = await knex('orders')
             .select('id', 'status', 'created_at')
             .where('user_id', userId);

@@ -3,6 +3,7 @@
 import { Request, Response } from 'express';
 import { catchAsync } from '../utils/helpers';
 import { productAiService } from '../services/productAiService';
+import { ProductAiError } from '../errors/ProductAiError';
 
 export const createProductAiJob = catchAsync(async (req: Request, res: Response) => {
     const useRealService = process.env.AI_PRODUCT_AI_USE_REAL_SERVICE === 'true';
@@ -35,22 +36,32 @@ export const retryProductAiJob = catchAsync(async (req: Request, res: Response) 
     const useRealService = process.env.AI_PRODUCT_AI_USE_REAL_SERVICE === 'true';
 
     if (!useRealService) {
-        return res.status(400).json({
-            message: 'Retry ist nur im Real-Service-Modus möglich.',
-        });
+        throw new ProductAiError(
+            'AI_REAL_SERVICE_REQUIRED',
+            'Retry ist nur im Real-Service-Modus möglich.',
+            400
+        );
     }
 
     const jobId = Number(req.params.id);
     if (!jobId || Number.isNaN(jobId)) {
-        return res.status(400).json({ message: 'Ungültige Job-ID.' });
+        throw new ProductAiError('AI_INVALID_JOB_ID', 'Ungültige Job-ID.', 400, {
+            providedId: req.params.id,
+        });
     }
 
     const existing = await productAiService.getProductAiJobById(jobId);
-    if (!existing) return res.status(404).json({ message: 'Job nicht gefunden.' });
-    if (existing.status === 'SUCCESS') return res.status(409).json({ message: 'Job ist bereits abgeschlossen.' });
+    if (!existing) throw new ProductAiError('AI_JOB_NOT_FOUND', 'Job nicht gefunden.', 404);
+    if (existing.status === 'SUCCESS') {
+        throw new ProductAiError(
+            'AI_JOB_ALREADY_COMPLETED',
+            'Job ist bereits abgeschlossen.',
+            409
+        );
+    }
 
     const updated = await productAiService.retryProductAiJob(jobId);
-    if (!updated) return res.status(404).json({ message: 'Job nicht gefunden.' });
+    if (!updated) throw new ProductAiError('AI_JOB_NOT_FOUND', 'Job nicht gefunden.', 404);
 
     res.status(200).json(updated);
 });
@@ -64,7 +75,9 @@ export const deleteProductAiJob = catchAsync(async (req: Request, res: Response)
     const jobId = Number(req.params.id);
 
     if (!jobId || Number.isNaN(jobId)) {
-        return res.status(400).json({ message: 'Ungültige Job-ID.' });
+        throw new ProductAiError('AI_INVALID_JOB_ID', 'Ungültige Job-ID.', 400, {
+            providedId: req.params.id,
+        });
     }
 
     await productAiService.deleteProductAiJob(jobId);

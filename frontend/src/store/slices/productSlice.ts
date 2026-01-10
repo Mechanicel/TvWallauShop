@@ -4,6 +4,7 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import productService from '@/services/productService';
 import type { CreateProductAiJobParams, Product, ProductAiJob, ProductPayload } from '@/type/product';
 import type { RootState } from '..';
+import { getApiErrorMessage } from '@/utils/error';
 
 type ProductState = {
    products: Product[];
@@ -28,16 +29,7 @@ const initialState: ProductState = {
 // --- Helper für Fehlertexte ---
 
 const toErrorMessage = (err: unknown): string => {
-   if (err && typeof err === 'object') {
-      const anyErr = err as any;
-      if (anyErr.response?.data?.message) {
-         return String(anyErr.response.data.message);
-      }
-      if (anyErr.message) {
-         return String(anyErr.message);
-      }
-   }
-   return 'Unbekannter Fehler bei der Produktanfrage';
+   return getApiErrorMessage(err, 'Unbekannter Fehler bei der Produktanfrage');
 };
 
 // --- Thunks ---

@@ -19,6 +19,8 @@ router.use(authMiddleware);
  *     responses:
  *       200:
  *         description: Order list.
+ *       default:
+ *         $ref: '#/components/responses/ErrorResponse'
  */
 router.get('/', orderController.getOrders);
 
@@ -34,6 +36,8 @@ router.get('/', orderController.getOrders);
  *     responses:
  *       200:
  *         description: Current user orders.
+ *       default:
+ *         $ref: '#/components/responses/ErrorResponse'
  */
 router.get('/me', orderController.getMyOrders);
 
@@ -55,6 +59,8 @@ router.get('/me', orderController.getMyOrders);
  *     responses:
  *       200:
  *         description: Order cancelled.
+ *       default:
+ *         $ref: '#/components/responses/ErrorResponse'
  */
 router.post('/me/:id/cancel', orderController.cancelMyOrder);
 
@@ -76,6 +82,8 @@ router.post('/me/:id/cancel', orderController.cancelMyOrder);
  *     responses:
  *       200:
  *         description: Order details.
+ *       default:
+ *         $ref: '#/components/responses/ErrorResponse'
  */
 router.get('/:id', orderController.getOrderById);
 
@@ -97,6 +105,8 @@ router.get('/:id', orderController.getOrderById);
  *     responses:
  *       201:
  *         description: Order created.
+ *       default:
+ *         $ref: '#/components/responses/ErrorResponse'
  */
 router.post('/', orderController.createOrder);
 
@@ -123,6 +133,8 @@ router.post('/', orderController.createOrder);
  *     responses:
  *       200:
  *         description: Order status updated.
+ *       default:
+ *         $ref: '#/components/responses/ErrorResponse'
  */
 router.put('/:id/status', requireRole('admin'), orderController.updateOrderStatus);
 
@@ -144,6 +156,8 @@ router.put('/:id/status', requireRole('admin'), orderController.updateOrderStatu
  *     responses:
  *       204:
  *         description: Order deleted.
+ *       default:
+ *         $ref: '#/components/responses/ErrorResponse'
  */
 router.delete('/:id', requireRole('admin'), orderController.deleteOrder);
 
