@@ -10,4 +10,33 @@
 
   <artifactId>python_ai_service</artifactId>
   <packaging>pom</packaging>
+
+  <profiles>
+    <profile>
+      <id>dev</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>3.3.0</version>
+            <configuration>
+              <workingDirectory>${project.basedir}</workingDirectory>
+              <command>python</command>
+              <arguments>
+                <argument>-m</argument>
+                <argument>uvicorn</argument>
+                <argument>app.main:app</argument>
+                <argument>--reload</argument>
+                <argument>--host</argument>
+                <argument>0.0.0.0</argument>
+                <argument>--port</argument>
+                <argument>8000</argument>
+              </arguments>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>
