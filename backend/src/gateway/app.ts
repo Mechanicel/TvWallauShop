@@ -25,10 +25,12 @@ const respondWithDocs = (
     req: express.Request,
     res: express.Response,
     spec: object,
+    specPath: string,
     uiPath: string,
 ) => {
     if (req.accepts('html')) {
-        res.redirect(uiPath);
+        const encodedSpecPath = encodeURIComponent(specPath);
+        res.redirect(`${uiPath}?url=${encodedSpecPath}`);
         return;
     }
 
@@ -47,7 +49,7 @@ const respondWithDocs = (
  *         description: Gateway OpenAPI document.
  */
 docsRouter.get('/docs', (req, res) => {
-    respondWithDocs(req, res, gatewayOpenApi, '/docs/ui');
+    respondWithDocs(req, res, gatewayOpenApi, '/docs', '/docs/ui');
 });
 /**
  * @openapi
@@ -61,7 +63,7 @@ docsRouter.get('/docs', (req, res) => {
  *         description: Auth service OpenAPI document.
  */
 docsRouter.get('/docs/auth', (req, res) => {
-    respondWithDocs(req, res, authOpenApi, '/docs/ui/auth');
+    respondWithDocs(req, res, authOpenApi, '/docs/auth', '/docs/ui');
 });
 /**
  * @openapi
@@ -75,7 +77,7 @@ docsRouter.get('/docs/auth', (req, res) => {
  *         description: Catalog service OpenAPI document.
  */
 docsRouter.get('/docs/catalog', (req, res) => {
-    respondWithDocs(req, res, catalogOpenApi, '/docs/ui/catalog');
+    respondWithDocs(req, res, catalogOpenApi, '/docs/catalog', '/docs/ui');
 });
 /**
  * @openapi
@@ -89,7 +91,7 @@ docsRouter.get('/docs/catalog', (req, res) => {
  *         description: Orders service OpenAPI document.
  */
 docsRouter.get('/docs/orders', (req, res) => {
-    respondWithDocs(req, res, orderOpenApi, '/docs/ui/orders');
+    respondWithDocs(req, res, orderOpenApi, '/docs/orders', '/docs/ui');
 });
 /**
  * @openapi
@@ -103,47 +105,24 @@ docsRouter.get('/docs/orders', (req, res) => {
  *         description: AI service OpenAPI document.
  */
 docsRouter.get('/docs/ai', (req, res) => {
-    respondWithDocs(req, res, aiOpenApi, '/docs/ui/ai');
+    respondWithDocs(req, res, aiOpenApi, '/docs/ai', '/docs/ui');
 });
 
 docsRouter.use(
     '/docs/ui',
-    swaggerUi.serveFiles(gatewayOpenApi),
-    swaggerUi.setup(gatewayOpenApi, {
+    swaggerUi.serve,
+    swaggerUi.setup(null, {
         customSiteTitle: 'TV Wallau Shop API Docs',
         explorer: true,
-    })
-);
-docsRouter.use(
-    '/docs/ui/auth',
-    swaggerUi.serveFiles(authOpenApi),
-    swaggerUi.setup(authOpenApi, {
-        customSiteTitle: 'Auth/User API Docs',
-        explorer: true,
-    })
-);
-docsRouter.use(
-    '/docs/ui/catalog',
-    swaggerUi.serveFiles(catalogOpenApi),
-    swaggerUi.setup(catalogOpenApi, {
-        customSiteTitle: 'Catalog API Docs',
-        explorer: true,
-    })
-);
-docsRouter.use(
-    '/docs/ui/orders',
-    swaggerUi.serveFiles(orderOpenApi),
-    swaggerUi.setup(orderOpenApi, {
-        customSiteTitle: 'Orders API Docs',
-        explorer: true,
-    })
-);
-docsRouter.use(
-    '/docs/ui/ai',
-    swaggerUi.serveFiles(aiOpenApi),
-    swaggerUi.setup(aiOpenApi, {
-        customSiteTitle: 'AI/Media API Docs',
-        explorer: true,
+        swaggerOptions: {
+            urls: [
+                { url: '/docs', name: 'Gateway' },
+                { url: '/docs/auth', name: 'Auth/User' },
+                { url: '/docs/catalog', name: 'Catalog' },
+                { url: '/docs/orders', name: 'Orders' },
+                { url: '/docs/ai', name: 'AI/Media' },
+            ],
+        },
     })
 );
 
