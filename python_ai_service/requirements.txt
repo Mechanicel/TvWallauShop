@@ -3,6 +3,14 @@ uvicorn[standard]
 pydantic
 python-dotenv
 requests
+pillow
+numpy
+
+# ML / Inference
 torch
-torchvision
-Pillow
+transformers
+
+# needed by many HF tokenizers / models
+protobuf
+sentencepiece
+tokenizers
