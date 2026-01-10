@@ -6,6 +6,7 @@ import authService from '../../services/authService';
 import type { AuthResponse, LoginCredentials, SignupPayload } from '@tvwallaushop/contracts';
 import type { User } from '@/type/user';
 import userService from '@/services/userService';
+import { getApiErrorMessage } from '@/utils/error';
 
 /**
  * Auth-Status für die App.
@@ -67,7 +68,7 @@ export const login = createAsyncThunk<AuthResponse, LoginCredentials, { rejectVa
       try {
          return await authService.login(credentials);
       } catch (error: any) {
-         const message = error?.response?.data?.error || error?.message || 'Login fehlgeschlagen';
+         const message = getApiErrorMessage(error, 'Login fehlgeschlagen');
          return rejectWithValue(message);
       }
    },
@@ -84,7 +85,7 @@ export const signup = createAsyncThunk<void, SignupPayload, { rejectValue: strin
       try {
          await authService.signup(payload);
       } catch (error: any) {
-         const message = error?.response?.data?.error || error?.message || 'Registrierung fehlgeschlagen';
+         const message = getApiErrorMessage(error, 'Registrierung fehlgeschlagen');
          return rejectWithValue(message);
       }
    },
@@ -101,7 +102,7 @@ export const logout = createAsyncThunk<void, void, { rejectValue: string }>(
       try {
          await authService.logout();
       } catch (error: any) {
-         const message = error?.response?.data?.error || error?.message || 'Logout fehlgeschlagen';
+         const message = getApiErrorMessage(error, 'Logout fehlgeschlagen');
          return rejectWithValue(message);
       }
    },
@@ -127,7 +128,7 @@ export const refreshAccessToken = createAsyncThunk<AuthResponse, void, { rejectV
          // 3) So bleibt dein Slice-Handling identisch (accessToken + user)
          return { accessToken, user };
       } catch (error: any) {
-         const message = error?.response?.data?.error || error?.message || 'Token-Refresh fehlgeschlagen';
+         const message = getApiErrorMessage(error, 'Token-Refresh fehlgeschlagen');
          return rejectWithValue(message);
       }
    },

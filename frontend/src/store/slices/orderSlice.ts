@@ -8,6 +8,7 @@ import type { PlaceOrderPayload } from '@/type/order';
 import type { Order } from '@tvwallaushop/contracts';
 import { initialState, OrderErrorPayload } from '@/type/order';
 import type { RootState } from '..';
+import { getApiErrorMessage } from '@/utils/error';
 
 // 🔹 Orders laden
 export const fetchOrders = createAsyncThunk<Order[]>('orders/fetchOrders', async () => {
@@ -49,11 +50,13 @@ export const placeOrder = createAsyncThunk<Order, PlaceOrderPayload, { rejectVal
          if (isAxiosError(err)) {
             const axiosErr = err as AxiosError<any>;
             const status = axiosErr.response?.status;
-            const data = axiosErr.response?.data as { code?: string; message?: string; details?: unknown } | undefined;
+            const data = axiosErr.response?.data as
+               | { code?: string; message?: string; error?: string; details?: unknown }
+               | undefined;
 
             return rejectWithValue({
                code: data?.code ?? axiosErr.code,
-               message: data?.message ?? axiosErr.message,
+               message: data?.message ?? data?.error ?? axiosErr.message,
                details: data?.details ?? (axiosErr as any).details,
                status,
             });
@@ -61,11 +64,11 @@ export const placeOrder = createAsyncThunk<Order, PlaceOrderPayload, { rejectVal
 
          // 🔸 3) Andere Fehler (kein Axios, kein Business-Code)
          if (err instanceof Error) {
-            return rejectWithValue({ message: err.message });
+            return rejectWithValue({ message: getApiErrorMessage(err, err.message) });
          }
 
          return rejectWithValue({
-            message: 'Unbekannter Fehler beim Anlegen der Bestellung.',
+            message: getApiErrorMessage(err, 'Unbekannter Fehler beim Anlegen der Bestellung.'),
          });
       }
    },

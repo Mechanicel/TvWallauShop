@@ -11,6 +11,7 @@ import { useNavigate } from 'react-router-dom';
 import './SettingsPage.css';
 import { logout } from '@/store/slices/authSlice';
 import { useAppDispatch, useAppSelector } from '@/store';
+import { getApiErrorMessage } from '@/utils/error';
 
 type PaymentValue = 'paypal' | 'invoice' | 'creditcard' | 'banktransfer';
 
@@ -81,7 +82,7 @@ export const SettingsPage: React.FC = () => {
          setNewPassword('');
          setConfirmPassword('');
       } catch (err: any) {
-         show('error', 'Fehler', err?.response?.data?.error || 'Fehler beim Ändern des Passworts');
+         show('error', 'Fehler', getApiErrorMessage(err, 'Fehler beim Ändern des Passworts'));
       } finally {
          setSavingPassword(false);
       }
@@ -97,7 +98,7 @@ export const SettingsPage: React.FC = () => {
 
          show('success', 'Gespeichert', 'Einstellungen gespeichert.');
       } catch (err: any) {
-         show('error', 'Fehler', err?.response?.data?.error || 'Fehler beim Speichern der Einstellungen');
+         show('error', 'Fehler', getApiErrorMessage(err, 'Fehler beim Speichern der Einstellungen'));
       } finally {
          setSavingPrefs(false);
       }
@@ -145,7 +146,7 @@ export const SettingsPage: React.FC = () => {
                show('success', 'Gelöscht', 'Account gelöscht.');
                navigate('/login', { replace: true });
             } catch (err: any) {
-               show('error', 'Fehler', err?.response?.data?.error || 'Account konnte nicht gelöscht werden');
+               show('error', 'Fehler', getApiErrorMessage(err, 'Account konnte nicht gelöscht werden'));
             } finally {
                setDeleting(false);
             }
