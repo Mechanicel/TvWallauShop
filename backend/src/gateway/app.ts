@@ -39,7 +39,7 @@ docsRouter.get('/docs/ai', (_req, res) => {
 
 docsRouter.use(
     '/docs/ui',
-    swaggerUi.serve,
+    swaggerUi.serveFiles(gatewayOpenApi),
     swaggerUi.setup(gatewayOpenApi, {
         customSiteTitle: 'TV Wallau Shop API Docs',
         explorer: true,
@@ -47,7 +47,7 @@ docsRouter.use(
 );
 docsRouter.use(
     '/docs/ui/auth',
-    swaggerUi.serve,
+    swaggerUi.serveFiles(authOpenApi),
     swaggerUi.setup(authOpenApi, {
         customSiteTitle: 'Auth/User API Docs',
         explorer: true,
@@ -55,7 +55,7 @@ docsRouter.use(
 );
 docsRouter.use(
     '/docs/ui/catalog',
-    swaggerUi.serve,
+    swaggerUi.serveFiles(catalogOpenApi),
     swaggerUi.setup(catalogOpenApi, {
         customSiteTitle: 'Catalog API Docs',
         explorer: true,
@@ -63,7 +63,7 @@ docsRouter.use(
 );
 docsRouter.use(
     '/docs/ui/orders',
-    swaggerUi.serve,
+    swaggerUi.serveFiles(orderOpenApi),
     swaggerUi.setup(orderOpenApi, {
         customSiteTitle: 'Orders API Docs',
         explorer: true,
@@ -71,7 +71,7 @@ docsRouter.use(
 );
 docsRouter.use(
     '/docs/ui/ai',
-    swaggerUi.serve,
+    swaggerUi.serveFiles(aiOpenApi),
     swaggerUi.setup(aiOpenApi, {
         customSiteTitle: 'AI/Media API Docs',
         explorer: true,
