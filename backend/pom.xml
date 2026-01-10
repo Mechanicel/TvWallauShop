@@ -10,4 +10,27 @@
 
   <artifactId>backend</artifactId>
   <packaging>pom</packaging>
+
+  <profiles>
+    <profile>
+      <id>dev</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>3.3.0</version>
+            <configuration>
+              <workingDirectory>${project.basedir}</workingDirectory>
+              <command>npm</command>
+              <arguments>
+                <argument>run</argument>
+                <argument>start:dev</argument>
+              </arguments>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>
