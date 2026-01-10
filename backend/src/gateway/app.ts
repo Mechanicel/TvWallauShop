@@ -54,6 +54,8 @@ const respondWithDocs = (
  *     responses:
  *       200:
  *         description: Combined OpenAPI document.
+ *       default:
+ *         $ref: '#/components/responses/ErrorResponse'
  */
 docsRouter.get('/docs', (req, res) => {
     respondWithDocs(req, res, allServicesOpenApi, '/docs', '/docs/ui');
@@ -68,6 +70,8 @@ docsRouter.get('/docs', (req, res) => {
  *     responses:
  *       200:
  *         description: Combined OpenAPI document.
+ *       default:
+ *         $ref: '#/components/responses/ErrorResponse'
  */
 docsRouter.get('/docs/all', (req, res) => {
     respondWithDocs(req, res, allServicesOpenApi, '/docs/all', '/docs/ui');
@@ -82,6 +86,8 @@ docsRouter.get('/docs/all', (req, res) => {
  *     responses:
  *       200:
  *         description: Auth service OpenAPI document.
+ *       default:
+ *         $ref: '#/components/responses/ErrorResponse'
  */
 docsRouter.get('/docs/auth', (req, res) => {
     respondWithDocs(req, res, authOpenApi, '/docs/auth', '/docs/ui');
@@ -96,6 +102,8 @@ docsRouter.get('/docs/auth', (req, res) => {
  *     responses:
  *       200:
  *         description: Catalog service OpenAPI document.
+ *       default:
+ *         $ref: '#/components/responses/ErrorResponse'
  */
 docsRouter.get('/docs/catalog', (req, res) => {
     respondWithDocs(req, res, catalogOpenApi, '/docs/catalog', '/docs/ui');
@@ -110,6 +118,8 @@ docsRouter.get('/docs/catalog', (req, res) => {
  *     responses:
  *       200:
  *         description: Orders service OpenAPI document.
+ *       default:
+ *         $ref: '#/components/responses/ErrorResponse'
  */
 docsRouter.get('/docs/orders', (req, res) => {
     respondWithDocs(req, res, orderOpenApi, '/docs/orders', '/docs/ui');
@@ -124,6 +134,8 @@ docsRouter.get('/docs/orders', (req, res) => {
  *     responses:
  *       200:
  *         description: AI service OpenAPI document.
+ *       default:
+ *         $ref: '#/components/responses/ErrorResponse'
  */
 docsRouter.get('/docs/ai', (req, res) => {
     respondWithDocs(req, res, aiOpenApi, '/docs/ai', '/docs/ui');
@@ -138,6 +150,8 @@ docsRouter.get('/docs/ai', (req, res) => {
  *     responses:
  *       200:
  *         description: Gateway OpenAPI document.
+ *       default:
+ *         $ref: '#/components/responses/ErrorResponse'
  */
 docsRouter.get('/docs/gateway', (req, res) => {
     respondWithDocs(req, res, gatewayOpenApi, '/docs/gateway', '/docs/ui/gateway');
