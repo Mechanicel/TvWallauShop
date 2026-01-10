@@ -1,6 +1,7 @@
 // backend/src/middleware/errorHandler.ts
 
 import { Request, Response, NextFunction } from 'express';
+import { AuthError } from '../errors/AuthError';
 import { InsufficientStockError } from '../errors/InsufficientStockError';
 
 export function errorHandler(
@@ -11,6 +12,23 @@ export function errorHandler(
 ) {
     // Immer loggen
     console.error('[ErrorHandler]', err);
+
+    // 🔹 Spezieller Fall: Auth-Fehler
+    if (err instanceof AuthError) {
+        const status = err.status ?? 400;
+        const isProd = process.env.NODE_ENV === 'production';
+
+        const responseBody: any = {
+            code: err.code,
+            message: err.message,
+        };
+
+        if (!isProd && err.details) {
+            responseBody.details = err.details;
+        }
+
+        return res.status(status).json(responseBody);
+    }
 
     // 🔹 Spezieller Fall: nicht genug Bestand
     if (err instanceof InsufficientStockError || err?.code === 'INSUFFICIENT_STOCK') {
