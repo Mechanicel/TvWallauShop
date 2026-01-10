@@ -377,6 +377,11 @@ export const orderService = {
 
             const rows = data.items.map((it) => {
                 const prod = priceMap.get(it.productId);
+                if (!prod) {
+                    throw createOrderError('Produkt nicht gefunden', 400, 'ORDER_PRODUCT_NOT_FOUND', {
+                        missingProductIds: [it.productId],
+                    });
+                }
                 return {
                     order_id: orderId,
                     product_id: it.productId,
