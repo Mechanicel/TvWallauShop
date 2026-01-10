@@ -84,6 +84,10 @@ class Settings:
     CAPTION_ALLOWED_SCHEMES: str = os.getenv("CAPTION_ALLOWED_SCHEMES", "http,https")
     CAPTION_ALLOW_LOCAL_FILES: bool = _is_true(os.getenv("CAPTION_ALLOW_LOCAL_FILES", "0"))
     CAPTION_ALLOW_PRIVATE_NETWORKS: bool = _is_true(os.getenv("CAPTION_ALLOW_PRIVATE_NETWORKS", "0"))
+    CAPTION_ALLOW_PRIVATE_HOSTS: str = os.getenv(
+        "CAPTION_ALLOW_PRIVATE_HOSTS",
+        "localhost,127.0.0.1,::1,host.docker.internal",
+    )
     CAPTION_MAX_IMAGE_BYTES: int = int(os.getenv("CAPTION_MAX_IMAGE_BYTES", str(8 * 1024 * 1024)))
     CAPTION_MAX_IMAGE_PIXELS: int = int(os.getenv("CAPTION_MAX_IMAGE_PIXELS", str(20_000_000)))
     CAPTION_MAX_IMAGES: int = int(os.getenv("CAPTION_MAX_IMAGES", "4"))

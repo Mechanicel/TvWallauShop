@@ -62,6 +62,13 @@ def _validate_remote_url(url: str) -> None:
         raise ValueError("Ungültige URL: Hostname fehlt.")
 
     if not settings.CAPTION_ALLOW_PRIVATE_NETWORKS:
+        allowed_hosts = {
+            h.strip().lower()
+            for h in (settings.CAPTION_ALLOW_PRIVATE_HOSTS or "").split(",")
+            if h.strip()
+        }
+        if parsed.hostname.strip().lower() in allowed_hosts:
+            return
         for ip in _iter_host_ips(parsed.hostname):
             if _is_private_or_local(ip):
                 raise ValueError(f"Private/Local Adresse nicht erlaubt: {ip}")
