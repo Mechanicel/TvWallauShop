@@ -109,20 +109,43 @@ docsRouter.get('/docs/ai', (req, res) => {
 });
 
 docsRouter.use(
+    '/docs/ui/auth',
+    swaggerUi.serveFiles(authOpenApi),
+    swaggerUi.setup(authOpenApi, {
+        customSiteTitle: 'Auth/User API Docs',
+        explorer: true,
+    })
+);
+docsRouter.use(
+    '/docs/ui/catalog',
+    swaggerUi.serveFiles(catalogOpenApi),
+    swaggerUi.setup(catalogOpenApi, {
+        customSiteTitle: 'Catalog API Docs',
+        explorer: true,
+    })
+);
+docsRouter.use(
+    '/docs/ui/orders',
+    swaggerUi.serveFiles(orderOpenApi),
+    swaggerUi.setup(orderOpenApi, {
+        customSiteTitle: 'Orders API Docs',
+        explorer: true,
+    })
+);
+docsRouter.use(
+    '/docs/ui/ai',
+    swaggerUi.serveFiles(aiOpenApi),
+    swaggerUi.setup(aiOpenApi, {
+        customSiteTitle: 'AI/Media API Docs',
+        explorer: true,
+    })
+);
+docsRouter.use(
     '/docs/ui',
-    swaggerUi.serve,
-    swaggerUi.setup(null, {
+    swaggerUi.serveFiles(gatewayOpenApi),
+    swaggerUi.setup(gatewayOpenApi, {
         customSiteTitle: 'TV Wallau Shop API Docs',
         explorer: true,
-        swaggerOptions: {
-            urls: [
-                { url: '/docs', name: 'Gateway' },
-                { url: '/docs/auth', name: 'Auth/User' },
-                { url: '/docs/catalog', name: 'Catalog' },
-                { url: '/docs/orders', name: 'Orders' },
-                { url: '/docs/ai', name: 'AI/Media' },
-            ],
-        },
     })
 );
 
