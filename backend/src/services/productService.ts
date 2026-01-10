@@ -9,13 +9,13 @@ import type { Knex } from 'knex';
 import { InsufficientStockError } from '../errors/InsufficientStockError';
 import path from 'path';
 import fs from 'fs';
+import type { Product, ProductImage, ProductSize } from '@tvwallaushop/contracts';
 import {
-    Product,
-    ProductImage,
     ProductImageRow,
     ProductQuery,
     ProductRow,
-    ProductSize, ProductSizeInput,
+    ProductSizeInput,
+    ProductSizeRow,
 } from '../models/productModel';
 
 function mapProductRow(row: ProductRow): Product {
@@ -25,14 +25,14 @@ function mapProductRow(row: ProductRow): Product {
         description: row.description ?? null,
         price: Number(row.price),
         imageUrl: row.image_url ?? null,
-        createdAt: row.created_at,
+        createdAt: row.created_at ? row.created_at.toISOString() : null,
         sizes: [],
         images: [],
         tags: [], // wird später gefüllt
     };
 }
 
-function mapSizeRow(row: ProductSize): ProductSize {
+function mapSizeRow(row: ProductSizeRow): ProductSize {
     return {
         id: row.id,
         label: row.label,

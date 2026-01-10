@@ -7,13 +7,13 @@ import { Button } from 'primereact/button';
 import { DataTable } from 'primereact/datatable';
 import { Column } from 'primereact/column';
 
-import type { OrderExtended } from '@/type/order';
+import type { Order } from '@tvwallaushop/contracts';
 import { mapApiUserToUser } from '@/utils/helpers';
 
 export type OrderStatus = 'Bestellt' | 'Bezahlt' | 'Storniert';
 
 interface OrderEditDialogProps {
-   order: OrderExtended | null;
+   order: Order | null;
    visible: boolean;
    onHide: () => void;
    onSaveStatus: (orderId: number, status: OrderStatus) => void | Promise<void>;
@@ -49,9 +49,9 @@ export const OrderEditDialog: React.FC<OrderEditDialogProps> = ({ order, visible
 
    // Adresse wie in ManageOrders bauen
    const addressParts: string[] = [];
-   const line1 = [user.street, user.house_number].filter(Boolean).join(' ');
+   const line1 = [user.street, user.houseNumber].filter(Boolean).join(' ');
    if (line1) addressParts.push(line1);
-   const line2 = [user.postal_code, user.city].filter(Boolean).join(' ');
+   const line2 = [user.postalCode, user.city].filter(Boolean).join(' ');
    if (line2) addressParts.push(line2);
    if (user.country) addressParts.push(user.country);
    const address = addressParts.join(', ');
@@ -93,7 +93,7 @@ export const OrderEditDialog: React.FC<OrderEditDialogProps> = ({ order, visible
                      </li>
                      <li>
                         <span>Name</span>
-                        <span>{[user.first_name, user.last_name].filter(Boolean).join(' ')}</span>
+                        <span>{[user.firstName, user.lastName].filter(Boolean).join(' ')}</span>
                      </li>
                      {user.phone && (
                         <li>

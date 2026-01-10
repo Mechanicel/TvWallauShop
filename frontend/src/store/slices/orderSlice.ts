@@ -3,17 +3,19 @@
 import type { AxiosError } from 'axios';
 import { isAxiosError } from 'axios';
 import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
-import orderService, { PlaceOrderPayload } from '@/services/orderService';
-import { initialState, OrderErrorPayload, OrderExtended } from '@/type/order';
+import orderService from '@/services/orderService';
+import type { PlaceOrderPayload } from '@/type/order';
+import type { Order } from '@tvwallaushop/contracts';
+import { initialState, OrderErrorPayload } from '@/type/order';
 import type { RootState } from '..';
 
 // 🔹 Orders laden
-export const fetchOrders = createAsyncThunk<OrderExtended[]>('orders/fetchOrders', async () => {
+export const fetchOrders = createAsyncThunk<Order[]>('orders/fetchOrders', async () => {
    return await orderService.getOrders();
 });
 
 // 🔹 Status aktualisieren
-export const updateOrderStatus = createAsyncThunk<OrderExtended, { orderId: number; status: string }>(
+export const updateOrderStatus = createAsyncThunk<Order, { orderId: number; status: string }>(
    'orders/updateOrderStatus',
    async ({ orderId, status }) => {
       return await orderService.updateOrderStatus(orderId, status);
@@ -27,7 +29,7 @@ export const deleteOrder = createAsyncThunk<number, number>('orders/deleteOrder'
 });
 
 // 🔹 Neue Bestellung anlegen (Checkout)
-export const placeOrder = createAsyncThunk<OrderExtended, PlaceOrderPayload, { rejectValue: OrderErrorPayload }>(
+export const placeOrder = createAsyncThunk<Order, PlaceOrderPayload, { rejectValue: OrderErrorPayload }>(
    'orders/placeOrder',
    async (payload, { rejectWithValue }) => {
       try {
@@ -79,7 +81,7 @@ const ordersSlice = createSlice({
          state.loading = true;
          state.error = null;
       });
-      builder.addCase(fetchOrders.fulfilled, (state, action: PayloadAction<OrderExtended[]>) => {
+      builder.addCase(fetchOrders.fulfilled, (state, action: PayloadAction<Order[]>) => {
          state.items = action.payload;
          state.loading = false;
       });
@@ -89,7 +91,7 @@ const ordersSlice = createSlice({
       });
 
       // updateOrderStatus
-      builder.addCase(updateOrderStatus.fulfilled, (state, action: PayloadAction<OrderExtended>) => {
+      builder.addCase(updateOrderStatus.fulfilled, (state, action: PayloadAction<Order>) => {
          const idx = state.items.findIndex((o) => o.id === action.payload.id);
          if (idx >= 0) {
             const current = state.items[idx];
@@ -113,7 +115,7 @@ const ordersSlice = createSlice({
       });
 
       // placeOrder – Erfolgsfall
-      builder.addCase(placeOrder.fulfilled, (state, action: PayloadAction<OrderExtended>) => {
+      builder.addCase(placeOrder.fulfilled, (state, action: PayloadAction<Order>) => {
          state.items.push(action.payload);
       });
    },

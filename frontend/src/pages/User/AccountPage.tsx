@@ -59,9 +59,9 @@ export const AccountPage: React.FC = () => {
       );
    }
 
-   const displayName = [user.first_name, user.last_name].filter(Boolean).join(' ').trim() || user.email || 'Account';
+   const displayName = [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || user.email || 'Account';
 
-   const avatarLabel = ((user.first_name?.[0] ?? user.email?.[0] ?? '?') as string).toUpperCase();
+   const avatarLabel = ((user.firstName?.[0] ?? user.email?.[0] ?? '?') as string).toUpperCase();
 
    return (
       <div className="account-page">

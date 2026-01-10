@@ -3,54 +3,12 @@
 
 import { knex } from '../database';
 import type { Knex } from 'knex';
-import {
-    User,
-    UserRole,
-    PaymentMethod,
-    Gender,
-} from '../models/userModel';
+import type { Gender, PaymentMethod, User as ApiUser, UserRole } from '@tvwallaushop/contracts';
+import { User } from '../models/userModel';
 import bcrypt from 'bcrypt';
 import {formatDate} from '../utils/helpers';
 
-export interface UserView {
-    id: number;
-    firstName: string;
-    lastName: string;
-    email: string;
-    phone: string | null;
-    role: UserRole;
-    isVerified: boolean;
-    createdAt: Date;
-
-    // Rechnungsadresse
-    street: string | null;
-    houseNumber: string | null;
-    postalCode: string | null;
-    city: string | null;
-    state: string | null;
-    country: string | null;
-
-    // Lieferadresse
-    shippingStreet: string | null;
-    shippingHouseNumber: string | null;
-    shippingPostalCode: string | null;
-    shippingCity: string | null;
-    shippingState: string | null;
-    shippingCountry: string | null;
-
-    // Zahlungsinfo
-    preferredPayment: PaymentMethod;
-
-    // Marketing / Sonstiges
-    newsletterOptIn: boolean;
-    dateOfBirth: string | null;
-    gender: Gender | null;
-
-    // Shop-spezifisch
-    loyaltyPoints: number;
-    lastLogin: Date | null;
-    accountStatus: 'active' | 'suspended' | 'deleted';
-}
+export type UserView = ApiUser;
 
 function mapUserRow(row: any): UserView {
     return {
@@ -61,7 +19,7 @@ function mapUserRow(row: any): UserView {
         phone: row.phone,
         role: row.role,
         isVerified: !!row.is_verified,
-        createdAt: row.created_at,
+        createdAt: row.created_at ? row.created_at.toISOString() : '',
 
         street: row.street,
         houseNumber: row.house_number,
@@ -77,14 +35,14 @@ function mapUserRow(row: any): UserView {
         shippingState: row.shipping_state,
         shippingCountry: row.shipping_country,
 
-        preferredPayment: row.preferred_payment,
+        preferredPayment: row.preferred_payment ?? 'invoice',
         newsletterOptIn: !!row.newsletter_opt_in,
         dateOfBirth: formatDate(row.date_of_birth),
         gender: row.gender,
 
-        loyaltyPoints: row.loyalty_points,
-        lastLogin: row.last_login,
-        accountStatus: row.account_status,
+        loyaltyPoints: row.loyalty_points ?? 0,
+        lastLogin: row.last_login ? row.last_login.toISOString() : null,
+        accountStatus: row.account_status ?? 'active',
     };
 }
 
@@ -161,39 +119,38 @@ export const userService = {
         await knex('refresh_tokens').where({user_id: userId}).delete();
     },
 
-    async updateUser(id: number, updates: Partial<User>): Promise<UserView> {
-        const allowedFields: (keyof User)[] = [
-            'first_name',
-            'last_name',
-            'phone',
-            'street',
-            'house_number',
-            'postal_code',
-            'city',
-            'state',
-            'country',
-            'role',
-            'shipping_street',
-            'shipping_house_number',
-            'shipping_postal_code',
-            'shipping_city',
-            'shipping_state',
-            'shipping_country',
-            'preferred_payment',
-            'newsletter_opt_in',
-            'date_of_birth',
-            'gender',
-        ];
+    async updateUser(id: number, updates: Partial<UserView>): Promise<UserView> {
+        const fieldMap: Partial<Record<keyof UserView, keyof User>> = {
+            firstName: 'first_name',
+            lastName: 'last_name',
+            phone: 'phone',
+            street: 'street',
+            houseNumber: 'house_number',
+            postalCode: 'postal_code',
+            city: 'city',
+            state: 'state',
+            country: 'country',
+            role: 'role',
+            shippingStreet: 'shipping_street',
+            shippingHouseNumber: 'shipping_house_number',
+            shippingPostalCode: 'shipping_postal_code',
+            shippingCity: 'shipping_city',
+            shippingState: 'shipping_state',
+            shippingCountry: 'shipping_country',
+            preferredPayment: 'preferred_payment',
+            newsletterOptIn: 'newsletter_opt_in',
+            dateOfBirth: 'date_of_birth',
+            gender: 'gender',
+            loyaltyPoints: 'loyalty_points',
+            accountStatus: 'account_status',
+        };
 
         const data: Partial<User> = {};
 
-        for (const key of allowedFields) {
-            const k = key as keyof User;
-            const value = updates[k];
-
+        for (const [key, dbKey] of Object.entries(fieldMap)) {
+            const value = (updates as any)[key];
             if (value !== undefined) {
-                // TS-sicheres Mapping: value ist User[k]
-                (data as any)[k] = value;
+                (data as any)[dbKey as string] = value;
             }
         }
 

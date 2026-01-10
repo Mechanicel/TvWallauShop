@@ -20,7 +20,7 @@ import { fetchUsers, updateUserById, deleteUser } from '@/store/slices/userSlice
 
 import type { Product } from '@/type/product';
 import type { User } from '@/type/user';
-import type { OrderExtended } from '@/type/order';
+import type { Order } from '@tvwallaushop/contracts';
 
 import ProductDialog, { EditableProduct } from './Product/ProductDialog';
 import UserEditDialog from './User/UserEditDialog';
@@ -46,7 +46,7 @@ export const AdminDashboard: React.FC = () => {
    const [userDialogVisible, setUserDialogVisible] = useState(false);
 
    // --- Order-Dialog (geteilt mit ManageOrders) ---
-   const [editingOrder, setEditingOrder] = useState<OrderExtended | null>(null);
+   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
    const [orderDialogVisible, setOrderDialogVisible] = useState(false);
 
    useEffect(() => {
@@ -72,11 +72,13 @@ export const AdminDashboard: React.FC = () => {
       if (!editingProduct || editingProduct.id == null) return;
 
       const { id, name, description, price, imageUrl, sizes } = editingProduct;
+      const safeDescription = description ?? '';
+      const safeImageUrl = imageUrl ?? '';
 
       await dispatch(
          updateProduct({
             id,
-            changes: { name, description, price, imageUrl, sizes },
+            changes: { name, description: safeDescription, price, imageUrl: safeImageUrl, sizes },
          }),
       );
 
@@ -135,7 +137,7 @@ export const AdminDashboard: React.FC = () => {
       void (window.confirm(`User "${u.email}" wirklich löschen?`) && dispatch(deleteUser(u.id)));
 
    // ---------- Orders ----------
-   const openOrderDialog = (order: OrderExtended) => {
+   const openOrderDialog = (order: Order) => {
       setEditingOrder(order);
       setOrderDialogVisible(true);
    };
@@ -215,12 +217,12 @@ export const AdminDashboard: React.FC = () => {
                <Column
                   field="createdAt"
                   header="Datum"
-                  body={(row: OrderExtended) => new Date(row.createdAt).toLocaleDateString('de-DE')}
+                  body={(row: Order) => new Date(row.createdAt).toLocaleDateString('de-DE')}
                />
                <Column
                   header="Aktionen"
                   style={{ width: '14rem' }}
-                  body={(row: OrderExtended) => (
+                  body={(row: Order) => (
                      <div className="row-actions">
                         <Button
                            icon="pi pi-cog"
@@ -264,7 +266,7 @@ export const AdminDashboard: React.FC = () => {
             <DataTable value={users} paginator rows={10} responsiveLayout="scroll">
                <Column field="id" header="ID" style={{ width: '5rem' }} />
                <Column field="email" header="E-Mail" />
-               <Column header="Name" body={(u: User) => `${u.first_name} ${u.last_name}`} />
+               <Column header="Name" body={(u: User) => `${u.firstName} ${u.lastName}`} />
                <Column
                   header="Rolle"
                   body={(u: User) => (

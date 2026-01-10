@@ -12,6 +12,7 @@
     "clean": "rimraf ./dist"
   },
   "dependencies": {
+    "@tvwallaushop/contracts": "file:../contracts",
     "@reduxjs/toolkit": "^1.9.1",
     "axios": "^1.4.0",
     "jwt-decode": "^4.0.0",

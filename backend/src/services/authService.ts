@@ -3,6 +3,7 @@ import jwt, { SignOptions, Secret, JwtPayload } from 'jsonwebtoken';
 import ms, { StringValue } from 'ms';
 import crypto from 'crypto';
 import { knex } from '../database';
+import type { Gender, PaymentMethod } from '@tvwallaushop/contracts';
 import {
     User,
     UserSanitized,
@@ -10,8 +11,9 @@ import {
     getUserByEmail,
     toSanitized,
     setVerificationForUser,
-    PaymentMethod,
-    Gender, SignupInput, LoginResult, RefreshResult,
+    SignupInput,
+    LoginResult,
+    RefreshResult,
 } from '../models/userModel';
 import { sendVerificationEmail } from '../utils/mailer';
 

@@ -14,7 +14,7 @@ import {
     updatePreferences,
 } from '../controllers/userController';
 import { authMiddleware, requireRole } from '../middlewares/authMiddleware';
-import { UserRole } from '../models/userModel';
+import type { UserRole } from '@tvwallaushop/contracts';
 
 const router = Router();
 
