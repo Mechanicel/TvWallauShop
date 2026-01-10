@@ -3,6 +3,7 @@
 
 import express from 'express';
 import cookieParser from 'cookie-parser';
+import cors from 'cors';
 import morgan from 'morgan';
 import gatewayApp from './gateway/app';
 import { API_BASE_PATH } from './contracts';
@@ -10,12 +11,22 @@ import { errorHandler } from './middlewares/errorHandler';
 
 const ENABLE_ROUTE_LOGS = process.env.ENABLE_ROUTE_LOGS === 'true';
 const DEBUG_ROUTES = process.env.DEBUG_ROUTES === 'true';
+const APP_ORIGINS = (process.env.APP_ORIGIN || 'http://localhost:3001')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
 
 const app = express();
 
 // --------------------
 // 🛠 Middlewares
 // --------------------
+app.use(
+    cors({
+        origin: APP_ORIGINS,
+        credentials: true,
+    }),
+);
 app.use(express.json());
 app.use(cookieParser());
 
