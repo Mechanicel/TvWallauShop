@@ -22,6 +22,8 @@ const router = Router();
  *     responses:
  *       201:
  *         description: User created.
+ *       default:
+ *         $ref: '#/components/responses/ErrorResponse'
  */
 router.post('/signup', authController.signup);
 /**
@@ -39,6 +41,8 @@ router.post('/signup', authController.signup);
  *     responses:
  *       200:
  *         description: Login successful.
+ *       default:
+ *         $ref: '#/components/responses/ErrorResponse'
  */
 router.post('/login', authController.login);
 /**
@@ -50,6 +54,8 @@ router.post('/login', authController.login);
  *     responses:
  *       200:
  *         description: Tokens refreshed.
+ *       default:
+ *         $ref: '#/components/responses/ErrorResponse'
  */
 router.post('/refresh', authController.refresh);
 /**
@@ -61,6 +67,8 @@ router.post('/refresh', authController.refresh);
  *     responses:
  *       200:
  *         description: Logged out.
+ *       default:
+ *         $ref: '#/components/responses/ErrorResponse'
  */
 router.post('/logout', authController.logout);
 /**
@@ -72,6 +80,8 @@ router.post('/logout', authController.logout);
  *     responses:
  *       200:
  *         description: Email verified.
+ *       default:
+ *         $ref: '#/components/responses/ErrorResponse'
  */
 router.get('/verify', authController.verifyEmail);
 /**
@@ -83,6 +93,8 @@ router.get('/verify', authController.verifyEmail);
  *     responses:
  *       200:
  *         description: Verification resent.
+ *       default:
+ *         $ref: '#/components/responses/ErrorResponse'
  */
 router.post('/resend', authController.resendVerification);
 

@@ -43,6 +43,8 @@ router.use(authMiddleware);
  *     responses:
  *       200:
  *         description: Current user details.
+ *       default:
+ *         $ref: '#/components/responses/ErrorResponse'
  */
 router.get('/me', getMe);
 /**
@@ -62,6 +64,8 @@ router.get('/me', getMe);
  *     responses:
  *       200:
  *         description: Updated profile.
+ *       default:
+ *         $ref: '#/components/responses/ErrorResponse'
  */
 router.put('/me', updateMe);
 /**
@@ -75,6 +79,8 @@ router.put('/me', updateMe);
  *     responses:
  *       204:
  *         description: Account deleted.
+ *       default:
+ *         $ref: '#/components/responses/ErrorResponse'
  */
 router.delete('/me', deleteAccount);
 /**
@@ -94,6 +100,8 @@ router.delete('/me', deleteAccount);
  *     responses:
  *       200:
  *         description: Password updated.
+ *       default:
+ *         $ref: '#/components/responses/ErrorResponse'
  */
 router.put('/me/password', updatePassword);
 /**
@@ -113,6 +121,8 @@ router.put('/me/password', updatePassword);
  *     responses:
  *       200:
  *         description: Preferences updated.
+ *       default:
+ *         $ref: '#/components/responses/ErrorResponse'
  */
 router.put('/me/preferences', updatePreferences);
 
@@ -130,6 +140,8 @@ router.put('/me/preferences', updatePreferences);
  *     responses:
  *       200:
  *         description: User list.
+ *       default:
+ *         $ref: '#/components/responses/ErrorResponse'
  */
 router.get('/', requireRole('admin'), getAllUsers);
 
@@ -153,6 +165,8 @@ router.get('/', requireRole('admin'), getAllUsers);
  *     responses:
  *       200:
  *         description: User details.
+ *       default:
+ *         $ref: '#/components/responses/ErrorResponse'
  */
 router.get('/:id', (req, res, next) => {
     const { user } = req as RequestWithUser;
@@ -196,6 +210,8 @@ router.get('/:id', (req, res, next) => {
  *     responses:
  *       200:
  *         description: Updated user.
+ *       default:
+ *         $ref: '#/components/responses/ErrorResponse'
  */
 router.put('/:id', requireRole('admin'), updateUserById);
 
@@ -219,6 +235,8 @@ router.put('/:id', requireRole('admin'), updateUserById);
  *     responses:
  *       204:
  *         description: User deleted.
+ *       default:
+ *         $ref: '#/components/responses/ErrorResponse'
  */
 router.delete('/:id', (req, res, next) => {
     const { user } = req as RequestWithUser;

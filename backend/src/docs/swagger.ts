@@ -17,6 +17,44 @@ const baseDefinition = {
                 bearerFormat: 'JWT',
             },
         },
+        schemas: {
+            ErrorResponse: {
+                type: 'object',
+                description: 'Standardized error response payload.',
+                properties: {
+                    code: {
+                        type: 'string',
+                        description: 'Optional machine-readable error code.',
+                    },
+                    message: {
+                        type: 'string',
+                        description: 'Human-readable error description.',
+                    },
+                    details: {
+                        type: 'object',
+                        description: 'Optional error details (only in non-production).',
+                        additionalProperties: true,
+                    },
+                    stack: {
+                        type: 'string',
+                        description: 'Optional stack trace (only in non-production).',
+                    },
+                },
+                required: ['message'],
+            },
+        },
+        responses: {
+            ErrorResponse: {
+                description: 'Error response.',
+                content: {
+                    'application/json': {
+                        schema: {
+                            $ref: '#/components/schemas/ErrorResponse',
+                        },
+                    },
+                },
+            },
+        },
     },
 };
 

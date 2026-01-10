@@ -61,6 +61,8 @@ const upload = multer({ storage });
  *     responses:
  *       201:
  *         description: AI job created.
+ *       default:
+ *         $ref: '#/components/responses/ErrorResponse'
  */
 router.post(
     '/product-job',
@@ -92,6 +94,8 @@ router.post(
  *     responses:
  *       200:
  *         description: Job retried.
+ *       default:
+ *         $ref: '#/components/responses/ErrorResponse'
  */
 router.post(
     '/product-job/:id/retry',
@@ -114,6 +118,8 @@ router.post(
  *     responses:
  *       200:
  *         description: Open AI jobs.
+ *       default:
+ *         $ref: '#/components/responses/ErrorResponse'
  */
 router.get(
     '/product-jobs/open',
@@ -142,6 +148,8 @@ router.get(
  *     responses:
  *       204:
  *         description: Job deleted.
+ *       default:
+ *         $ref: '#/components/responses/ErrorResponse'
  */
 router.delete(
     '/product-job/:id',
