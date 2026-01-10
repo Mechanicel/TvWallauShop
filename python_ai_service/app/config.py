@@ -80,6 +80,13 @@ class Settings:
     CAPTION_NO_REPEAT_NGRAM_SIZE: int = int(os.getenv("CAPTION_NO_REPEAT_NGRAM_SIZE", "3"))
 
     CAPTION_HTTP_TIMEOUT: int = int(os.getenv("CAPTION_HTTP_TIMEOUT", "12"))
+    CAPTION_HTTP_USER_AGENT: str = os.getenv("CAPTION_HTTP_USER_AGENT", "TvWallauShop-AI/1.0")
+    CAPTION_ALLOWED_SCHEMES: str = os.getenv("CAPTION_ALLOWED_SCHEMES", "http,https")
+    CAPTION_ALLOW_LOCAL_FILES: bool = _is_true(os.getenv("CAPTION_ALLOW_LOCAL_FILES", "0"))
+    CAPTION_ALLOW_PRIVATE_NETWORKS: bool = _is_true(os.getenv("CAPTION_ALLOW_PRIVATE_NETWORKS", "0"))
+    CAPTION_MAX_IMAGE_BYTES: int = int(os.getenv("CAPTION_MAX_IMAGE_BYTES", str(8 * 1024 * 1024)))
+    CAPTION_MAX_IMAGE_PIXELS: int = int(os.getenv("CAPTION_MAX_IMAGE_PIXELS", str(20_000_000)))
+    CAPTION_MAX_IMAGES: int = int(os.getenv("CAPTION_MAX_IMAGES", "4"))
     CAPTION_CLEANUP_MAX_SENTENCES: int = int(os.getenv("CAPTION_CLEANUP_MAX_SENTENCES", "2"))
     CAPTION_MERGE_MAX_SENTENCES: int = int(os.getenv("CAPTION_MERGE_MAX_SENTENCES", "3"))
     CAPTION_MERGE_MAX_CHARS: int = int(os.getenv("CAPTION_MERGE_MAX_CHARS", "220"))
