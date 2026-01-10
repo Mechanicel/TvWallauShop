@@ -1,16 +1,11 @@
 // backend/src/models/userModel.ts
 
 import { knex } from '../database';
+import type { AuthResponse, Gender, PaymentMethod, RefreshResponse, SignupPayload, User as ApiUser, UserRole } from '@tvwallaushop/contracts';
 
 /**
  * Zentrale Typen für User-Attribute
  */
-export type UserRole = 'customer' | 'admin';
-
-export type PaymentMethod = 'invoice' | 'paypal' | 'creditcard' | 'banktransfer';
-
-export type Gender = 'male' | 'female' | 'other';
-
 /** User-DB-Record (snake_case, wie in DB) */
 export interface User {
     id: number;
@@ -48,41 +43,14 @@ export interface User {
     newsletter_opt_in: boolean;
     date_of_birth?: string | null;      // ISO-String
     gender?: Gender | null;
+
+    // Shop-spezifisch
+    loyalty_points?: number | null;
+    last_login?: Date | null;
+    account_status?: 'active' | 'suspended' | 'deleted' | null;
 }
 
-/** User ohne sensible Felder (für API-Rückgaben etc.) */
-export interface UserSanitized {
-    id: number;
-    first_name: string;
-    last_name: string;
-    email: string;
-    phone?: string | null;
-
-    role: UserRole;
-    created_at: Date;
-
-    // Rechnungsadresse
-    street: string;
-    house_number: string;
-    postal_code: string;
-    city: string;
-    state?: string | null;
-    country: string;
-
-    // Lieferadresse
-    shipping_street?: string | null;
-    shipping_house_number?: string | null;
-    shipping_postal_code?: string | null;
-    shipping_city?: string | null;
-    shipping_state?: string | null;
-    shipping_country?: string | null;
-
-    // Payment / Marketing
-    preferred_payment: PaymentMethod;
-    newsletter_opt_in: boolean;
-    date_of_birth?: string | null;
-    gender?: Gender | null;
-}
+export type UserSanitized = ApiUser;
 
 /** Insert neuen User */
 export async function createUser(user: Partial<User>): Promise<User> {
@@ -124,75 +92,47 @@ export async function setVerificationForUser(
 export function toSanitized(user: User): UserSanitized {
     return {
         id: user.id,
-        first_name: user.first_name,
-        last_name: user.last_name,
+        firstName: user.first_name,
+        lastName: user.last_name,
         email: user.email,
-        phone: user.phone,
+        phone: user.phone ?? null,
         role: user.role,
-        created_at: user.created_at,
+        isVerified: user.is_verified,
+        createdAt: user.created_at.toISOString(),
 
         // Rechnungsadresse
-        street: user.street,
-        house_number: user.house_number,
-        postal_code: user.postal_code,
-        city: user.city,
-        state: user.state,
-        country: user.country,
+        street: user.street ?? null,
+        houseNumber: user.house_number ?? null,
+        postalCode: user.postal_code ?? null,
+        city: user.city ?? null,
+        state: user.state ?? null,
+        country: user.country ?? null,
 
         // Lieferadresse
-        shipping_street: user.shipping_street,
-        shipping_house_number: user.shipping_house_number,
-        shipping_postal_code: user.shipping_postal_code,
-        shipping_city: user.shipping_city,
-        shipping_state: user.shipping_state,
-        shipping_country: user.shipping_country,
+        shippingStreet: user.shipping_street ?? null,
+        shippingHouseNumber: user.shipping_house_number ?? null,
+        shippingPostalCode: user.shipping_postal_code ?? null,
+        shippingCity: user.shipping_city ?? null,
+        shippingState: user.shipping_state ?? null,
+        shippingCountry: user.shipping_country ?? null,
 
         // Payment / Marketing
-        preferred_payment: user.preferred_payment,
-        newsletter_opt_in: user.newsletter_opt_in,
-        date_of_birth: user.date_of_birth,
-        gender: user.gender,
+        preferredPayment: user.preferred_payment ?? 'invoice',
+        newsletterOptIn: user.newsletter_opt_in,
+        dateOfBirth: user.date_of_birth ?? null,
+        gender: user.gender ?? null,
+
+        // Shop-spezifisch
+        loyaltyPoints: user.loyalty_points ?? 0,
+        lastLogin: user.last_login ? user.last_login.toISOString() : null,
+        accountStatus: user.account_status ?? 'active',
     };
 }
 
 /** Types returned to the controller */
-export type LoginResult = {
-    accessToken: string;
-    refreshToken: string;
-    user: ReturnType<typeof toSanitized>;
-};
+export type LoginResult = AuthResponse;
 
-export type RefreshResult = {
-    accessToken: string;
-};
+export type RefreshResult = RefreshResponse;
 
 /** Payload we'll accept for signups (controller validates required fields) */
-export type SignupInput = {
-    firstName: string;
-    lastName: string;
-    email: string;
-    password: string;
-    phone?: string | null;
-
-    // Billing address
-    street: string;
-    houseNumber: string;
-    postalCode: string;
-    city: string;
-    country: string;
-    state?: string | null;
-
-    // Shipping address
-    shippingStreet?: string | null;
-    shippingHouseNumber?: string | null;
-    shippingPostalCode?: string | null;
-    shippingCity?: string | null;
-    shippingState?: string | null;
-    shippingCountry?: string | null;
-
-    // Payment / Marketing
-    preferredPayment?: PaymentMethod | null;
-    newsletterOptIn?: boolean | null;
-    dateOfBirth?: string | null; // ISO string
-    gender?: Gender | null;
-};
+export type SignupInput = SignupPayload;

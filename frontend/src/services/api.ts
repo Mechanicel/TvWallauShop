@@ -3,10 +3,10 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { store } from '@/store';
 import { setAccessToken, clearAuth } from '@/store/slices/authSlice';
+import { API_BASE_URL } from '@/contracts';
 
 const api = axios.create({
-   // @ts-ignore
-   baseURL: import.meta.env.VITE_API_BASE_URL ?? '/api',
+   baseURL: API_BASE_URL,
    withCredentials: true, // wichtig für httpOnly-Refresh-Cookie
 });
 

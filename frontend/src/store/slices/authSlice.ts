@@ -2,8 +2,9 @@
 
 import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
 import type { RootState } from '@/store';
-import authService, { AuthResponse, LoginCredentials, SignupPayload } from '../../services/authService';
-import { User } from '@/type/user';
+import authService from '../../services/authService';
+import type { AuthResponse, LoginCredentials, SignupPayload } from '@tvwallaushop/contracts';
+import type { User } from '@/type/user';
 import userService from '@/services/userService';
 
 /**

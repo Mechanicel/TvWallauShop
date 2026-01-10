@@ -1,72 +1,104 @@
 // backend/src/services/orderService.ts
 import { knex } from '../database';
-import { mapUser, restockOrderItems } from '../utils/helpers';
 import { sendOrderConfirmationEmail } from '../utils/mailer';
-import { InsufficientStockError } from '../errors/InsufficientStockError';
-import { Order, OrderItem, OrderItemRow, OrderListQuery, ProductPriceRow } from '../models/orderModel';
+import type { Order, OrderItem, OrderSummary } from '@tvwallaushop/contracts';
+import { OrderListQuery } from '../models/orderModel';
+import { productService } from './productService';
+import { userService, UserView } from './userService';
+import type { Knex } from 'knex';
+
+type OrderItemView = OrderItem & { orderId: number };
 
 // Helper fürs Mapping eines Items
-function mapOrderItem(row: OrderItemRow): OrderItem {
+function mapOrderItem(row: {
+    order_id: number;
+    product_id: number;
+    size_id: number;
+    quantity: number;
+    price: number | string;
+}, productName: string, sizeLabel: string): OrderItemView {
     return {
-        id: `${row.order_id}-${row.product_id}-${row.size_id}`,
         orderId: row.order_id,
         productId: row.product_id,
-        productName: row.product_name,
+        productName,
         sizeId: row.size_id,
-        sizeLabel: row.size_label,
+        sizeLabel,
         quantity: row.quantity,
         price: Number(row.price),
     };
 }
 
-// ✅ Helper: Order im "me"-Format laden (wie getOrdersByUser)
-async function getOrderSummaryByUserAndId(userId: number, orderId: number) {
-    const rows = await knex('orders as o')
-        .leftJoin('order_items as oi', 'o.id', 'oi.order_id')
-        .leftJoin('products as p', 'oi.product_id', 'p.id')
-        .leftJoin('sizes as s', 'oi.size_id', 's.id')
-        .select(
-            'o.id as order_id',
-            'o.status',
-            'o.created_at as order_created_at',
-            'oi.quantity',
-            'oi.price',
-            'p.name as product_name',
-            's.label as size_label',
-        )
-        .where('o.user_id', userId)
-        .andWhere('o.id', orderId);
+function mapUserView(user: UserView): Order['user'] {
+    return user;
+}
 
-    if (!rows || rows.length === 0) {
+async function buildOrderItems(
+    rows: Array<{ order_id: number; product_id: number; size_id: number; quantity: number; price: number | string }>,
+    db?: Knex | Knex.Transaction,
+): Promise<OrderItemView[]> {
+    if (rows.length === 0) return [];
+
+    const productIds = Array.from(new Set(rows.map((row) => row.product_id)));
+    const sizeIds = Array.from(new Set(rows.map((row) => row.size_id)));
+
+    const [productNames, sizeLabels] = await Promise.all([
+        productService.getProductNamesByIds(productIds, db),
+        productService.getSizeLabelsByIds(sizeIds, db),
+    ]);
+
+    return rows.map((row) => {
+        const productName = productNames.get(row.product_id) ?? 'Unbekannt';
+        const sizeLabel = sizeLabels.get(row.size_id) ?? 'Unbekannt';
+        return mapOrderItem(row, productName, sizeLabel);
+    });
+}
+
+async function restockOrderItems(
+    trx: Knex.Transaction,
+    orderId: number,
+): Promise<void> {
+    const items = await trx('order_items')
+        .where({ order_id: orderId })
+        .select<{ product_id: number; size_id: number; quantity: number }[]>('product_id', 'size_id', 'quantity');
+
+    const restockPayload = items.map((item) => ({
+        productId: item.product_id,
+        sizeId: item.size_id,
+        quantity: item.quantity,
+    }));
+
+    await productService.restockItems(restockPayload, trx);
+}
+
+// ✅ Helper: Order im "me"-Format laden (wie getOrdersByUser)
+async function getOrderSummaryByUserAndId(userId: number, orderId: number): Promise<OrderSummary> {
+    const orderRow = await knex('orders')
+        .select('id', 'status', 'created_at')
+        .where({ id: orderId, user_id: userId })
+        .first();
+
+    if (!orderRow) {
         throw Object.assign(new Error('Order not found'), { status: 404 });
     }
 
-    const grouped: {
-        id: number;
-        status: string;
-        createdAt: Date;
-        items: { productName: string; sizeLabel: string; quantity: number; price: number }[];
-        total: number;
-    } = {
-        id: rows[0].order_id,
-        status: rows[0].status,
-        createdAt: rows[0].order_created_at,
-        items: [],
-        total: 0,
+    const itemRows = await knex('order_items')
+        .select('order_id', 'product_id', 'size_id', 'quantity', 'price')
+        .where('order_id', orderId);
+
+    const items = await buildOrderItems(itemRows);
+
+    const grouped: OrderSummary = {
+        id: orderRow.id,
+        status: orderRow.status,
+        createdAt: orderRow.created_at.toISOString(),
+        items: items.map((item) => ({
+            productName: item.productName,
+            sizeLabel: item.sizeLabel,
+            quantity: item.quantity,
+            price: item.price,
+        })),
+        total: items.reduce((sum, item) => sum + item.price * item.quantity, 0),
     };
-
-    for (const row of rows) {
-        // falls eine Order ausnahmsweise keine Items hat
-        if (!row.product_name) continue;
-
-        grouped.items.push({
-            productName: row.product_name,
-            sizeLabel: row.size_label,
-            quantity: row.quantity,
-            price: Number(row.price),
-        });
-        grouped.total += Number(row.price) * row.quantity;
-    }
 
     return grouped;
 }
@@ -75,38 +107,7 @@ export const orderService = {
     // Alle Orders laden (Admin sieht alle, User nur eigene)
     async getOrders(user: { id: number; role: 'customer' | 'admin' }, query: OrderListQuery): Promise<Order[]> {
         let sql = knex('orders as o')
-            .join('users as u', 'o.user_id', 'u.id')
-            .select(
-                'o.id as order_id',
-                'o.status',
-                'o.created_at as order_created_at',
-
-                // User-Felder
-                'u.id as user_id',
-                'u.first_name',
-                'u.last_name',
-                'u.email',
-                'u.phone',
-                'u.role',
-                'u.is_verified',
-                'u.street',
-                'u.house_number',
-                'u.postal_code',
-                'u.city',
-                'u.state',
-                'u.country',
-                'u.shipping_street',
-                'u.shipping_house_number',
-                'u.shipping_postal_code',
-                'u.shipping_city',
-                'u.shipping_state',
-                'u.shipping_country',
-                'u.preferred_payment',
-                'u.newsletter_opt_in',
-                'u.date_of_birth',
-                'u.gender',
-                'u.created_at as user_created_at',
-            );
+            .select('o.id as order_id', 'o.status', 'o.created_at as order_created_at', 'o.user_id');
 
         if (user.role === 'admin') {
             if (query.userId) {
@@ -120,22 +121,71 @@ export const orderService = {
         const orderIds = rows.map((r) => r.order_id);
         if (orderIds.length === 0) return [];
 
-        const itemRows = await knex('order_items as oi')
-            .join('products as p', 'oi.product_id', 'p.id')
-            .join('sizes as s', 'oi.size_id', 's.id')
-            .select('oi.order_id', 'oi.product_id', 'p.name as product_name', 'oi.size_id', 's.label as size_label', 'oi.quantity', 'oi.price')
-            .whereIn('oi.order_id', orderIds);
+        const [itemRows, users] = await Promise.all([
+            knex('order_items')
+                .select('order_id', 'product_id', 'size_id', 'quantity', 'price')
+                .whereIn('order_id', orderIds),
+            userService.getUsersByIds(Array.from(new Set(rows.map((row) => row.user_id)))),
+        ]);
 
-        return rows.map((r) => {
-            const items = itemRows.filter((it) => it.order_id === r.order_id).map(mapOrderItem);
-            const total = items.reduce((sum, it) => sum + it.price * it.quantity, 0);
+        const items = await buildOrderItems(itemRows);
+        const itemsByOrder = new Map<number, OrderItem[]>();
+        for (const item of items) {
+            const current = itemsByOrder.get(item.orderId) ?? [];
+            current.push({
+                productId: item.productId,
+                productName: item.productName,
+                sizeId: item.sizeId,
+                sizeLabel: item.sizeLabel,
+                quantity: item.quantity,
+                price: item.price,
+            });
+            itemsByOrder.set(item.orderId, current);
+        }
+
+        const usersById = new Map(users.map((u) => [u.id, u]));
+
+        return rows.map((row) => {
+            const orderItems = itemsByOrder.get(row.order_id) ?? [];
+            const total = orderItems.reduce((sum, it) => sum + it.price * it.quantity, 0);
+            const userView = usersById.get(row.user_id);
 
             return {
-                id: r.order_id,
-                status: r.status,
-                createdAt: r.order_created_at,
-                user: mapUser(r),
-                items,
+                id: row.order_id,
+                status: row.status,
+                createdAt: row.order_created_at.toISOString(),
+                user: userView
+                    ? mapUserView(userView)
+                    : {
+                        id: row.user_id,
+                        firstName: '',
+                        lastName: '',
+                        email: '',
+                        phone: null,
+                        role: user.role,
+                        isVerified: false,
+                        createdAt: row.order_created_at.toISOString(),
+                        street: null,
+                        houseNumber: null,
+                        postalCode: null,
+                        city: null,
+                        state: null,
+                        country: null,
+                        shippingStreet: null,
+                        shippingHouseNumber: null,
+                        shippingPostalCode: null,
+                        shippingCity: null,
+                        shippingState: null,
+                        shippingCountry: null,
+                        preferredPayment: 'invoice',
+                        newsletterOptIn: false,
+                        dateOfBirth: null,
+                        gender: null,
+                        loyaltyPoints: 0,
+                        lastLogin: null,
+                        accountStatus: 'active',
+                    },
+                items: orderItems,
                 total,
             };
         });
@@ -143,38 +193,7 @@ export const orderService = {
 
     async getOrderById(id: number, user: { id: number; role: string }): Promise<Order> {
         const orderRow = await knex('orders as o')
-            .join('users as u', 'o.user_id', 'u.id')
-            .select(
-                'o.id as order_id',
-                'o.status',
-                'o.created_at as order_created_at',
-
-                // User-Felder
-                'u.id as user_id',
-                'u.first_name',
-                'u.last_name',
-                'u.email',
-                'u.phone',
-                'u.role',
-                'u.is_verified',
-                'u.street',
-                'u.house_number',
-                'u.postal_code',
-                'u.city',
-                'u.state',
-                'u.country',
-                'u.shipping_street',
-                'u.shipping_house_number',
-                'u.shipping_postal_code',
-                'u.shipping_city',
-                'u.shipping_state',
-                'u.shipping_country',
-                'u.preferred_payment',
-                'u.newsletter_opt_in',
-                'u.date_of_birth',
-                'u.gender',
-                'u.created_at as user_created_at',
-            )
+            .select('o.id as order_id', 'o.status', 'o.created_at as order_created_at', 'o.user_id')
             .where('o.id', id)
             .first();
 
@@ -184,21 +203,29 @@ export const orderService = {
             throw Object.assign(new Error('Forbidden'), { status: 403 });
         }
 
-        const itemRows = await knex('order_items as oi')
-            .join('products as p', 'oi.product_id', 'p.id')
-            .join('sizes as s', 'oi.size_id', 's.id')
-            .select('oi.order_id', 'oi.product_id', 'p.name as product_name', 'oi.size_id', 's.label as size_label', 'oi.quantity', 'oi.price')
-            .where('oi.order_id', id);
+        const [itemRows, userView] = await Promise.all([
+            knex('order_items')
+                .select('order_id', 'product_id', 'size_id', 'quantity', 'price')
+                .where('order_id', id),
+            userService.getUserById(orderRow.user_id),
+        ]);
 
-        const items = itemRows.map(mapOrderItem);
+        const items = await buildOrderItems(itemRows);
         const total = items.reduce((sum, it) => sum + it.price * it.quantity, 0);
 
         return {
             id: orderRow.order_id,
             status: orderRow.status,
-            createdAt: orderRow.order_created_at,
-            user: mapUser(orderRow),
-            items,
+            createdAt: orderRow.order_created_at.toISOString(),
+            user: mapUserView(userView),
+            items: items.map((item) => ({
+                productId: item.productId,
+                productName: item.productName,
+                sizeId: item.sizeId,
+                sizeLabel: item.sizeLabel,
+                quantity: item.quantity,
+                price: item.price,
+            })),
             total,
         };
     },
@@ -225,11 +252,7 @@ export const orderService = {
             });
 
             const productIds = Array.from(new Set(data.items.map((i) => i.productId)));
-            const products: ProductPriceRow[] = await trx('products').select('id', 'price', 'name').whereIn('id', productIds);
-
-            const priceMap = new Map<number, { price: number; name: string }>(
-                products.map((p) => [Number(p.id), { price: Number(p.price), name: p.name }]),
-            );
+            const priceMap = await productService.getProductPricingByIds(productIds, trx);
 
             const aggregated = new Map<string, { productId: number; sizeId: number; quantity: number }>();
 
@@ -240,23 +263,10 @@ export const orderService = {
                 aggregated.set(key, existing);
             }
 
-            for (const { productId, sizeId, quantity } of aggregated.values()) {
-                const stockRow = await trx('product_sizes')
-                    .where({ product_id: productId, size_id: sizeId })
-                    .forUpdate()
-                    .first();
-
-                if (!stockRow) {
-                    throw Object.assign(new Error(`Lagerbestand für Produkt ${productId}, Größe ${sizeId} nicht gefunden`), { status: 400 });
-                }
-
-                const available = Number(stockRow.stock);
-                if (available < quantity) {
-                    throw new InsufficientStockError(productId, sizeId ?? null, available, quantity);
-                }
-
-                await trx('product_sizes').where({ product_id: productId, size_id: sizeId }).decrement('stock', quantity);
-            }
+            await productService.reserveStock(
+                Array.from(aggregated.values()),
+                trx,
+            );
 
             const rows = data.items.map((it) => {
                 const prod = priceMap.get(it.productId);
@@ -274,37 +284,26 @@ export const orderService = {
 
             await trx('order_items').insert(rows);
 
-            const itemRows = await trx('order_items as oi')
-                .join('products as p', 'oi.product_id', 'p.id')
-                .join('sizes as s', 'oi.size_id', 's.id')
-                .select('oi.order_id', 'oi.product_id', 'p.name as product_name', 'oi.size_id', 's.label as size_label', 'oi.quantity', 'oi.price')
-                .where('oi.order_id', orderId);
+            const itemRows = await trx('order_items')
+                .select('order_id', 'product_id', 'size_id', 'quantity', 'price')
+                .where('order_id', orderId);
 
-            const items = itemRows.map(mapOrderItem);
+            const items = await buildOrderItems(itemRows, trx);
             const total = items.reduce((sum, it) => sum + it.price * it.quantity, 0);
 
-            const orderRow = await trx('orders as o')
-                .join('users as u', 'o.user_id', 'u.id')
-                .select(
-                    'o.id as order_id',
-                    'o.status',
-                    'o.created_at as order_created_at',
-                    'u.id as user_id',
-                    'u.email',
-                    'u.first_name',
-                    'u.last_name',
-                    'u.phone',
-                    'u.role',
-                    'u.created_at as user_created_at',
-                )
-                .where('o.id', orderId)
-                .first();
+            const [orderRow, userView] = await Promise.all([
+                trx('orders')
+                    .select('id', 'status', 'created_at', 'user_id')
+                    .where('id', orderId)
+                    .first(),
+                userService.getUserById(targetUserId, trx),
+            ]);
 
             try {
                 await sendOrderConfirmationEmail({
-                    to: orderRow.email,
-                    firstName: orderRow.first_name,
-                    orderId: orderRow.order_id,
+                    to: userView.email,
+                    firstName: userView.firstName,
+                    orderId: orderRow.id,
                     items,
                     total,
                 });
@@ -313,19 +312,18 @@ export const orderService = {
             }
 
             return {
-                id: orderRow.order_id,
+                id: orderRow.id,
                 status: orderRow.status,
-                createdAt: orderRow.order_created_at,
-                user: {
-                    id: orderRow.user_id,
-                    email: orderRow.email,
-                    firstName: orderRow.first_name,
-                    lastName: orderRow.last_name,
-                    phone: orderRow.phone,
-                    role: orderRow.role,
-                    createdAt: orderRow.user_created_at,
-                },
-                items,
+                createdAt: orderRow.created_at.toISOString(),
+                user: mapUserView(userView),
+                items: items.map((item) => ({
+                    productId: item.productId,
+                    productName: item.productName,
+                    sizeId: item.sizeId,
+                    sizeLabel: item.sizeLabel,
+                    quantity: item.quantity,
+                    price: item.price,
+                })),
                 total,
             };
         });
@@ -378,52 +376,39 @@ export const orderService = {
             await trx('orders').where({ id }).update({ status: newStatus });
         });
 
-        const updated = await knex('orders as o')
-            .join('users as u', 'o.user_id', 'u.id')
-            .select(
-                'o.id as order_id',
-                'o.status',
-                'o.created_at as order_created_at',
-                'u.id as user_id',
-                'u.email',
-                'u.first_name',
-                'u.last_name',
-                'u.phone',
-                'u.role',
-                'u.created_at as user_created_at',
-            )
-            .where('o.id', id)
-            .first();
+        const [updated, itemRows, userView] = await Promise.all([
+            knex('orders')
+                .select('id', 'status', 'created_at', 'user_id')
+                .where('id', id)
+                .first(),
+            knex('order_items')
+                .select('order_id', 'product_id', 'size_id', 'quantity', 'price')
+                .where('order_id', id),
+            userService.getUserById(existing.user_id),
+        ]);
 
-        const itemRows = await knex('order_items as oi')
-            .join('products as p', 'oi.product_id', 'p.id')
-            .join('sizes as s', 'oi.size_id', 's.id')
-            .select('oi.order_id', 'oi.product_id', 'p.name as product_name', 'oi.size_id', 's.label as size_label', 'oi.quantity', 'oi.price')
-            .where('oi.order_id', id);
-
-        const items = itemRows.map(mapOrderItem);
+        const items = await buildOrderItems(itemRows);
         const total = items.reduce((sum, it) => sum + it.price * it.quantity, 0);
 
         return {
-            id: updated.order_id,
+            id: updated.id,
             status: updated.status,
-            createdAt: updated.order_created_at,
-            user: {
-                id: updated.user_id,
-                email: updated.email,
-                firstName: updated.first_name,
-                lastName: updated.last_name,
-                phone: updated.phone,
-                role: updated.role,
-                createdAt: updated.user_created_at,
-            },
-            items,
+            createdAt: updated.created_at.toISOString(),
+            user: mapUserView(userView),
+            items: items.map((item) => ({
+                productId: item.productId,
+                productName: item.productName,
+                sizeId: item.sizeId,
+                sizeLabel: item.sizeLabel,
+                quantity: item.quantity,
+                price: item.price,
+            })),
             total,
         };
     },
 
     // ✅ NEU: User cancelt eigene Order (nur Status "Bestellt")
-    async cancelMyOrder(orderId: number, userId: number) {
+    async cancelMyOrder(orderId: number, userId: number): Promise<OrderSummary> {
         await knex.transaction(async (trx) => {
             const current = await trx('orders')
                 .where({ id: orderId })
@@ -458,51 +443,42 @@ export const orderService = {
         return await getOrderSummaryByUserAndId(userId, orderId);
     },
 
-    async getOrdersByUser(userId: number) {
-        const rows = await knex('orders as o')
-            .leftJoin('order_items as oi', 'o.id', 'oi.order_id')
-            .leftJoin('products as p', 'oi.product_id', 'p.id')
-            .leftJoin('sizes as s', 'oi.size_id', 's.id')
-            .select(
-                'o.id as order_id',
-                'o.status',
-                'o.created_at as order_created_at',
-                'oi.quantity',
-                'oi.price',
-                'p.name as product_name',
-                's.label as size_label',
-            )
-            .where('o.user_id', userId);
+    async getOrdersByUser(userId: number): Promise<OrderSummary[]> {
+        const orderRows = await knex('orders')
+            .select('id', 'status', 'created_at')
+            .where('user_id', userId);
 
-        const grouped: Record<
-            number,
-            {
-                id: number;
-                status: string;
-                createdAt: Date;
-                items: { productName: string; sizeLabel: string; quantity: number; price: number }[];
-                total: number;
-            }
-        > = {};
+        if (orderRows.length === 0) return [];
 
-        for (const row of rows) {
-            if (!grouped[row.order_id]) {
-                grouped[row.order_id] = {
-                    id: row.order_id,
-                    status: row.status,
-                    createdAt: row.order_created_at,
-                    items: [],
-                    total: 0,
-                };
-            }
+        const orderIds = orderRows.map((row) => row.id);
+        const itemRows = await knex('order_items')
+            .select('order_id', 'product_id', 'size_id', 'quantity', 'price')
+            .whereIn('order_id', orderIds);
 
-            grouped[row.order_id].items.push({
-                productName: row.product_name,
-                sizeLabel: row.size_label,
-                quantity: row.quantity,
-                price: Number(row.price),
+        const items = await buildOrderItems(itemRows);
+
+        const grouped: Record<number, OrderSummary> = {};
+
+        for (const order of orderRows) {
+            grouped[order.id] = {
+                id: order.id,
+                status: order.status,
+                createdAt: order.created_at.toISOString(),
+                items: [],
+                total: 0,
+            };
+        }
+
+        for (const item of items) {
+            const entry = grouped[item.orderId];
+            if (!entry) continue;
+            entry.items.push({
+                productName: item.productName,
+                sizeLabel: item.sizeLabel,
+                quantity: item.quantity,
+                price: item.price,
             });
-            grouped[row.order_id].total += Number(row.price) * row.quantity;
+            entry.total += item.price * item.quantity;
         }
 
         return Object.values(grouped);

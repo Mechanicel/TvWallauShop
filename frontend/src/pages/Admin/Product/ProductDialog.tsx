@@ -150,7 +150,7 @@ const ProductDialog: React.FC<ProductDialogProps> = ({
                   <InputTextarea
                      id="description"
                      rows={3}
-                     value={product.description}
+                     value={product.description ?? ''}
                      onChange={(e) => updateField('description', e.target.value)}
                   />
                </div>

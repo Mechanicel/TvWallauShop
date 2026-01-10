@@ -4,7 +4,7 @@
 import { Request, Response, NextFunction, RequestHandler } from 'express';
 import jwt, { JwtPayload, TokenExpiredError } from 'jsonwebtoken';
 import { userService } from '../services/userService';
-import { UserRole } from '../models/userModel';
+import type { UserRole } from '@tvwallaushop/contracts';
 
 const ACCESS_TOKEN_SECRET = process.env.JWT_SECRET!;
 if (!ACCESS_TOKEN_SECRET) {

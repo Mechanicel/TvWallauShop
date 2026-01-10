@@ -1,21 +1,16 @@
 // frontend/src/services/orderService.ts
 
 import api from './api';
-import type {
-   InsufficientStockResponse,
-   OrderDetailResponse,
-   OrderExtended,
-   OrderMe,
-   PlaceOrderPayload,
-} from '@/type/order';
+import type { InsufficientStockResponse, Order, OrderSummary } from '@tvwallaushop/contracts';
+import type { PlaceOrderPayload } from '@/type/order';
 
 // Alle Orders laden (Admin)
-const getOrders = async (): Promise<OrderExtended[]> => {
+const getOrders = async (): Promise<Order[]> => {
    const { data } = await api.get('/orders');
    return data;
 };
 
-const updateOrderStatus = async (orderId: number, status: string): Promise<OrderExtended> => {
+const updateOrderStatus = async (orderId: number, status: string): Promise<Order> => {
    const { data } = await api.put(`/orders/${orderId}/status`, { status });
    return data;
 };
@@ -25,25 +20,25 @@ const deleteOrder = async (orderId: number): Promise<void> => {
 };
 
 // ✅ NEU: eigene Orders laden
-const getMyOrders = async (): Promise<OrderMe[]> => {
+const getMyOrders = async (): Promise<OrderSummary[]> => {
    const { data } = await api.get('/orders/me');
    return data;
 };
 
 // ✅ NEU: Order Detail laden
-const getOrderById = async (orderId: number): Promise<OrderDetailResponse> => {
+const getOrderById = async (orderId: number): Promise<Order> => {
    const { data } = await api.get(`/orders/${orderId}`);
    return data;
 };
 
 // ✅ NEU: eigene Order stornieren
-const cancelMyOrder = async (orderId: number): Promise<OrderMe> => {
+const cancelMyOrder = async (orderId: number): Promise<OrderSummary> => {
    const { data } = await api.post(`/orders/me/${orderId}/cancel`);
    return data;
 };
 
 // Neue Bestellung anlegen
-export const placeOrder = async (payload: PlaceOrderPayload): Promise<OrderExtended> => {
+export const placeOrder = async (payload: PlaceOrderPayload): Promise<Order> => {
    const { data } = await api.post('/orders', payload);
 
    // Backend liefert Business-Fehler INSF jetzt mit HTTP 200 und Payload
@@ -64,7 +59,7 @@ export const placeOrder = async (payload: PlaceOrderPayload): Promise<OrderExten
    }
 
    // Erfolgsfall: Backend liefert wie bisher direkt die Order zurück
-   return data as OrderExtended;
+   return data as Order;
 };
 
 const orderService = {

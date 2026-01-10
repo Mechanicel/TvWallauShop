@@ -1,26 +1,10 @@
 // frontend/src/type/order.ts
+import type { InsufficientStockResponse, Order, OrderSummary } from '@tvwallaushop/contracts';
 
-import { User } from './user';
-
-export interface OrderItem {
-   productId: number;
-   productName: string;
-   sizeId: number;
-   sizeLabel: string;
-   quantity: number;
-   price: number;
-}
-
-export interface OrderExtended {
-   id: number;
-   user: User;
-   status: 'Bestellt' | 'Bezahlt' | 'Storniert';
-   createdAt: string; // ISO-String des Zeitpunkts
-   items: OrderItem[]; // Alle Line-Items dieser Bestellung
-}
+export type { InsufficientStockResponse, Order, OrderSummary };
 
 export type OrdersState = {
-   items: OrderExtended[];
+   items: Order[];
    loading: boolean;
    error: string | null;
 };
@@ -48,46 +32,4 @@ export interface PlaceOrderPayload {
       price: number;
       sizeId?: number;
    }[];
-}
-
-// Response-Form für den fachlichen Fehler "INSUFFICIENT_STOCK"
-export interface InsufficientStockResponseDetails {
-   productId: number;
-   sizeId: number | null;
-   available: number;
-   requested: number;
-}
-
-export interface InsufficientStockResponse {
-   success?: false;
-   code: 'INSUFFICIENT_STOCK';
-   message?: string;
-   details?: InsufficientStockResponseDetails | InsufficientStockResponseDetails[];
-}
-
-/** User-Order (me) – minimaler Shape wie dein /orders/me Endpoint */
-export interface OrderMeItem {
-   productName: string;
-   sizeLabel: string;
-   quantity: number;
-   price: number;
-}
-
-export interface OrderMe {
-   id: number;
-   status: string;
-   createdAt: string;
-   items: OrderMeItem[];
-   total: number;
-}
-
-/** Detail (GET /orders/:id) – kommt bei dir inkl. total */
-export interface OrderDetailResponse {
-   id: number;
-   status: string;
-   createdAt: string;
-   items: OrderMeItem[];
-   total: number;
-   // user wird ggf. mitgeliefert (backend), brauchen wir hier nicht zwingend
-   user?: any;
 }

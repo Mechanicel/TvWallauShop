@@ -36,14 +36,16 @@ const UserEditDialog: React.FC<UserEditDialogProps> = ({ visible, user, onHide }
 
       const {
          id,
-         first_name,
-         last_name,
+         firstName,
+         lastName,
          email,
          phone,
          role,
+         accountStatus,
+         loyaltyPoints,
          street,
-         house_number,
-         postal_code,
+         houseNumber,
+         postalCode,
          city,
          country,
          shippingStreet,
@@ -52,8 +54,8 @@ const UserEditDialog: React.FC<UserEditDialogProps> = ({ visible, user, onHide }
          shippingCity,
          shippingState,
          shippingCountry,
-         preferred_payment,
-         newsletter_opt_in,
+         preferredPayment,
+         newsletterOptIn,
          dateOfBirth,
          gender,
       } = draft;
@@ -62,27 +64,28 @@ const UserEditDialog: React.FC<UserEditDialogProps> = ({ visible, user, onHide }
          updateUserById({
             id,
             changes: {
-               // Felder für das Backend (snake_case)
-               first_name,
-               last_name,
+               firstName,
+               lastName,
                email,
                phone,
                role,
                street,
-               house_number,
-               postal_code,
+               houseNumber,
+               postalCode,
                city,
                country,
-               shipping_street: shippingStreet,
-               shipping_house_number: shippingHouseNumber,
-               shipping_postal_code: shippingPostalCode,
-               shipping_city: shippingCity,
-               shipping_state: shippingState,
-               shipping_country: shippingCountry,
-               preferred_payment,
-               newsletter_opt_in,
-               date_of_birth: dateOfBirth,
+               shippingStreet,
+               shippingHouseNumber,
+               shippingPostalCode,
+               shippingCity,
+               shippingState,
+               shippingCountry,
+               preferredPayment,
+               newsletterOptIn,
+               dateOfBirth,
                gender,
+               accountStatus,
+               loyaltyPoints,
                // optional – nur wenn in DB + allowedFields vorhanden:
                // loyalty_points: loyaltyPoints,
                // account_status: accountStatus,
@@ -117,16 +120,16 @@ const UserEditDialog: React.FC<UserEditDialogProps> = ({ visible, user, onHide }
                   <label htmlFor="first_name">Vorname</label>
                   <InputText
                      id="first_name"
-                     value={draft.first_name || ''}
-                     onChange={(e) => handleFieldChange('first_name', e.target.value)}
+                     value={draft.firstName || ''}
+                     onChange={(e) => handleFieldChange('firstName', e.target.value)}
                   />
                </div>
                <div className="p-field p-col-12 p-md-6">
                   <label htmlFor="last_name">Nachname</label>
                   <InputText
                      id="last_name"
-                     value={draft.last_name || ''}
-                     onChange={(e) => handleFieldChange('last_name', e.target.value)}
+                     value={draft.lastName || ''}
+                     onChange={(e) => handleFieldChange('lastName', e.target.value)}
                   />
                </div>
                <div className="p-field p-col-12 p-md-6">
@@ -165,8 +168,8 @@ const UserEditDialog: React.FC<UserEditDialogProps> = ({ visible, user, onHide }
                      value={draft.accountStatus}
                      options={[
                         { label: 'Aktiv', value: 'active' },
-                        { label: 'Gesperrt', value: 'blocked' },
-                        { label: 'Inaktiv', value: 'inactive' },
+                        { label: 'Gesperrt', value: 'suspended' },
+                        { label: 'Gelöscht', value: 'deleted' },
                      ]}
                      onChange={(e) => handleFieldChange('accountStatus', e.value)}
                      style={{ width: '100%' }}
@@ -186,16 +189,16 @@ const UserEditDialog: React.FC<UserEditDialogProps> = ({ visible, user, onHide }
                   <label htmlFor="house_number">Hausnr.</label>
                   <InputText
                      id="house_number"
-                     value={draft.house_number || ''}
-                     onChange={(e) => handleFieldChange('house_number', e.target.value)}
+                     value={draft.houseNumber || ''}
+                     onChange={(e) => handleFieldChange('houseNumber', e.target.value)}
                   />
                </div>
                <div className="p-field p-col-12 p-md-4">
                   <label htmlFor="postal_code">PLZ</label>
                   <InputText
                      id="postal_code"
-                     value={draft.postal_code || ''}
-                     onChange={(e) => handleFieldChange('postal_code', e.target.value)}
+                     value={draft.postalCode || ''}
+                     onChange={(e) => handleFieldChange('postalCode', e.target.value)}
                   />
                </div>
                <div className="p-field p-col-12 p-md-4">
@@ -262,15 +265,15 @@ const UserEditDialog: React.FC<UserEditDialogProps> = ({ visible, user, onHide }
                   <label htmlFor="preferred_payment">Bevorzugte Zahlung</label>
                   <InputText
                      id="preferred_payment"
-                     value={draft.preferred_payment || ''}
-                     onChange={(e) => handleFieldChange('preferred_payment', e.target.value)}
+                     value={draft.preferredPayment || ''}
+                     onChange={(e) => handleFieldChange('preferredPayment', e.target.value)}
                   />
                </div>
                <div className="p-field-checkbox p-col-12 p-md-6 user-edit-dialog__newsletter">
                   <Checkbox
                      inputId="newsletter"
-                     checked={!!draft.newsletter_opt_in}
-                     onChange={(e) => handleFieldChange('newsletter_opt_in', e.checked)}
+                     checked={!!draft.newsletterOptIn}
+                     onChange={(e) => handleFieldChange('newsletterOptIn', e.checked)}
                   />
                   <label htmlFor="newsletter">Newsletter erhalten</label>
                </div>

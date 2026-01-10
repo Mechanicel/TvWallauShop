@@ -8,9 +8,9 @@ import { resolveImageUrl } from '@/utils/imageUrl';
 type ProductCardProps = {
    id: number;
    name: string;
-   description: string;
+   description: string | null;
    price: number;
-   imageUrl: string;
+   imageUrl: string | null;
 };
 
 export const ProductCard: React.FC<ProductCardProps> = ({ id, name, description, price, imageUrl }) => {
@@ -51,7 +51,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ id, name, description,
                   textOverflow: 'ellipsis',
                }}
             >
-               {description}
+               {description ?? ''}
             </p>
          </div>
          <div

@@ -17,14 +17,14 @@ import {
    selectOrders,
    selectOrderLoading,
 } from '@/store/slices/orderSlice';
-import type { OrderExtended } from '@/type/order';
+import type { Order } from '@tvwallaushop/contracts';
 
 import './ManageOrders.css';
 import { mapApiUserToUser } from '@/utils/helpers';
 import OrderEditDialog, { OrderStatus } from './OrderEditDialog';
 
 // 🔹 Hilfsfunktion: Gesamtpreis berechnen
-function calculateTotal(items: OrderExtended['items']): number {
+function calculateTotal(items: Order['items']): number {
    return items.reduce((sum, it) => sum + Number(it.price) * Number(it.quantity), 0);
 }
 
@@ -42,7 +42,7 @@ export const ManageOrders: React.FC = () => {
 
    // Dialog-State für Order-Edit
    const [editDialogVisible, setEditDialogVisible] = useState(false);
-   const [editingOrder, setEditingOrder] = useState<OrderExtended | null>(null);
+   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
 
    useEffect(() => {
       dispatch(fetchOrders());
@@ -63,7 +63,7 @@ export const ManageOrders: React.FC = () => {
       dispatch(deleteOrder(id));
    };
 
-   const openEditDialog = (order: OrderExtended) => {
+   const openEditDialog = (order: Order) => {
       setEditingOrder(order);
       setEditDialogVisible(true);
    };
@@ -130,13 +130,13 @@ export const ManageOrders: React.FC = () => {
       createdAt: { value: dateRange, matchMode: FilterMatchMode.BETWEEN },
    };
 
-   const rowExpansionTemplate = (order: OrderExtended) => {
+   const rowExpansionTemplate = (order: Order) => {
       const user = mapApiUserToUser(order.user);
 
       const addressParts: string[] = [];
-      const line1 = [user.street, user.house_number].filter(Boolean).join(' ');
+      const line1 = [user.street, user.houseNumber].filter(Boolean).join(' ');
       if (line1) addressParts.push(line1);
-      const line2 = [user.postal_code, user.city].filter(Boolean).join(' ');
+      const line2 = [user.postalCode, user.city].filter(Boolean).join(' ');
       if (line2) addressParts.push(line2);
       if (user.country) addressParts.push(user.country);
       const address = addressParts.join(', ');
@@ -157,7 +157,7 @@ export const ManageOrders: React.FC = () => {
                      </li>
                      <li>
                         <span>Name</span>
-                        <span>{[user.first_name, user.last_name].filter(Boolean).join(' ')}</span>
+                        <span>{[user.firstName, user.lastName].filter(Boolean).join(' ')}</span>
                      </li>
                      {user.phone && (
                         <li>
@@ -175,7 +175,7 @@ export const ManageOrders: React.FC = () => {
                      </li>
                      <li>
                         <span>Zahlung</span>
-                        <span>{user.preferred_payment || '–'}</span>
+                        <span>{user.preferredPayment || '–'}</span>
                      </li>
                      <li>
                         <span>Treuepunkte</span>
@@ -244,9 +244,9 @@ export const ManageOrders: React.FC = () => {
             <Column
                header="Name"
                sortable
-               body={(row: OrderExtended) => {
+                  body={(row: Order) => {
                   const user = mapApiUserToUser(row.user);
-                  return [user.first_name, user.last_name].filter(Boolean).join(' ');
+                     return [user.firstName, user.lastName].filter(Boolean).join(' ');
                }}
             />
             <Column field="user.role" header="Rolle" sortable />
@@ -254,7 +254,7 @@ export const ManageOrders: React.FC = () => {
                field="status"
                header="Status"
                sortable
-               body={(row: OrderExtended) => (
+               body={(row: Order) => (
                   <span className={`badge badge--${row.status?.toLowerCase()}`}>{row.status}</span>
                )}
             />
@@ -262,12 +262,12 @@ export const ManageOrders: React.FC = () => {
                field="createdAt"
                header="Datum"
                sortable
-               body={(row: OrderExtended) => new Date(row.createdAt).toLocaleDateString('de-DE')}
+               body={(row: Order) => new Date(row.createdAt).toLocaleDateString('de-DE')}
             />
             <Column
                header="Aktionen"
                style={{ width: '14rem' }}
-               body={(row: OrderExtended) => (
+               body={(row: Order) => (
                   <div className="row-actions">
                      <Button
                         icon="pi pi-cog"

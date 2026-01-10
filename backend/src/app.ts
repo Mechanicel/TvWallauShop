@@ -3,24 +3,30 @@
 
 import express from 'express';
 import cookieParser from 'cookie-parser';
+import cors from 'cors';
 import morgan from 'morgan';
-import path from 'path';
-
-import authRoutes from './routes/authRoutes';
-import userRoutes from './routes/userRoutes';
-import productRoutes from './routes/productRoutes';
-import orderRoutes from './routes/orderRoutes';
-import aiRoutes from './routes/aiRoutes';
+import gatewayApp from './gateway/app';
+import { API_BASE_PATH } from './contracts';
 import { errorHandler } from './middlewares/errorHandler';
 
 const ENABLE_ROUTE_LOGS = process.env.ENABLE_ROUTE_LOGS === 'true';
 const DEBUG_ROUTES = process.env.DEBUG_ROUTES === 'true';
+const APP_ORIGINS = (process.env.APP_ORIGIN || 'http://localhost:3001')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
 
 const app = express();
 
 // --------------------
 // 🛠 Middlewares
 // --------------------
+app.use(
+    cors({
+        origin: APP_ORIGINS,
+        credentials: true,
+    }),
+);
 app.use(express.json());
 app.use(cookieParser());
 
@@ -34,43 +40,19 @@ app.get('/health', (_req, res) => {
 });
 
 // --------------------
-// 🔑 Auth Routes (public)
+// 🚪 API Gateway Routes
 // --------------------
-app.use('/api/auth', authRoutes);
-
-// --------------------
-// 👥 User Routes (protected)
-// --------------------
-app.use('/api/users', userRoutes);
-
-// --------------------
-// 🛒 Product Routes (public + admin-protected)
-// --------------------
-app.use('/api/products', productRoutes);
-
-// >>> Statische Auslieferung der Uploads
-const uploadsPath = path.join(__dirname, '..', 'uploads');
-app.use('/uploads', express.static(uploadsPath));
-
-// --------------------
-// 📦 Order Routes (protected)
-// --------------------
-app.use('/api/orders', orderRoutes);
-
-// --------------------
-// 🤖 AI Routes
-// --------------------
-app.use('/api/ai', aiRoutes);
+app.use(gatewayApp);
 
 // --------------------
 // ⚙️ Debug Routes
 // --------------------
 if (DEBUG_ROUTES) {
-    app.get('/api/debug/ping', (req, res) => {
+    app.get(`${API_BASE_PATH}/debug/ping`, (req, res) => {
         res.json({ status: 'ok', env: process.env.NODE_ENV });
     });
 
-    app.get('/api/debug/routes', (req, res) => {
+    app.get(`${API_BASE_PATH}/debug/routes`, (req, res) => {
         const routes: string[] = [];
         // @ts-ignore – Express intern
         app._router.stack.forEach((middleware: any) => {

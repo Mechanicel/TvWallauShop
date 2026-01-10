@@ -1,47 +1,7 @@
 // frontend/src/services/authService.ts
 
 import api from './api';
-import { User } from '@/type/user';
-
-export interface LoginCredentials {
-   email: string;
-   password: string;
-}
-
-export interface SignupPayload {
-   firstName: string;
-   lastName: string;
-   email: string;
-   password: string;
-   phone?: string;
-   // Billing (Pflicht)
-   street: string;
-   houseNumber: string;
-   postalCode: string;
-   city: string;
-   country: string;
-   // Shipping (optional)
-   state?: string;
-   shippingStreet?: string;
-   shippingHouseNumber?: string;
-   shippingPostalCode?: string;
-   shippingCity?: string;
-   shippingState?: string;
-   shippingCountry?: string;
-   // Payment / Marketing
-   preferredPayment?: string;
-   newsletterOptIn?: boolean;
-   // Optional Profile
-   dateOfBirth?: Date | null;
-   gender?: string;
-}
-
-export interface AuthResponse {
-   accessToken: string;
-   user: User;
-   // Falls dein Backend zusätzlich refreshToken zurückgibt, ist das kein Problem:
-   // refreshToken?: string;
-}
+import type { AuthResponse, LoginCredentials, RefreshResponse, SignupPayload } from '@tvwallaushop/contracts';
 
 /**
  * AuthService kümmert sich nur um die Kommunikation mit dem Backend.
@@ -79,8 +39,8 @@ const authService = {
     * Holt mit Hilfe des httpOnly-Refresh-Cookies einen neuen Access-Token.
     * Der Refresh-Token wird NICHT im Body gesendet.
     */
-   async refresh(): Promise<{ accessToken: string }> {
-      const response = await api.post<{ accessToken: string }>('/auth/refresh', undefined, {
+   async refresh(): Promise<RefreshResponse> {
+      const response = await api.post<RefreshResponse>('/auth/refresh', undefined, {
          withCredentials: true,
       });
       return response.data;

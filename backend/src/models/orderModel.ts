@@ -27,30 +27,3 @@ export interface OrdersByUserRow {
     quantity: number;
     price: number | string;
 }
-export interface Order {
-    id: number;
-    status: string;
-    createdAt: Date;
-    user: {
-        id: number;
-        email: string;
-        firstName: string;
-        lastName: string;
-        phone: string | null;
-        role: 'customer' | 'admin';
-        createdAt: Date;
-    };
-    items: OrderItem[];
-    total: number;
-}
-
-export interface OrderItem {
-    id: string; // synthetische ID: orderId-productId-sizeId
-    orderId: number;
-    productId: number;
-    productName: string;
-    sizeId: number;
-    sizeLabel: string;
-    quantity: number;
-    price: number;
-}

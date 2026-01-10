@@ -5,15 +5,17 @@
 // - Tags werden in tags/product_tags gespeichert und als string[] zurückgegeben.
 
 import { knex } from '../database';
+import type { Knex } from 'knex';
+import { InsufficientStockError } from '../errors/InsufficientStockError';
 import path from 'path';
 import fs from 'fs';
+import type { Product, ProductImage, ProductSize } from '@tvwallaushop/contracts';
 import {
-    Product,
-    ProductImage,
     ProductImageRow,
     ProductQuery,
     ProductRow,
-    ProductSize, ProductSizeInput,
+    ProductSizeInput,
+    ProductSizeRow,
 } from '../models/productModel';
 
 function mapProductRow(row: ProductRow): Product {
@@ -23,14 +25,14 @@ function mapProductRow(row: ProductRow): Product {
         description: row.description ?? null,
         price: Number(row.price),
         imageUrl: row.image_url ?? null,
-        createdAt: row.created_at,
+        createdAt: row.created_at ? row.created_at.toISOString() : null,
         sizes: [],
         images: [],
         tags: [], // wird später gefüllt
     };
 }
 
-function mapSizeRow(row: ProductSize): ProductSize {
+function mapSizeRow(row: ProductSizeRow): ProductSize {
     return {
         id: row.id,
         label: row.label,
@@ -204,6 +206,81 @@ export const productService = {
         }
 
         return products;
+    },
+
+    async getProductPricingByIds(
+        productIds: number[],
+        db?: Knex | Knex.Transaction
+    ): Promise<Map<number, { price: number; name: string }>> {
+        if (productIds.length === 0) return new Map();
+        const rows = await (db ?? knex)('products')
+            .select<{ id: number; price: number | string; name: string }[]>('id', 'price', 'name')
+            .whereIn('id', productIds);
+
+        return new Map(
+            rows.map((row) => [Number(row.id), { price: Number(row.price), name: row.name }]),
+        );
+    },
+
+    async getProductNamesByIds(
+        productIds: number[],
+        db?: Knex | Knex.Transaction
+    ): Promise<Map<number, string>> {
+        if (productIds.length === 0) return new Map();
+        const rows = await (db ?? knex)('products')
+            .select<{ id: number; name: string }[]>('id', 'name')
+            .whereIn('id', productIds);
+        return new Map(rows.map((row) => [Number(row.id), row.name]));
+    },
+
+    async getSizeLabelsByIds(
+        sizeIds: number[],
+        db?: Knex | Knex.Transaction
+    ): Promise<Map<number, string>> {
+        if (sizeIds.length === 0) return new Map();
+        const rows = await (db ?? knex)('sizes')
+            .select<{ id: number; label: string }[]>('id', 'label')
+            .whereIn('id', sizeIds);
+        return new Map(rows.map((row) => [Number(row.id), row.label]));
+    },
+
+    async reserveStock(
+        items: Array<{ productId: number; sizeId: number; quantity: number }>,
+        db: Knex.Transaction,
+    ): Promise<void> {
+        for (const { productId, sizeId, quantity } of items) {
+            const stockRow = await db('product_sizes')
+                .where({ product_id: productId, size_id: sizeId })
+                .forUpdate()
+                .first();
+
+            if (!stockRow) {
+                throw Object.assign(
+                    new Error(`Lagerbestand für Produkt ${productId}, Größe ${sizeId} nicht gefunden`),
+                    { status: 400 },
+                );
+            }
+
+            const available = Number(stockRow.stock);
+            if (available < quantity) {
+                throw new InsufficientStockError(productId, sizeId ?? null, available, quantity);
+            }
+
+            await db('product_sizes')
+                .where({ product_id: productId, size_id: sizeId })
+                .decrement('stock', quantity);
+        }
+    },
+
+    async restockItems(
+        items: Array<{ productId: number; sizeId: number; quantity: number }>,
+        db: Knex.Transaction,
+    ): Promise<void> {
+        for (const { productId, sizeId, quantity } of items) {
+            await db('product_sizes')
+                .where({ product_id: productId, size_id: sizeId })
+                .increment('stock', quantity);
+        }
     },
 
     // Einzelnes Produkt inkl. Sizes, Images und Tags
