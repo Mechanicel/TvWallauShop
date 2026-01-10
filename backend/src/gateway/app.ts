@@ -49,14 +49,28 @@ const respondWithDocs = (
  * /docs:
  *   get:
  *     tags: [Gateway]
- *     summary: Gateway OpenAPI spec.
- *     description: Returns the OpenAPI specification for the gateway service.
+ *     summary: Combined OpenAPI spec.
+ *     description: Returns the OpenAPI specification containing all service endpoints.
  *     responses:
  *       200:
- *         description: Gateway OpenAPI document.
+ *         description: Combined OpenAPI document.
  */
 docsRouter.get('/docs', (req, res) => {
-    respondWithDocs(req, res, gatewayOpenApi, '/docs', '/docs/ui');
+    respondWithDocs(req, res, allServicesOpenApi, '/docs', '/docs/ui');
+});
+/**
+ * @openapi
+ * /docs/all:
+ *   get:
+ *     tags: [Gateway]
+ *     summary: Combined OpenAPI spec.
+ *     description: Returns the OpenAPI specification containing all service endpoints.
+ *     responses:
+ *       200:
+ *         description: Combined OpenAPI document.
+ */
+docsRouter.get('/docs/all', (req, res) => {
+    respondWithDocs(req, res, allServicesOpenApi, '/docs/all', '/docs/ui');
 });
 /**
  * @openapi
@@ -114,6 +128,20 @@ docsRouter.get('/docs/orders', (req, res) => {
 docsRouter.get('/docs/ai', (req, res) => {
     respondWithDocs(req, res, aiOpenApi, '/docs/ai', '/docs/ui');
 });
+/**
+ * @openapi
+ * /docs/gateway:
+ *   get:
+ *     tags: [Gateway]
+ *     summary: Gateway OpenAPI spec.
+ *     description: Returns the OpenAPI specification for the gateway service.
+ *     responses:
+ *       200:
+ *         description: Gateway OpenAPI document.
+ */
+docsRouter.get('/docs/gateway', (req, res) => {
+    respondWithDocs(req, res, gatewayOpenApi, '/docs/gateway', '/docs/ui/gateway');
+});
 
 docsRouter.use(
     '/docs/ui/auth',
@@ -148,10 +176,18 @@ docsRouter.use(
     })
 );
 docsRouter.use(
-    '/docs/ui',
+    '/docs/ui/gateway',
     swaggerUi.serveFiles(gatewayOpenApi),
     swaggerUi.setup(gatewayOpenApi, {
-        customSiteTitle: 'TV Wallau Shop API Docs',
+        customSiteTitle: 'Gateway API Docs',
+        explorer: true,
+    })
+);
+docsRouter.use(
+    '/docs/ui',
+    swaggerUi.serveFiles(allServicesOpenApi),
+    swaggerUi.setup(allServicesOpenApi, {
+        customSiteTitle: 'TV Wallau Shop API Docs (All Services)',
         explorer: true,
     })
 );
