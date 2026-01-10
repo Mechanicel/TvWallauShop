@@ -159,18 +159,24 @@ export const productService = {
     // Liste mit optionalen Filtern (q, minPrice, maxPrice).
     // Jetzt IMMER inkl. sizes, images und tags.
     async getAllProducts(query: ProductQuery = {}): Promise<Product[]> {
-        const { q, minPrice, maxPrice } = query;
+        const { q, minPrice, maxPrice, limit } = query;
 
         let sql = knex<ProductRow>('products').select('*');
 
         if (q && String(q).trim()) {
-            sql = sql.where('name', 'like', `%${String(q).trim()}%`);
+            const searchValue = `%${String(q).trim()}%`;
+            sql = sql.where((builder) => {
+                builder.where('name', 'like', searchValue).orWhere('description', 'like', searchValue);
+            });
         }
         if (minPrice !== undefined && !Number.isNaN(Number(minPrice))) {
             sql = sql.andWhere('price', '>=', Number(minPrice));
         }
         if (maxPrice !== undefined && !Number.isNaN(Number(maxPrice))) {
             sql = sql.andWhere('price', '<=', Number(maxPrice));
+        }
+        if (limit !== undefined && Number.isFinite(Number(limit)) && Number(limit) > 0) {
+            sql = sql.limit(Math.floor(Number(limit)));
         }
 
         const productRows = await sql.orderBy('id', 'asc');

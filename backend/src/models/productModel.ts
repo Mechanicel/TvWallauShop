@@ -26,6 +26,7 @@ export interface ProductQuery {
     q?: string;
     minPrice?: string | number;
     maxPrice?: string | number;
+    limit?: string | number;
 }
 // kleiner Helper-Typ: wir brauchen nur label + stock für die Speicherung
 export type ProductSizeInput = {

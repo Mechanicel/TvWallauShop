@@ -3,12 +3,19 @@
 import api from './api';
 import type { CreateProductAiJobParams, Product, ProductAiJob, ProductPayload } from '@/type/product';
 
+type ProductQueryParams = {
+   q?: string;
+   minPrice?: number;
+   maxPrice?: number;
+   limit?: number;
+};
+
 /* ============================================================================
  *  Standard Produkt-Endpunkte
  * ========================================================================== */
 
-const getProducts = async (): Promise<Product[]> => {
-   const { data } = await api.get('/products');
+const getProducts = async (params?: ProductQueryParams): Promise<Product[]> => {
+   const { data } = await api.get('/products', { params });
    return data;
 };
 
