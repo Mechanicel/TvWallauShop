@@ -5,6 +5,7 @@ import express from 'express';
 import cookieParser from 'cookie-parser';
 import morgan from 'morgan';
 import gatewayApp from './gateway/app';
+import { API_BASE_PATH } from './contracts';
 import { errorHandler } from './middlewares/errorHandler';
 
 const ENABLE_ROUTE_LOGS = process.env.ENABLE_ROUTE_LOGS === 'true';
@@ -36,11 +37,11 @@ app.use(gatewayApp);
 // ⚙️ Debug Routes
 // --------------------
 if (DEBUG_ROUTES) {
-    app.get('/api/debug/ping', (req, res) => {
+    app.get(`${API_BASE_PATH}/debug/ping`, (req, res) => {
         res.json({ status: 'ok', env: process.env.NODE_ENV });
     });
 
-    app.get('/api/debug/routes', (req, res) => {
+    app.get(`${API_BASE_PATH}/debug/routes`, (req, res) => {
         const routes: string[] = [];
         // @ts-ignore – Express intern
         app._router.stack.forEach((middleware: any) => {
