@@ -1,7 +1,8 @@
 // backend/src/services/userService.ts
 // Erweiterung um Shop-relevante Felder – minimal-invasiv
 
-import {knex} from '../database';
+import { knex } from '../database';
+import type { Knex } from 'knex';
 import {
     User,
     UserRole,
@@ -94,6 +95,8 @@ type PreferencesUpdateRow = {
     preferred_payment: PaymentMethod;
 };
 
+const getDb = (db?: Knex | Knex.Transaction) => db ?? knex;
+
 export const userService = {
     async changePassword(
         userId: number,
@@ -135,17 +138,23 @@ export const userService = {
         await knex<User>('users').where({id: userId}).delete();
     },
 
-    async getAllUsers(): Promise<UserView[]> {
-        const rows = await knex<User>('users').select('*');
+    async getAllUsers(db?: Knex | Knex.Transaction): Promise<UserView[]> {
+        const rows = await getDb(db)<User>('users').select('*');
         return rows.map(mapUserRow);
     },
 
-    async getUserById(id: number): Promise<UserView> {
-        const row = await knex<User>('users').where({id}).first();
+    async getUserById(id: number, db?: Knex | Knex.Transaction): Promise<UserView> {
+        const row = await getDb(db)<User>('users').where({ id }).first();
         if (!row) {
-            throw Object.assign(new Error('User not found'), {status: 404});
+            throw Object.assign(new Error('User not found'), { status: 404 });
         }
         return mapUserRow(row);
+    },
+
+    async getUsersByIds(ids: number[], db?: Knex | Knex.Transaction): Promise<UserView[]> {
+        if (ids.length === 0) return [];
+        const rows = await getDb(db)<User>('users').whereIn('id', ids).select('*');
+        return rows.map(mapUserRow);
     },
 
     async deleteUserTokens(userId: number): Promise<void> {

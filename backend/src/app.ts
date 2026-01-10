@@ -4,13 +4,7 @@
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import morgan from 'morgan';
-import path from 'path';
-
-import authRoutes from './routes/authRoutes';
-import userRoutes from './routes/userRoutes';
-import productRoutes from './routes/productRoutes';
-import orderRoutes from './routes/orderRoutes';
-import aiRoutes from './routes/aiRoutes';
+import gatewayApp from './gateway/app';
 import { errorHandler } from './middlewares/errorHandler';
 
 const ENABLE_ROUTE_LOGS = process.env.ENABLE_ROUTE_LOGS === 'true';
@@ -34,33 +28,9 @@ app.get('/health', (_req, res) => {
 });
 
 // --------------------
-// 🔑 Auth Routes (public)
+// 🚪 API Gateway Routes
 // --------------------
-app.use('/api/auth', authRoutes);
-
-// --------------------
-// 👥 User Routes (protected)
-// --------------------
-app.use('/api/users', userRoutes);
-
-// --------------------
-// 🛒 Product Routes (public + admin-protected)
-// --------------------
-app.use('/api/products', productRoutes);
-
-// >>> Statische Auslieferung der Uploads
-const uploadsPath = path.join(__dirname, '..', 'uploads');
-app.use('/uploads', express.static(uploadsPath));
-
-// --------------------
-// 📦 Order Routes (protected)
-// --------------------
-app.use('/api/orders', orderRoutes);
-
-// --------------------
-// 🤖 AI Routes
-// --------------------
-app.use('/api/ai', aiRoutes);
+app.use(gatewayApp);
 
 // --------------------
 // ⚙️ Debug Routes
