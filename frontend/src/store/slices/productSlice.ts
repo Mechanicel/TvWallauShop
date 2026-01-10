@@ -34,11 +34,18 @@ const toErrorMessage = (err: unknown): string => {
 
 // --- Thunks ---
 
-export const fetchProducts = createAsyncThunk<Product[], void, { rejectValue: string }>(
+type ProductQueryParams = {
+   q?: string;
+   minPrice?: number;
+   maxPrice?: number;
+   limit?: number;
+};
+
+export const fetchProducts = createAsyncThunk<Product[], ProductQueryParams | undefined, { rejectValue: string }>(
    'product/fetchAll',
-   async (_, { rejectWithValue }) => {
+   async (params, { rejectWithValue }) => {
       try {
-         return await productService.getProducts();
+         return await productService.getProducts(params);
       } catch (err) {
          return rejectWithValue(toErrorMessage(err));
       }
