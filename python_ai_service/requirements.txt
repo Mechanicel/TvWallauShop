@@ -9,6 +9,8 @@ numpy
 # ML / Inference
 torch
 transformers
+openvino
+optimum-intel
 
 # needed by many HF tokenizers / models
 protobuf

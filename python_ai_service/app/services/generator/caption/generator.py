@@ -57,6 +57,12 @@ def generate_caption(path_or_urls: Union[str, Sequence[str]]) -> str:
     if not paths:
         return ""
 
+    max_images = int(getattr(settings, "CAPTION_MAX_IMAGES", 4))
+    if max_images > 0 and len(paths) > max_images:
+        if settings.DEBUG:
+            print(f"[DEBUG] CAPTION limiting images {len(paths)} -> {max_images}", flush=True)
+        paths = paths[:max_images]
+
     base_prompt = (getattr(settings, "CAPTION_PROMPT_PREFIX", None) or "a product photo of").strip()
 
     max_new_tokens = int(getattr(settings, "CAPTION_MAX_NEW_TOKENS", 24))
