@@ -100,7 +100,7 @@ export const ProductDetailPage: React.FC = () => {
    if (loading) return <p>Lädt…</p>;
    if (!product) return <p>Produkt nicht gefunden.</p>;
 
-   const images = product.images?.length ? product.images : [{ url: product.imageUrl }];
+   const images = product.images?.length ? product.images : [{ url: product.imageUrl ?? '' }];
    const mainImageSrc = resolveImageUrl(images[activeIndex].url);
 
    const sizeOptions = product.sizes.map((s: ProductSize) => ({

@@ -1,4 +1,4 @@
-import { User } from '@/type/user';
+import type { User } from '@/type/user';
 
 /**
  * Normalisiert die API-User-Objekte auf unseren Frontend-User-Typ.
@@ -23,18 +23,18 @@ export const mapApiUserToUser = (raw: any): User => {
       createdAt: raw.createdAt ?? raw.created_at ?? '',
 
       // Name
-      first_name: raw.first_name ?? raw.firstName ?? '',
-      last_name: raw.last_name ?? raw.lastName ?? '',
+      firstName: raw.firstName ?? raw.first_name ?? '',
+      lastName: raw.lastName ?? raw.last_name ?? '',
 
       // Kontakt
       phone: pick(raw.phone),
 
       // Rechnungsadresse (konsistent null)
       street: pick(raw.street),
-      house_number: pick(raw.house_number, raw.houseNumber),
-      postal_code: pick(raw.postal_code, raw.postalCode),
+      houseNumber: pick(raw.houseNumber, raw.house_number),
+      postalCode: pick(raw.postalCode, raw.postal_code),
       city: pick(raw.city),
-      state: pick(raw.state), // ✅ war bei dir der fehlende Teil
+      state: pick(raw.state),
       country: pick(raw.country),
 
       // Lieferadresse (konsistent null)
@@ -46,10 +46,10 @@ export const mapApiUserToUser = (raw: any): User => {
       shippingCountry: pick(raw.shippingCountry, raw.shipping_country),
 
       // Zahlungsinfo (konsistent null statt undefined)
-      preferred_payment: pick(raw.preferred_payment, raw.preferredPayment) as any,
+      preferredPayment: pick(raw.preferredPayment, raw.preferred_payment) as any,
 
       // Marketing
-      newsletter_opt_in: raw.newsletter_opt_in ?? raw.newsletterOptIn ?? false,
+      newsletterOptIn: raw.newsletterOptIn ?? raw.newsletter_opt_in ?? false,
       dateOfBirth: pick(raw.dateOfBirth, raw.date_of_birth),
       gender: pick(raw.gender),
 

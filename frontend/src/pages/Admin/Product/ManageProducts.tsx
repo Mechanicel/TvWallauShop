@@ -285,15 +285,17 @@ export const ManageProducts: React.FC = () => {
       if (!editingProduct) return;
 
       const { id, name, description, price, imageUrl, sizes, tags } = editingProduct;
+      const safeDescription = description ?? '';
+      const safeImageUrl = imageUrl ?? '';
       let productId: number | undefined;
 
       if (id != null) {
          const action = await dispatch(
-            updateProduct({ id, changes: { name, description, price, imageUrl, sizes, tags } }),
+            updateProduct({ id, changes: { name, description: safeDescription, price, imageUrl: safeImageUrl, sizes, tags } }),
          );
          productId = (action as any).payload?.id;
       } else {
-         const action = await dispatch(addProduct({ name, description, price, imageUrl, sizes, tags }));
+         const action = await dispatch(addProduct({ name, description: safeDescription, price, imageUrl: safeImageUrl, sizes, tags }));
          productId = (action as any).payload?.id;
       }
 

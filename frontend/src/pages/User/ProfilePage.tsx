@@ -12,18 +12,18 @@ import './ProfilePage.css';
 type PaymentValue = 'invoice' | 'paypal' | 'creditcard' | 'banktransfer';
 
 type FormState = {
-   first_name: string;
-   last_name: string;
+   firstName: string;
+   lastName: string;
    email: string;
    phone: string;
    street: string;
-   house_number: string;
-   postal_code: string;
+   houseNumber: string;
+   postalCode: string;
    city: string;
    state: string;
    country: string;
-   preferred_payment: PaymentValue | '';
-   newsletter_opt_in: boolean;
+   preferredPayment: PaymentValue | '';
+   newsletterOptIn: boolean;
 };
 
 const paymentOptions: Array<{ label: string; value: PaymentValue }> = [
@@ -34,34 +34,34 @@ const paymentOptions: Array<{ label: string; value: PaymentValue }> = [
 ];
 
 const emptyForm: FormState = {
-   first_name: '',
-   last_name: '',
+   firstName: '',
+   lastName: '',
    email: '',
    phone: '',
    street: '',
-   house_number: '',
-   postal_code: '',
+   houseNumber: '',
+   postalCode: '',
    city: '',
    state: '',
    country: '',
-   preferred_payment: '',
-   newsletter_opt_in: false,
+   preferredPayment: '',
+   newsletterOptIn: false,
 };
 
 function toForm(user: any): FormState {
    return {
-      first_name: user?.first_name ?? '',
-      last_name: user?.last_name ?? '',
+      firstName: user?.firstName ?? user?.first_name ?? '',
+      lastName: user?.lastName ?? user?.last_name ?? '',
       email: user?.email ?? '',
       phone: user?.phone ?? '',
       street: user?.street ?? '',
-      house_number: user?.house_number ?? '',
-      postal_code: user?.postal_code ?? '',
+      houseNumber: user?.houseNumber ?? user?.house_number ?? '',
+      postalCode: user?.postalCode ?? user?.postal_code ?? '',
       city: user?.city ?? '',
       state: user?.state ?? '',
       country: user?.country ?? '',
-      preferred_payment: (user?.preferred_payment as PaymentValue) ?? '',
-      newsletter_opt_in: !!user?.newsletter_opt_in,
+      preferredPayment: (user?.preferredPayment as PaymentValue) ?? '',
+      newsletterOptIn: !!user?.newsletterOptIn,
    };
 }
 
@@ -115,17 +115,17 @@ export const ProfilePage: React.FC = () => {
       if (!user) return;
 
       const payload = {
-         first_name: form.first_name.trim(),
-         last_name: form.last_name.trim(),
+         firstName: form.firstName.trim(),
+         lastName: form.lastName.trim(),
          phone: form.phone.trim(),
          street: form.street.trim(),
-         house_number: form.house_number.trim(),
-         postal_code: form.postal_code.trim(),
+         houseNumber: form.houseNumber.trim(),
+         postalCode: form.postalCode.trim(),
          city: form.city.trim(),
          state: form.state.trim(),
          country: form.country.trim(),
-         preferred_payment: form.preferred_payment || null,
-         newsletter_opt_in: !!form.newsletter_opt_in,
+         preferredPayment: form.preferredPayment || null,
+         newsletterOptIn: !!form.newsletterOptIn,
       };
 
       setSaving(true);
@@ -178,7 +178,7 @@ export const ProfilePage: React.FC = () => {
       );
    }
 
-   const preferredPaymentLabel = paymentOptions.find((o) => o.value === form.preferred_payment)?.label || '-';
+   const preferredPaymentLabel = paymentOptions.find((o) => o.value === form.preferredPayment)?.label || '-';
 
    return (
       <div className="profile-page">
@@ -211,15 +211,15 @@ export const ProfilePage: React.FC = () => {
                <div className="profile-grid">
                   <EditableField
                      label="Vorname"
-                     value={form.first_name}
+                     value={form.firstName}
                      edit={isEditing}
-                     onChange={(v) => handleChange('first_name', v)}
+                     onChange={(v) => handleChange('firstName', v)}
                   />
                   <EditableField
                      label="Nachname"
-                     value={form.last_name}
+                     value={form.lastName}
                      edit={isEditing}
-                     onChange={(v) => handleChange('last_name', v)}
+                     onChange={(v) => handleChange('lastName', v)}
                   />
                   <EditableField label="E-Mail" value={form.email} edit={false} />
                   <EditableField
@@ -242,15 +242,15 @@ export const ProfilePage: React.FC = () => {
                   />
                   <EditableField
                      label="Hausnummer"
-                     value={form.house_number}
+                     value={form.houseNumber}
                      edit={isEditing}
-                     onChange={(v) => handleChange('house_number', v)}
+                     onChange={(v) => handleChange('houseNumber', v)}
                   />
                   <EditableField
                      label="PLZ"
-                     value={form.postal_code}
+                     value={form.postalCode}
                      edit={isEditing}
-                     onChange={(v) => handleChange('postal_code', v)}
+                     onChange={(v) => handleChange('postalCode', v)}
                   />
                   <EditableField
                      label="Stadt"
@@ -281,12 +281,12 @@ export const ProfilePage: React.FC = () => {
 
                      {isEditing ? (
                         <Dropdown
-                           value={form.preferred_payment || null}
+                           value={form.preferredPayment || null}
                            options={paymentOptions}
                            optionLabel="label"
                            optionValue="value"
                            placeholder="Bitte auswählen"
-                           onChange={(e) => handleChange('preferred_payment', (e.value as PaymentValue) ?? '')}
+                           onChange={(e) => handleChange('preferredPayment', (e.value as PaymentValue) ?? '')}
                            className="profile-dropdown"
                         />
                      ) : (
@@ -299,12 +299,12 @@ export const ProfilePage: React.FC = () => {
                      <div className="profile-checkbox-row">
                         <Checkbox
                            inputId="newsletter"
-                           checked={!!form.newsletter_opt_in}
+                           checked={!!form.newsletterOptIn}
                            disabled={!isEditing}
-                           onChange={(e) => handleChange('newsletter_opt_in', !!e.checked)}
+                           onChange={(e) => handleChange('newsletterOptIn', !!e.checked)}
                         />
                         <label htmlFor="newsletter" className="profile-checkbox-label">
-                           {form.newsletter_opt_in ? 'Abonniert' : 'Nicht abonniert'}
+                           {form.newsletterOptIn ? 'Abonniert' : 'Nicht abonniert'}
                         </label>
                      </div>
                   </div>

@@ -70,7 +70,7 @@ export const ManageUsers: React.FC = () => {
             <li>
                <span>Name</span>
                <span>
-                  {u.first_name} {u.last_name}
+                  {u.firstName} {u.lastName}
                </span>
             </li>
             <li>
@@ -90,7 +90,7 @@ export const ManageUsers: React.FC = () => {
             <li>
                <span>Adresse</span>
                <span>
-                  {u.street} {u.house_number}, {u.postal_code} {u.city}, {u.country}
+                  {u.street} {u.houseNumber}, {u.postalCode} {u.city}, {u.country}
                </span>
             </li>
             <li>
@@ -102,11 +102,11 @@ export const ManageUsers: React.FC = () => {
             </li>
             <li>
                <span>Zahlung</span>
-               <span>{u.preferred_payment}</span>
+               <span>{u.preferredPayment}</span>
             </li>
             <li>
                <span>Newsletter</span>
-               <span>{u.newsletter_opt_in ? 'Ja' : 'Nein'}</span>
+               <span>{u.newsletterOptIn ? 'Ja' : 'Nein'}</span>
             </li>
             <li>
                <span>Geburtsdatum</span>
@@ -179,7 +179,7 @@ export const ManageUsers: React.FC = () => {
             dataKey="id"
             header={header}
             filters={filters}
-            globalFilterFields={['email', 'first_name', 'last_name', 'id']}
+            globalFilterFields={['email', 'firstName', 'lastName', 'id']}
             expandedRows={expandedRows}
             onRowToggle={(e) => setExpandedRows(e.data)}
             rowExpansionTemplate={rowExpansionTemplate}
@@ -189,7 +189,7 @@ export const ManageUsers: React.FC = () => {
             <Column expander style={{ width: '3rem' }} />
             <Column field="id" header="ID" sortable style={{ width: '6rem' }} />
             <Column field="email" header="E-Mail" sortable />
-            <Column header="Name" body={(u: User) => `${u.first_name} ${u.last_name}`} sortable />
+            <Column header="Name" body={(u: User) => `${u.firstName} ${u.lastName}`} sortable />
             <Column
                header="Rolle"
                body={(u: User) => (

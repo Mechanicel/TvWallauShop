@@ -73,6 +73,7 @@ export const SignupPage: React.FC = () => {
       setLoading(true);
       setError(null);
       try {
+         const normalizedDateOfBirth = dateOfBirth ? dateOfBirth.toISOString() : null;
          await dispatch(
             signup({
                firstName,
@@ -94,7 +95,7 @@ export const SignupPage: React.FC = () => {
                shippingCountry,
                preferredPayment,
                newsletterOptIn,
-               dateOfBirth,
+               dateOfBirth: normalizedDateOfBirth,
                gender,
             }),
          ).unwrap();

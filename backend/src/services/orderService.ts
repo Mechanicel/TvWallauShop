@@ -1,10 +1,13 @@
 // backend/src/services/orderService.ts
 import { knex } from '../database';
 import { sendOrderConfirmationEmail } from '../utils/mailer';
-import { Order, OrderItem, OrderListQuery } from '../models/orderModel';
+import type { Order, OrderItem, OrderSummary } from '@tvwallaushop/contracts';
+import { OrderListQuery } from '../models/orderModel';
 import { productService } from './productService';
 import { userService, UserView } from './userService';
 import type { Knex } from 'knex';
+
+type OrderItemView = OrderItem & { orderId: number };
 
 // Helper fürs Mapping eines Items
 function mapOrderItem(row: {
@@ -13,9 +16,8 @@ function mapOrderItem(row: {
     size_id: number;
     quantity: number;
     price: number | string;
-}, productName: string, sizeLabel: string): OrderItem {
+}, productName: string, sizeLabel: string): OrderItemView {
     return {
-        id: `${row.order_id}-${row.product_id}-${row.size_id}`,
         orderId: row.order_id,
         productId: row.product_id,
         productName,
@@ -27,21 +29,13 @@ function mapOrderItem(row: {
 }
 
 function mapUserView(user: UserView): Order['user'] {
-    return {
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        phone: user.phone,
-        role: user.role,
-        createdAt: user.createdAt,
-    };
+    return user;
 }
 
 async function buildOrderItems(
     rows: Array<{ order_id: number; product_id: number; size_id: number; quantity: number; price: number | string }>,
     db?: Knex | Knex.Transaction,
-): Promise<OrderItem[]> {
+): Promise<OrderItemView[]> {
     if (rows.length === 0) return [];
 
     const productIds = Array.from(new Set(rows.map((row) => row.product_id)));
@@ -77,7 +71,7 @@ async function restockOrderItems(
 }
 
 // ✅ Helper: Order im "me"-Format laden (wie getOrdersByUser)
-async function getOrderSummaryByUserAndId(userId: number, orderId: number) {
+async function getOrderSummaryByUserAndId(userId: number, orderId: number): Promise<OrderSummary> {
     const orderRow = await knex('orders')
         .select('id', 'status', 'created_at')
         .where({ id: orderId, user_id: userId })
@@ -93,16 +87,10 @@ async function getOrderSummaryByUserAndId(userId: number, orderId: number) {
 
     const items = await buildOrderItems(itemRows);
 
-    const grouped: {
-        id: number;
-        status: string;
-        createdAt: Date;
-        items: { productName: string; sizeLabel: string; quantity: number; price: number }[];
-        total: number;
-    } = {
+    const grouped: OrderSummary = {
         id: orderRow.id,
         status: orderRow.status,
-        createdAt: orderRow.created_at,
+        createdAt: orderRow.created_at.toISOString(),
         items: items.map((item) => ({
             productName: item.productName,
             sizeLabel: item.sizeLabel,
@@ -144,7 +132,14 @@ export const orderService = {
         const itemsByOrder = new Map<number, OrderItem[]>();
         for (const item of items) {
             const current = itemsByOrder.get(item.orderId) ?? [];
-            current.push(item);
+            current.push({
+                productId: item.productId,
+                productName: item.productName,
+                sizeId: item.sizeId,
+                sizeLabel: item.sizeLabel,
+                quantity: item.quantity,
+                price: item.price,
+            });
             itemsByOrder.set(item.orderId, current);
         }
 
@@ -158,16 +153,38 @@ export const orderService = {
             return {
                 id: row.order_id,
                 status: row.status,
-                createdAt: row.order_created_at,
-                user: userView ? mapUserView(userView) : {
-                    id: row.user_id,
-                    email: '',
-                    firstName: '',
-                    lastName: '',
-                    phone: null,
-                    role: user.role,
-                    createdAt: row.order_created_at,
-                },
+                createdAt: row.order_created_at.toISOString(),
+                user: userView
+                    ? mapUserView(userView)
+                    : {
+                        id: row.user_id,
+                        firstName: '',
+                        lastName: '',
+                        email: '',
+                        phone: null,
+                        role: user.role,
+                        isVerified: false,
+                        createdAt: row.order_created_at.toISOString(),
+                        street: null,
+                        houseNumber: null,
+                        postalCode: null,
+                        city: null,
+                        state: null,
+                        country: null,
+                        shippingStreet: null,
+                        shippingHouseNumber: null,
+                        shippingPostalCode: null,
+                        shippingCity: null,
+                        shippingState: null,
+                        shippingCountry: null,
+                        preferredPayment: 'invoice',
+                        newsletterOptIn: false,
+                        dateOfBirth: null,
+                        gender: null,
+                        loyaltyPoints: 0,
+                        lastLogin: null,
+                        accountStatus: 'active',
+                    },
                 items: orderItems,
                 total,
             };
@@ -199,9 +216,16 @@ export const orderService = {
         return {
             id: orderRow.order_id,
             status: orderRow.status,
-            createdAt: orderRow.order_created_at,
+            createdAt: orderRow.order_created_at.toISOString(),
             user: mapUserView(userView),
-            items,
+            items: items.map((item) => ({
+                productId: item.productId,
+                productName: item.productName,
+                sizeId: item.sizeId,
+                sizeLabel: item.sizeLabel,
+                quantity: item.quantity,
+                price: item.price,
+            })),
             total,
         };
     },
@@ -290,9 +314,16 @@ export const orderService = {
             return {
                 id: orderRow.id,
                 status: orderRow.status,
-                createdAt: orderRow.created_at,
+                createdAt: orderRow.created_at.toISOString(),
                 user: mapUserView(userView),
-                items,
+                items: items.map((item) => ({
+                    productId: item.productId,
+                    productName: item.productName,
+                    sizeId: item.sizeId,
+                    sizeLabel: item.sizeLabel,
+                    quantity: item.quantity,
+                    price: item.price,
+                })),
                 total,
             };
         });
@@ -362,15 +393,22 @@ export const orderService = {
         return {
             id: updated.id,
             status: updated.status,
-            createdAt: updated.created_at,
+            createdAt: updated.created_at.toISOString(),
             user: mapUserView(userView),
-            items,
+            items: items.map((item) => ({
+                productId: item.productId,
+                productName: item.productName,
+                sizeId: item.sizeId,
+                sizeLabel: item.sizeLabel,
+                quantity: item.quantity,
+                price: item.price,
+            })),
             total,
         };
     },
 
     // ✅ NEU: User cancelt eigene Order (nur Status "Bestellt")
-    async cancelMyOrder(orderId: number, userId: number) {
+    async cancelMyOrder(orderId: number, userId: number): Promise<OrderSummary> {
         await knex.transaction(async (trx) => {
             const current = await trx('orders')
                 .where({ id: orderId })
@@ -405,7 +443,7 @@ export const orderService = {
         return await getOrderSummaryByUserAndId(userId, orderId);
     },
 
-    async getOrdersByUser(userId: number) {
+    async getOrdersByUser(userId: number): Promise<OrderSummary[]> {
         const orderRows = await knex('orders')
             .select('id', 'status', 'created_at')
             .where('user_id', userId);
@@ -419,22 +457,13 @@ export const orderService = {
 
         const items = await buildOrderItems(itemRows);
 
-        const grouped: Record<
-            number,
-            {
-                id: number;
-                status: string;
-                createdAt: Date;
-                items: { productName: string; sizeLabel: string; quantity: number; price: number }[];
-                total: number;
-            }
-        > = {};
+        const grouped: Record<number, OrderSummary> = {};
 
         for (const order of orderRows) {
             grouped[order.id] = {
                 id: order.id,
                 status: order.status,
-                createdAt: order.created_at,
+                createdAt: order.created_at.toISOString(),
                 items: [],
                 total: 0,
             };

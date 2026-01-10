@@ -8,10 +8,10 @@ import { Button } from 'primereact/button';
 import { ConfirmDialog, confirmDialog } from 'primereact/confirmdialog';
 import { Toast } from 'primereact/toast';
 import './OrdersPage.css';
-import { OrderMe } from '@/type/order';
+import type { OrderSummary } from '@tvwallaushop/contracts';
 
 export const OrdersPage: React.FC = () => {
-   const [orders, setOrders] = useState<OrderMe[]>([]);
+   const [orders, setOrders] = useState<OrderSummary[]>([]);
    const [loading, setLoading] = useState(false);
    const toast = useRef<Toast>(null);
    const navigate = useNavigate();
@@ -38,7 +38,7 @@ export const OrdersPage: React.FC = () => {
       loadOrders();
    }, []);
 
-   const statusTemplate = (row: OrderMe) => {
+   const statusTemplate = (row: OrderSummary) => {
       const status = row.status;
       const severity =
          status === 'Bestellt'
@@ -54,12 +54,12 @@ export const OrdersPage: React.FC = () => {
       return <Tag value={status} severity={severity as any} />;
    };
 
-   const dateTemplate = (row: OrderMe) => new Date(row.createdAt).toLocaleDateString();
-   const totalTemplate = (row: OrderMe) => `${Number(row.total).toFixed(2)} €`;
+   const dateTemplate = (row: OrderSummary) => new Date(row.createdAt).toLocaleDateString();
+   const totalTemplate = (row: OrderSummary) => `${Number(row.total).toFixed(2)} €`;
 
-   const canCancel = (row: OrderMe) => row.status === 'Bestellt';
+   const canCancel = (row: OrderSummary) => row.status === 'Bestellt';
 
-   const cancelOrder = (row: OrderMe) => {
+   const cancelOrder = (row: OrderSummary) => {
       confirmDialog({
          header: 'Bestellung stornieren?',
          message:
@@ -101,7 +101,7 @@ export const OrdersPage: React.FC = () => {
       });
    };
 
-   const actionsTemplate = (row: OrderMe) => {
+   const actionsTemplate = (row: OrderSummary) => {
       const showCancel = canCancel(row);
 
       return (

@@ -5,8 +5,7 @@ import fs from 'fs/promises';
 import { knex } from '../database';
 import { getIO } from '../middlewares/websocket';
 import { analyzeProductViaPython } from './aiPythonClient';
-
-export type ProductAiJobStatus = 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'FAILED';
+import type { ProductAiJob, ProductAiJobStatus } from '@tvwallaushop/contracts';
 
 export interface ProductAiJobRow {
     id: number;
@@ -22,25 +21,13 @@ export interface ProductAiJobRow {
     updated_at: Date;
 }
 
-export interface ProductAiJobResponse {
-    id: number;
-    product_id: number | null;
-    status: ProductAiJobStatus;
-    result_display_name: string | null;
-    result_description: string | null;
-    result_tags: string[] | null;
-    error_message: string | null;
-    created_at: string;
-    updated_at: string;
-}
-
 export interface CreateProductAiJobInput {
     price: number;
     files: Express.Multer.File[];
     useRealService: boolean;
 }
 
-function mapRowToResponse(row: ProductAiJobRow): ProductAiJobResponse {
+function mapRowToResponse(row: ProductAiJobRow): ProductAiJob {
     return {
         id: row.id,
         product_id: row.product_id,
@@ -54,7 +41,7 @@ function mapRowToResponse(row: ProductAiJobRow): ProductAiJobResponse {
     };
 }
 
-function safeEmit(event: 'aiJob:updated' | 'aiJob:completed', payload: ProductAiJobResponse) {
+function safeEmit(event: 'aiJob:updated' | 'aiJob:completed', payload: ProductAiJob) {
     try {
         const io = getIO();
         io.emit(event, payload);
@@ -74,7 +61,7 @@ function normalizeTags(tags: string[] | null | undefined): string[] {
     );
 }
 
-export async function getProductAiJobById(jobId: number): Promise<ProductAiJobResponse | null> {
+export async function getProductAiJobById(jobId: number): Promise<ProductAiJob | null> {
     const row = await knex<ProductAiJobRow>('product_ai_jobs').where({ id: jobId }).first();
     return row ? mapRowToResponse(row) : null;
 }
@@ -136,7 +123,7 @@ export async function createProductAiJob(input: CreateProductAiJobInput) {
     return res;
 }
 
-export async function retryProductAiJob(jobId: number): Promise<ProductAiJobResponse | null> {
+export async function retryProductAiJob(jobId: number): Promise<ProductAiJob | null> {
     const row = await knex<ProductAiJobRow>('product_ai_jobs').where({ id: jobId }).first();
     if (!row) return null;
 
@@ -232,7 +219,7 @@ export async function processProductAiJob(jobId: number): Promise<void> {
     return processProductAiJobImpl(jobId, false);
 }
 
-export async function getOpenProductAiJobs(): Promise<ProductAiJobResponse[]> {
+export async function getOpenProductAiJobs(): Promise<ProductAiJob[]> {
     const rows = await knex<ProductAiJobRow>('product_ai_jobs')
         .whereNull('product_id')
         .whereIn('status', ['PENDING', 'PROCESSING', 'FAILED', 'SUCCESS'])

@@ -45,8 +45,8 @@ export const SettingsPage: React.FC = () => {
    useEffect(() => {
       // Initialwerte aus Store setzen (falls user schon geladen)
       if (authUser) {
-         setNewsletter(!!authUser.newsletter_opt_in);
-         setPreferredPayment((authUser.preferred_payment as PaymentValue) ?? null);
+         setNewsletter(!!authUser.newsletterOptIn);
+         setPreferredPayment((authUser.preferredPayment as PaymentValue) ?? null);
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
    }, [authUser?.id]); // nur wenn user wechselt

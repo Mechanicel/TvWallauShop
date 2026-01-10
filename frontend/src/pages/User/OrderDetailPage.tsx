@@ -8,14 +8,14 @@ import { Button } from 'primereact/button';
 import { ConfirmDialog, confirmDialog } from 'primereact/confirmdialog';
 import { Toast } from 'primereact/toast';
 import './OrderDetailPage.css';
-import { OrderDetailResponse } from '@/type/order';
+import type { Order } from '@tvwallaushop/contracts';
 
 export const OrderDetailPage: React.FC = () => {
    const { id } = useParams<{ id: string }>();
    const navigate = useNavigate();
    const toast = useRef<Toast>(null);
 
-   const [order, setOrder] = useState<OrderDetailResponse | null>(null);
+   const [order, setOrder] = useState<Order | null>(null);
    const [loading, setLoading] = useState(false);
 
    const orderId = Number(id);
