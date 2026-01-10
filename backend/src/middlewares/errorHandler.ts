@@ -49,6 +49,9 @@ export function errorHandler(
     if (!isProd) {
         body.code = err.code;
         body.stack = err.stack;
+        if (err.details) {
+            body.details = err.details;
+        }
     }
 
     return res.status(status).json(body);
