@@ -60,20 +60,6 @@ docsRouter.get('/docs', (req, res) => {
 });
 /**
  * @openapi
- * /docs/all:
- *   get:
- *     tags: [Gateway]
- *     summary: Full API OpenAPI spec.
- *     description: Returns a combined OpenAPI specification for all services.
- *     responses:
- *       200:
- *         description: Combined OpenAPI document.
- */
-docsRouter.get('/docs/all', (req, res) => {
-    respondWithDocs(req, res, allServicesOpenApi, '/docs/all', '/docs/ui');
-});
-/**
- * @openapi
  * /docs/auth:
  *   get:
  *     tags: [Gateway]
@@ -129,32 +115,44 @@ docsRouter.get('/docs/ai', (req, res) => {
     respondWithDocs(req, res, aiOpenApi, '/docs/ai', '/docs/ui');
 });
 
-docsRouter.get('/docs/ui', (req, res, next) => {
-    const selectedUrl = typeof req.query.url === 'string' ? req.query.url : '';
-    if (!selectedUrl) {
-        res.redirect('/docs/ui?url=/docs/all');
-        return;
-    }
-
-    next();
-});
-
+docsRouter.use(
+    '/docs/ui/auth',
+    swaggerUi.serveFiles(authOpenApi),
+    swaggerUi.setup(authOpenApi, {
+        customSiteTitle: 'Auth/User API Docs',
+        explorer: true,
+    })
+);
+docsRouter.use(
+    '/docs/ui/catalog',
+    swaggerUi.serveFiles(catalogOpenApi),
+    swaggerUi.setup(catalogOpenApi, {
+        customSiteTitle: 'Catalog API Docs',
+        explorer: true,
+    })
+);
+docsRouter.use(
+    '/docs/ui/orders',
+    swaggerUi.serveFiles(orderOpenApi),
+    swaggerUi.setup(orderOpenApi, {
+        customSiteTitle: 'Orders API Docs',
+        explorer: true,
+    })
+);
+docsRouter.use(
+    '/docs/ui/ai',
+    swaggerUi.serveFiles(aiOpenApi),
+    swaggerUi.setup(aiOpenApi, {
+        customSiteTitle: 'AI/Media API Docs',
+        explorer: true,
+    })
+);
 docsRouter.use(
     '/docs/ui',
-    swaggerUi.serve,
-    swaggerUi.setup(null, {
+    swaggerUi.serveFiles(gatewayOpenApi),
+    swaggerUi.setup(gatewayOpenApi, {
         customSiteTitle: 'TV Wallau Shop API Docs',
         explorer: true,
-        swaggerOptions: {
-            urls: [
-                { url: '/docs/all', name: 'All Services' },
-                { url: '/docs', name: 'Gateway' },
-                { url: '/docs/auth', name: 'Auth/User' },
-                { url: '/docs/catalog', name: 'Catalog' },
-                { url: '/docs/orders', name: 'Orders' },
-                { url: '/docs/ai', name: 'AI/Media' },
-            ],
-        },
     })
 );
 
