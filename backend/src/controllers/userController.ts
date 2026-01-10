@@ -2,6 +2,7 @@
 import { Request, Response } from 'express';
 import { userService, UserView } from '../services/userService';
 import { catchAsync } from '../utils/helpers';
+import { ServiceError } from '../errors/ServiceError';
 
 // ✅ Alle User holen (Admin)
 export const getAllUsers = catchAsync(async (req: Request, res: Response) => {
@@ -24,112 +25,101 @@ export const deleteUser = catchAsync(async (req: Request, res: Response) => {
 });
 
 // GET /api/users/me
-export const getMe = async (req: Request, res: Response) => {
-    try {
-        const userId = (req as any).user.id;
-        const user = await userService.getUserById(userId);
-        if (!user) {
-            return res.status(404).json({ error: 'User not found' });
-        }
-        res.json(user);
-    } catch (err: any) {
-        console.error('[getMe] Fehler:', err);
-        res.status(500).json({ error: 'Serverfehler' });
+export const getMe = catchAsync(async (req: Request, res: Response) => {
+    const currentUser = (req as any).user;
+    if (!currentUser) {
+        throw new ServiceError('Unauthorized', 401, 'UNAUTHORIZED');
     }
-};
+    const user = await userService.getUserById(currentUser.id);
+    res.json(user);
+});
 
 // PUT /api/users/me
-export const updateMe = async (req: Request, res: Response) => {
-    try {
-        const userId = (req as any).user.id;
-        const updates = req.body;
-
-        const updated = await userService.updateUser(userId, updates);
-        res.json(updated);
-    } catch (err: any) {
-        console.error('[updateMe] Fehler:', err);
-        res.status(500).json({ error: 'Update fehlgeschlagen' });
+export const updateMe = catchAsync(async (req: Request, res: Response) => {
+    const currentUser = (req as any).user;
+    if (!currentUser) {
+        throw new ServiceError('Unauthorized', 401, 'UNAUTHORIZED');
     }
-};
-export const updatePassword = async (req: Request, res: Response) => {
-    try {
-        const userId = (req as any).user.id;
-        const { oldPassword, newPassword } = req.body;
+    const updates = req.body;
 
-        const success = await userService.changePassword(userId, oldPassword, newPassword);
-        if (!success) {
-            return res.status(400).json({ error: 'Altes Passwort falsch' });
-        }
+    const updated = await userService.updateUser(currentUser.id, updates);
+    res.json(updated);
+});
 
-        res.json({ message: 'Passwort erfolgreich geändert' });
-    } catch (err) {
-        console.error('[updatePassword]', err);
-        res.status(500).json({ error: 'Fehler beim Ändern des Passworts' });
+export const updatePassword = catchAsync(async (req: Request, res: Response) => {
+    const currentUser = (req as any).user;
+    if (!currentUser) {
+        throw new ServiceError('Unauthorized', 401, 'UNAUTHORIZED');
     }
-};
+    const { oldPassword, newPassword } = req.body;
 
-export const updatePreferences = async (req: Request, res: Response) => {
-    try {
-        const userId = (req as any).user.id;
-        const { newsletterOptIn, preferredPayment } = req.body;
+    await userService.changePassword(currentUser.id, oldPassword, newPassword);
 
-        const updated = await userService.updatePreferences(userId, {
-            newsletterOptIn,
-            preferredPayment,
+    res.json({ message: 'Passwort erfolgreich geändert' });
+});
+
+export const updatePreferences = catchAsync(async (req: Request, res: Response) => {
+    const currentUser = (req as any).user;
+    if (!currentUser) {
+        throw new ServiceError('Unauthorized', 401, 'UNAUTHORIZED');
+    }
+    const { newsletterOptIn, preferredPayment } = req.body;
+
+    const updated = await userService.updatePreferences(currentUser.id, {
+        newsletterOptIn,
+        preferredPayment,
+    });
+
+    res.json({ message: 'Einstellungen gespeichert', user: updated });
+});
+
+export const deleteAccount = catchAsync(async (req: Request, res: Response) => {
+    const requester = (req as any).user; // eingeloggter User
+    if (!requester) {
+        throw new ServiceError('Unauthorized', 401, 'UNAUTHORIZED');
+    }
+    const targetId = req.params.id ? Number(req.params.id) : requester.id;
+
+    if (req.params.id && requester.role !== 'admin') {
+        throw new ServiceError(
+            'Nur Admins dürfen andere Accounts löschen',
+            403,
+            'FORBIDDEN'
+        );
+    }
+
+    // Tokens + User löschen
+    await userService.deleteUserTokens(targetId);
+    await userService.deleteUser(targetId);
+
+    if (!req.params.id) {
+        // Kunde löscht sich selbst → Cookies invalidieren
+        res.clearCookie('accessToken', {
+            httpOnly: true,
+            sameSite: 'lax',
+            secure: process.env.NODE_ENV === 'production',
+            path: '/',
+        });
+        res.clearCookie('refreshToken', {
+            httpOnly: true,
+            sameSite: 'lax',
+            secure: process.env.NODE_ENV === 'production',
+            path: '/',
         });
 
-        res.json({ message: 'Einstellungen gespeichert', user: updated });
-    } catch (err) {
-        console.error('[updatePreferences]', err);
-        res.status(500).json({ error: 'Fehler beim Speichern der Einstellungen' });
     }
-};
 
-export const deleteAccount = async (req: Request, res: Response) => {
-    try {
-        const requester = (req as any).user; // eingeloggter User
-        const targetId = req.params.id ? Number(req.params.id) : requester.id;
-
-        if (req.params.id && requester.role !== 'admin') {
-            return res.status(403).json({ error: 'Nur Admins dürfen andere Accounts löschen' });
-        }
-
-        // Tokens + User löschen
-        await userService.deleteUserTokens(targetId);
-        await userService.deleteUser(targetId);
-
-        if (!req.params.id) {
-            // Kunde löscht sich selbst → Cookies invalidieren
-            res.clearCookie('accessToken', {
-                httpOnly: true,
-                sameSite: 'lax',
-                secure: process.env.NODE_ENV === 'production',
-                path: '/',
-            });
-            res.clearCookie('refreshToken', {
-                httpOnly: true,
-                sameSite: 'lax',
-                secure: process.env.NODE_ENV === 'production',
-                path: '/',
-            });
-
-        }
-
-        return res.json({
-            message: req.params.id
-                ? `User ${targetId} wurde gelöscht`
-                : 'Dein Account wurde gelöscht',
-        });
-    } catch (err) {
-        console.error('[deleteAccount]', err);
-        res.status(500).json({ error: 'Fehler beim Löschen des Accounts' });
-    }
-};
+    return res.json({
+        message: req.params.id
+            ? `User ${targetId} wurde gelöscht`
+            : 'Dein Account wurde gelöscht',
+    });
+});
 export const updateUserById = catchAsync(async (req: Request, res: Response) => {
     const id = Number(req.params.id);
 
     if (!id || Number.isNaN(id)) {
-        return res.status(400).json({ error: 'Ungültige User-ID' });
+        throw new ServiceError('Ungültige User-ID', 400, 'INVALID_USER_ID');
     }
 
     const updates = req.body;

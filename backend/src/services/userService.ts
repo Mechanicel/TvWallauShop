@@ -7,6 +7,7 @@ import type { Gender, PaymentMethod, User as ApiUser, UserRole } from '@tvwallau
 import { User } from '../models/userModel';
 import bcrypt from 'bcrypt';
 import {formatDate} from '../utils/helpers';
+import { ServiceError } from '../errors/ServiceError';
 
 export type UserView = ApiUser;
 
@@ -61,11 +62,22 @@ export const userService = {
         oldPassword: string,
         newPassword: string
     ): Promise<boolean> {
+        if (!userId || Number.isNaN(userId)) {
+            throw new ServiceError('Ungültige User-ID', 400, 'INVALID_USER_ID');
+        }
+        if (!oldPassword || !newPassword) {
+            throw new ServiceError('Passwortdaten fehlen', 400, 'MISSING_PASSWORD_FIELDS');
+        }
+
         const user = await knex<User>('users').where({id: userId}).first();
-        if (!user) return false;
+        if (!user) {
+            throw new ServiceError('User nicht gefunden', 404, 'USER_NOT_FOUND');
+        }
 
         const match = await bcrypt.compare(oldPassword, user.password_hash);
-        if (!match) return false;
+        if (!match) {
+            throw new ServiceError('Altes Passwort falsch', 400, 'INVALID_OLD_PASSWORD');
+        }
 
         const newHash = await bcrypt.hash(newPassword, 10);
         await knex<User>('users')
@@ -78,6 +90,13 @@ export const userService = {
         userId: number,
         data: { newsletterOptIn?: boolean; preferredPayment?: PaymentMethod }
     ): Promise<PreferencesUpdateRow> {
+        if (!userId || Number.isNaN(userId)) {
+            throw new ServiceError('Ungültige User-ID', 400, 'INVALID_USER_ID');
+        }
+        if (data.newsletterOptIn === undefined && data.preferredPayment === undefined) {
+            throw new ServiceError('Keine Preferences angegeben', 400, 'NO_PREFERENCES');
+        }
+
         const updated = await knex<User>('users')
             .where({id: userId})
             .update(
@@ -89,11 +108,20 @@ export const userService = {
             );
 
         // Knex-Update mit returning(...) liefert hier ein Array
+        if (!updated.length) {
+            throw new ServiceError('User nicht gefunden', 404, 'USER_NOT_FOUND');
+        }
         return updated[0] as PreferencesUpdateRow;
     },
 
     async deleteUser(userId: number): Promise<void> {
-        await knex<User>('users').where({id: userId}).delete();
+        if (!userId || Number.isNaN(userId)) {
+            throw new ServiceError('Ungültige User-ID', 400, 'INVALID_USER_ID');
+        }
+        const deleted = await knex<User>('users').where({id: userId}).delete();
+        if (!deleted) {
+            throw new ServiceError('User nicht gefunden', 404, 'USER_NOT_FOUND');
+        }
     },
 
     async getAllUsers(db?: Knex | Knex.Transaction): Promise<UserView[]> {
@@ -102,9 +130,12 @@ export const userService = {
     },
 
     async getUserById(id: number, db?: Knex | Knex.Transaction): Promise<UserView> {
+        if (!id || Number.isNaN(id)) {
+            throw new ServiceError('Ungültige User-ID', 400, 'INVALID_USER_ID');
+        }
         const row = await getDb(db)<User>('users').where({ id }).first();
         if (!row) {
-            throw Object.assign(new Error('User not found'), { status: 404 });
+            throw new ServiceError('User nicht gefunden', 404, 'USER_NOT_FOUND');
         }
         return mapUserRow(row);
     },
@@ -116,10 +147,16 @@ export const userService = {
     },
 
     async deleteUserTokens(userId: number): Promise<void> {
+        if (!userId || Number.isNaN(userId)) {
+            throw new ServiceError('Ungültige User-ID', 400, 'INVALID_USER_ID');
+        }
         await knex('refresh_tokens').where({user_id: userId}).delete();
     },
 
     async updateUser(id: number, updates: Partial<UserView>): Promise<UserView> {
+        if (!id || Number.isNaN(id)) {
+            throw new ServiceError('Ungültige User-ID', 400, 'INVALID_USER_ID');
+        }
         const fieldMap: Partial<Record<keyof UserView, keyof User>> = {
             firstName: 'first_name',
             lastName: 'last_name',
@@ -155,14 +192,21 @@ export const userService = {
         }
 
         if (Object.keys(data).length === 0) {
-            throw new Error('Keine gültigen Felder zum Aktualisieren');
+            throw new ServiceError(
+                'Keine gültigen Felder zum Aktualisieren',
+                400,
+                'NO_VALID_UPDATE_FIELDS'
+            );
         }
 
-        await knex<User>('users').where({id}).update(data);
+        const updatedCount = await knex<User>('users').where({id}).update(data);
+        if (!updatedCount) {
+            throw new ServiceError('User nicht gefunden', 404, 'USER_NOT_FOUND');
+        }
 
         const updated = await this.getUserById(id);
         if (!updated) {
-            throw new Error('User not found after update');
+            throw new ServiceError('User nicht gefunden', 404, 'USER_NOT_FOUND');
         }
 
         return updated;
