@@ -36,10 +36,54 @@ const upload = multer({
 });
 
 // Öffentlich: Produkte lesen
+/**
+ * @openapi
+ * /products:
+ *   get:
+ *     tags: [Products]
+ *     summary: List all products.
+ *     responses:
+ *       200:
+ *         description: Product list.
+ */
 router.get('/', productController.getAllProducts);
+/**
+ * @openapi
+ * /products/{id}:
+ *   get:
+ *     tags: [Products]
+ *     summary: Get product by id.
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Product details.
+ */
 router.get('/:id', productController.getProductById);
 
 // Admin: CRUD für Produkte
+/**
+ * @openapi
+ * /products:
+ *   post:
+ *     tags: [Products]
+ *     summary: Create a new product.
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       201:
+ *         description: Product created.
+ */
 router.post(
     '/',
     authMiddleware,
@@ -47,6 +91,30 @@ router.post(
     productController.createProduct
 );
 
+/**
+ * @openapi
+ * /products/{id}:
+ *   put:
+ *     tags: [Products]
+ *     summary: Update a product.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200:
+ *         description: Product updated.
+ */
 router.put(
     '/:id',
     authMiddleware,
@@ -54,6 +122,24 @@ router.put(
     productController.updateProduct
 );
 
+/**
+ * @openapi
+ * /products/{id}:
+ *   delete:
+ *     tags: [Products]
+ *     summary: Delete a product.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       204:
+ *         description: Product deleted.
+ */
 router.delete(
     '/:id',
     authMiddleware,
@@ -62,6 +148,36 @@ router.delete(
 );
 
 // Bilder hochladen
+/**
+ * @openapi
+ * /products/{id}/images:
+ *   post:
+ *     tags: [Products]
+ *     summary: Upload product images.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               images:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *     responses:
+ *       200:
+ *         description: Images uploaded.
+ */
 router.post(
     '/:id/images',
     authMiddleware,
@@ -72,6 +188,29 @@ router.post(
 
 // 👇 NEU: Bild löschen
 // DELETE /api/products/:id/images/:imageId
+/**
+ * @openapi
+ * /products/{id}/images/{imageId}:
+ *   delete:
+ *     tags: [Products]
+ *     summary: Delete a product image.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *       - in: path
+ *         name: imageId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       204:
+ *         description: Image deleted.
+ */
 router.delete(
     '/:id/images/:imageId',
     authMiddleware,

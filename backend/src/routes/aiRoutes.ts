@@ -36,6 +36,32 @@ const upload = multer({ storage });
  *  - price
  *  - images[]
  */
+/**
+ * @openapi
+ * /ai/product-job:
+ *   post:
+ *     tags: [AI]
+ *     summary: Create a product AI job.
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               price:
+ *                 type: number
+ *               images:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: binary
+ *     responses:
+ *       201:
+ *         description: AI job created.
+ */
 router.post(
     '/product-job',
     authMiddleware,
@@ -49,6 +75,24 @@ router.post(
  * Admin-only
  * Startet einen FAILED/PENDING Job erneut
  */
+/**
+ * @openapi
+ * /ai/product-job/{id}/retry:
+ *   post:
+ *     tags: [AI]
+ *     summary: Retry a product AI job.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Job retried.
+ */
 router.post(
     '/product-job/:id/retry',
     authMiddleware,
@@ -59,6 +103,18 @@ router.post(
  * GET /api/ai/product-jobs/open
  * Admin-only
  */
+/**
+ * @openapi
+ * /ai/product-jobs/open:
+ *   get:
+ *     tags: [AI]
+ *     summary: List open product AI jobs.
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Open AI jobs.
+ */
 router.get(
     '/product-jobs/open',
     authMiddleware,
@@ -68,6 +124,24 @@ router.get(
 /**
  * DELETE /api/ai/product-job/:id
  * Admin-only
+ */
+/**
+ * @openapi
+ * /ai/product-job/{id}:
+ *   delete:
+ *     tags: [AI]
+ *     summary: Delete a product AI job.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       204:
+ *         description: Job deleted.
  */
 router.delete(
     '/product-job/:id',
