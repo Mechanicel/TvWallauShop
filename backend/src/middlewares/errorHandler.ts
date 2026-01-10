@@ -3,6 +3,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuthError } from '../errors/AuthError';
 import { InsufficientStockError } from '../errors/InsufficientStockError';
+import { ProductAiError } from '../errors/ProductAiError';
 
 export function errorHandler(
     err: any,
@@ -42,6 +43,21 @@ export function errorHandler(
         };
 
         // Nur in DEV genauere Details mitsenden
+        if (!isProd && err.details) {
+            responseBody.details = err.details;
+        }
+
+        return res.status(status).json(responseBody);
+    }
+
+    if (err instanceof ProductAiError) {
+        const status = err.status ?? 400;
+        const isProd = process.env.NODE_ENV === 'production';
+        const responseBody: any = {
+            code: err.code,
+            message: err.message,
+        };
+
         if (!isProd && err.details) {
             responseBody.details = err.details;
         }

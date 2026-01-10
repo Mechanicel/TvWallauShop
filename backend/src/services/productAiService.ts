@@ -6,6 +6,7 @@ import { knex } from '../database';
 import { getIO } from '../middlewares/websocket';
 import { analyzeProductViaPython } from './aiPythonClient';
 import type { ProductAiJob, ProductAiJobStatus } from '@tvwallaushop/contracts';
+import { ProductAiError } from '../errors/ProductAiError';
 
 export interface ProductAiJobRow {
     id: number;
@@ -69,8 +70,16 @@ export async function getProductAiJobById(jobId: number): Promise<ProductAiJob |
 export async function createProductAiJob(input: CreateProductAiJobInput) {
     const { price, files, useRealService } = input;
 
-    if (!files.length) throw new Error('Keine Dateien übermittelt.');
-    if (!price || price <= 0) throw new Error('Ungültiger Preis.');
+    if (!files.length) {
+        throw new ProductAiError('AI_INVALID_INPUT', 'Keine Dateien übermittelt.', 400, {
+            filesCount: files.length,
+        });
+    }
+    if (!price || price <= 0) {
+        throw new ProductAiError('AI_INVALID_INPUT', 'Ungültiger Preis.', 400, {
+            price,
+        });
+    }
 
     const imagePaths = files.map((f) => path.relative(process.cwd(), f.path).replace(/\\/g, '/'));
 
@@ -154,7 +163,9 @@ export async function retryProductAiJob(jobId: number): Promise<ProductAiJob | n
 
 async function processProductAiJobImpl(jobId: number, allowIfAlreadyProcessing: boolean): Promise<void> {
     const row = await knex<ProductAiJobRow>('product_ai_jobs').where({ id: jobId }).first();
-    if (!row) throw new Error(`AI Job ${jobId} nicht gefunden.`);
+    if (!row) {
+        throw new ProductAiError('AI_JOB_NOT_FOUND', `AI Job ${jobId} nicht gefunden.`, 404, { jobId });
+    }
     if (row.status === 'SUCCESS') return;
     if (row.status === 'PROCESSING' && !allowIfAlreadyProcessing) return;
 
@@ -230,7 +241,9 @@ export async function getOpenProductAiJobs(): Promise<ProductAiJob[]> {
 
 export async function deleteProductAiJob(jobId: number): Promise<void> {
     const job = await knex<ProductAiJobRow>('product_ai_jobs').where({ id: jobId }).first();
-    if (!job) return;
+    if (!job) {
+        throw new ProductAiError('AI_JOB_NOT_FOUND', 'Job nicht gefunden.', 404, { jobId });
+    }
 
     if (job.image_paths) {
         const paths: string[] = JSON.parse(job.image_paths);
