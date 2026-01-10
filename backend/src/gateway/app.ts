@@ -21,20 +21,34 @@ for (const basePath of [API_BASE_PATH, VERSIONED_API_BASE_PATH]) {
 gatewayApp.use('/uploads', aiUploadsRouter);
 
 const docsRouter = express.Router();
-docsRouter.get('/docs', (_req, res) => {
-    res.json(gatewayOpenApi);
+const respondWithDocs = (
+    req: express.Request,
+    res: express.Response,
+    spec: object,
+    uiPath: string,
+) => {
+    if (req.accepts('html')) {
+        res.redirect(uiPath);
+        return;
+    }
+
+    res.json(spec);
+};
+
+docsRouter.get('/docs', (req, res) => {
+    respondWithDocs(req, res, gatewayOpenApi, '/docs/ui');
 });
-docsRouter.get('/docs/auth', (_req, res) => {
-    res.json(authOpenApi);
+docsRouter.get('/docs/auth', (req, res) => {
+    respondWithDocs(req, res, authOpenApi, '/docs/ui/auth');
 });
-docsRouter.get('/docs/catalog', (_req, res) => {
-    res.json(catalogOpenApi);
+docsRouter.get('/docs/catalog', (req, res) => {
+    respondWithDocs(req, res, catalogOpenApi, '/docs/ui/catalog');
 });
-docsRouter.get('/docs/orders', (_req, res) => {
-    res.json(orderOpenApi);
+docsRouter.get('/docs/orders', (req, res) => {
+    respondWithDocs(req, res, orderOpenApi, '/docs/ui/orders');
 });
-docsRouter.get('/docs/ai', (_req, res) => {
-    res.json(aiOpenApi);
+docsRouter.get('/docs/ai', (req, res) => {
+    respondWithDocs(req, res, aiOpenApi, '/docs/ui/ai');
 });
 
 docsRouter.use(
