@@ -1,6 +1,5 @@
 import logging
-from fastapi import FastAPI, HTTPException, status
-
+from fastapi import Response, FastAPI, HTTPException, status
 from .schemas import AnalyzeProductRequest, AnalyzeProductResponse
 from .services.jobs import analyze
 from .config import get_settings
@@ -13,9 +12,12 @@ logging.basicConfig(level=getattr(logging, settings.LOG_LEVEL.upper(), logging.I
 app = FastAPI(title="TvWallauShop AI Product Service", version="0.2.0")
 
 
-@app.get("/health", status_code=status.HTTP_200_OK)
-async def health():
-    return {"status": "ok"}
+
+
+@app.head("/health", status_code=200)
+async def health_head():
+    return Response(status_code=200)
+
 
 
 @app.post(

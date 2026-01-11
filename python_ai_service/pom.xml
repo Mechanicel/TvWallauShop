@@ -13,10 +13,27 @@
   <packaging>pom</packaging>
 
   <properties>
-    <python.executable>python</python.executable>
+    <!-- Default for Unix/macOS -->
+    <python.executable>python3</python.executable>
+    <!-- Optional extra args before the script, e.g. Windows: -3.12 -->
+    <python.launcher.args/>
   </properties>
 
   <profiles>
+
+    <!-- Windows: force Python 3.12 via the Python Launcher ("py") so we don't accidentally use Python 3.14 -->
+    <profile>
+      <id>windows-python</id>
+      <activation>
+        <os>
+          <family>Windows</family>
+        </os>
+      </activation>
+      <properties>
+        <python.executable>py</python.executable>
+        <python.launcher.args>-3.12</python.launcher.args>
+      </properties>
+    </profile>
 
     <profile>
       <id>dev-start</id>
@@ -33,10 +50,7 @@
                 <configuration>
                   <workingDirectory>${project.basedir}</workingDirectory>
                   <executable>${python.executable}</executable>
-                  <arguments>
-                    <argument>scripts/service.py</argument>
-                    <argument>start</argument>
-                  </arguments>
+                  <commandlineArgs>${python.launcher.args} scripts/service.py start</commandlineArgs>
                   <inheritIo>true</inheritIo>
                 </configuration>
               </execution>
@@ -61,10 +75,7 @@
                 <configuration>
                   <workingDirectory>${project.basedir}</workingDirectory>
                   <executable>${python.executable}</executable>
-                  <arguments>
-                    <argument>scripts/service.py</argument>
-                    <argument>stop</argument>
-                  </arguments>
+                  <commandlineArgs>${python.launcher.args} scripts/service.py stop</commandlineArgs>
                   <inheritIo>true</inheritIo>
                 </configuration>
               </execution>
@@ -89,10 +100,7 @@
                 <configuration>
                   <workingDirectory>${project.basedir}</workingDirectory>
                   <executable>${python.executable}</executable>
-                  <arguments>
-                    <argument>scripts/service.py</argument>
-                    <argument>status</argument>
-                  </arguments>
+                  <commandlineArgs>${python.launcher.args} scripts/service.py status</commandlineArgs>
                   <inheritIo>true</inheritIo>
                 </configuration>
               </execution>
@@ -117,10 +125,7 @@
                 <configuration>
                   <workingDirectory>${project.basedir}</workingDirectory>
                   <executable>${python.executable}</executable>
-                  <arguments>
-                    <argument>scripts/service.py</argument>
-                    <argument>build</argument>
-                  </arguments>
+                  <commandlineArgs>${python.launcher.args} scripts/service.py build</commandlineArgs>
                   <inheritIo>true</inheritIo>
                 </configuration>
               </execution>
