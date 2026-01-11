@@ -34,6 +34,7 @@
                 <configuration>
                   <workingDirectory>${project.basedir}</workingDirectory>
                   <executable>${python.executable}</executable>
+                  <skip>${skip.module.dev}</skip>
                   <commandlineArgs>${python.launcher.args} scripts/service.py start</commandlineArgs>
                   <inheritIo>true</inheritIo>
                 </configuration>
@@ -59,6 +60,7 @@
                 <configuration>
                   <workingDirectory>${project.basedir}</workingDirectory>
                   <executable>${python.executable}</executable>
+                  <skip>${skip.module.dev}</skip>
                   <commandlineArgs>${python.launcher.args} scripts/service.py stop</commandlineArgs>
                   <inheritIo>true</inheritIo>
                 </configuration>
@@ -84,6 +86,7 @@
                 <configuration>
                   <workingDirectory>${project.basedir}</workingDirectory>
                   <executable>${python.executable}</executable>
+                  <skip>${skip.module.dev}</skip>
                   <commandlineArgs>${python.launcher.args} scripts/service.py status</commandlineArgs>
                   <inheritIo>true</inheritIo>
                 </configuration>

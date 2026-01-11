@@ -32,6 +32,7 @@
                 <configuration>
                   <workingDirectory>${project.basedir}</workingDirectory>
                   <executable>${npm.executable}</executable>
+                  <skip>${skip.module.dev}</skip>
                   <arguments>
                     <argument>run</argument>
                     <argument>dev:start</argument>
@@ -60,6 +61,7 @@
                 <configuration>
                   <workingDirectory>${project.basedir}</workingDirectory>
                   <executable>${npm.executable}</executable>
+                  <skip>${skip.module.dev}</skip>
                   <arguments>
                     <argument>run</argument>
                     <argument>dev:stop</argument>
@@ -88,6 +90,7 @@
                 <configuration>
                   <workingDirectory>${project.basedir}</workingDirectory>
                   <executable>${npm.executable}</executable>
+                  <skip>${skip.module.dev}</skip>
                   <arguments>
                     <argument>run</argument>
                     <argument>dev:status</argument>
