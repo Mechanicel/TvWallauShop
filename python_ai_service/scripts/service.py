@@ -25,6 +25,19 @@ def log_error(message: str) -> None:
     print(f"[dev-runner] {message}", file=sys.stderr)
 
 
+def _can_run_uv(command: list[str]) -> bool:
+    try:
+        result = subprocess.run(
+            [*command, "--version"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except FileNotFoundError:
+        return False
+    return result.returncode == 0
+
+
 def resolve_uv_command() -> list[str]:
     uv_override = os.environ.get(UV_ENV_VAR)
     if uv_override:
@@ -38,30 +51,11 @@ def resolve_uv_command() -> list[str]:
         candidate = VENV_DIR / "bin" / "python"
         if candidate.exists():
             venv_python = str(candidate)
-    if venv_python:
-        venv_candidate = subprocess.run(
-            [venv_python, "-m", "uv", "--version"],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        if venv_candidate.returncode == 0:
-            return [venv_python, "-m", "uv"]
-    candidate = subprocess.run(
-        ["uv", "--version"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if candidate.returncode == 0:
+    if venv_python and _can_run_uv([venv_python, "-m", "uv"]):
+        return [venv_python, "-m", "uv"]
+    if _can_run_uv(["uv"]):
         return ["uv"]
-    python_candidate = subprocess.run(
-        [sys.executable, "-m", "uv", "--version"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if python_candidate.returncode == 0:
+    if _can_run_uv([sys.executable, "-m", "uv"]):
         return [sys.executable, "-m", "uv"]
     log_error(
         "uv was not found. Install uv, create python_ai_service/.venv with uv, "
