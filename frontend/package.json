@@ -5,9 +5,9 @@
   "scripts": {
     "dev": "vite",
     "dev:wait": "wait-on http://localhost:3000/health http://localhost:8000/health && vite",
-    "dev:start": "node ../scripts/dev/service-runner-node.js start --pid-file target/dev.pid --meta-file target/dev.meta.json -- npm run dev:wait",
-    "dev:stop": "node ../scripts/dev/service-runner-node.js stop --pid-file target/dev.pid --meta-file target/dev.meta.json",
-    "dev:status": "node ../scripts/dev/service-runner-node.js status --pid-file target/dev.pid --meta-file target/dev.meta.json",
+    "dev:start": "node ../scripts/dev/service-runner-node.js start --service-name frontend --pid-file target/dev.pid --meta-file target/dev.meta.json --log-file target/frontend.log --err-file target/frontend.err.log -- npm run dev:wait",
+    "dev:stop": "node ../scripts/dev/service-runner-node.js stop --service-name frontend --pid-file target/dev.pid --meta-file target/dev.meta.json",
+    "dev:status": "node ../scripts/dev/service-runner-node.js status --service-name frontend --pid-file target/dev.pid --meta-file target/dev.meta.json",
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint \"src/**/*.{ts,tsx}\"",

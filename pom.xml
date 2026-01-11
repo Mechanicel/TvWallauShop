@@ -30,7 +30,7 @@
 
   <profiles>
     <profile>
-      <id>dev-start-all</id>
+      <id>profiles</id>
       <build>
         <plugins>
           <plugin>
@@ -38,31 +38,119 @@
             <artifactId>exec-maven-plugin</artifactId>
             <executions>
               <execution>
-                <id>start-python-service</id>
+                <id>list-profiles</id>
                 <phase>validate</phase>
                 <goals><goal>exec</goal></goals>
                 <configuration>
-                  <workingDirectory>${project.basedir}/python_ai_service</workingDirectory>
-                  <executable>python</executable>
+                  <executable>mvn</executable>
                   <arguments>
-                    <argument>scripts/service.py</argument>
-                    <argument>start</argument>
+                    <argument>-q</argument>
+                    <argument>-DforceStdout</argument>
+                    <argument>help:all-profiles</argument>
                   </arguments>
-                  <inheritIo>true</inheritIo>
                 </configuration>
               </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+    <profile>
+      <id>build-all</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>build-backend</id>
+                <phase>package</phase>
+                <goals><goal>exec</goal></goals>
+                <configuration>
+                  <executable>mvn</executable>
+                  <arguments>
+                    <argument>-q</argument>
+                    <argument>-pl</argument>
+                    <argument>backend</argument>
+                    <argument>-Pdev-build</argument>
+                    <argument>package</argument>
+                  </arguments>
+                </configuration>
+              </execution>
+              <execution>
+                <id>build-frontend</id>
+                <phase>package</phase>
+                <goals><goal>exec</goal></goals>
+                <configuration>
+                  <executable>mvn</executable>
+                  <arguments>
+                    <argument>-q</argument>
+                    <argument>-pl</argument>
+                    <argument>frontend</argument>
+                    <argument>-Pdev-build</argument>
+                    <argument>package</argument>
+                  </arguments>
+                </configuration>
+              </execution>
+              <execution>
+                <id>build-python-service</id>
+                <phase>package</phase>
+                <goals><goal>exec</goal></goals>
+                <configuration>
+                  <executable>mvn</executable>
+                  <arguments>
+                    <argument>-q</argument>
+                    <argument>-pl</argument>
+                    <argument>python_ai_service</argument>
+                    <argument>-Pdev-build</argument>
+                    <argument>package</argument>
+                  </arguments>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+    <profile>
+      <id>start-all</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <executions>
               <execution>
                 <id>start-backend</id>
                 <phase>validate</phase>
                 <goals><goal>exec</goal></goals>
                 <configuration>
-                  <workingDirectory>${project.basedir}/backend</workingDirectory>
-                  <executable>npm</executable>
+                  <executable>mvn</executable>
                   <arguments>
-                    <argument>run</argument>
-                    <argument>dev:start</argument>
+                    <argument>-q</argument>
+                    <argument>-pl</argument>
+                    <argument>backend</argument>
+                    <argument>-Pdev-start</argument>
+                    <argument>validate</argument>
                   </arguments>
-                  <inheritIo>true</inheritIo>
+                </configuration>
+              </execution>
+              <execution>
+                <id>start-python-service</id>
+                <phase>validate</phase>
+                <goals><goal>exec</goal></goals>
+                <configuration>
+                  <executable>mvn</executable>
+                  <arguments>
+                    <argument>-q</argument>
+                    <argument>-pl</argument>
+                    <argument>python_ai_service</argument>
+                    <argument>-Pdev-start</argument>
+                    <argument>validate</argument>
+                  </arguments>
                 </configuration>
               </execution>
               <execution>
@@ -70,16 +158,173 @@
                 <phase>validate</phase>
                 <goals><goal>exec</goal></goals>
                 <configuration>
-                  <workingDirectory>${project.basedir}/frontend</workingDirectory>
-                  <executable>npm</executable>
+                  <executable>mvn</executable>
                   <arguments>
-                    <argument>run</argument>
-                    <argument>dev:start</argument>
+                    <argument>-q</argument>
+                    <argument>-pl</argument>
+                    <argument>frontend</argument>
+                    <argument>-Pdev-start</argument>
+                    <argument>validate</argument>
                   </arguments>
-                  <inheritIo>true</inheritIo>
                 </configuration>
               </execution>
             </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+    <profile>
+      <id>stop-all</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>stop-backend</id>
+                <phase>validate</phase>
+                <goals><goal>exec</goal></goals>
+                <configuration>
+                  <executable>mvn</executable>
+                  <arguments>
+                    <argument>-q</argument>
+                    <argument>-pl</argument>
+                    <argument>backend</argument>
+                    <argument>-Pdev-stop</argument>
+                    <argument>validate</argument>
+                  </arguments>
+                </configuration>
+              </execution>
+              <execution>
+                <id>stop-python-service</id>
+                <phase>validate</phase>
+                <goals><goal>exec</goal></goals>
+                <configuration>
+                  <executable>mvn</executable>
+                  <arguments>
+                    <argument>-q</argument>
+                    <argument>-pl</argument>
+                    <argument>python_ai_service</argument>
+                    <argument>-Pdev-stop</argument>
+                    <argument>validate</argument>
+                  </arguments>
+                </configuration>
+              </execution>
+              <execution>
+                <id>stop-frontend</id>
+                <phase>validate</phase>
+                <goals><goal>exec</goal></goals>
+                <configuration>
+                  <executable>mvn</executable>
+                  <arguments>
+                    <argument>-q</argument>
+                    <argument>-pl</argument>
+                    <argument>frontend</argument>
+                    <argument>-Pdev-stop</argument>
+                    <argument>validate</argument>
+                  </arguments>
+                </configuration>
+              </execution>
+              <execution>
+                <id>status-summary</id>
+                <phase>validate</phase>
+                <goals><goal>exec</goal></goals>
+                <configuration>
+                  <executable>mvn</executable>
+                  <arguments>
+                    <argument>-q</argument>
+                    <argument>-Pstatus-all</argument>
+                    <argument>validate</argument>
+                  </arguments>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+    <profile>
+      <id>status-all</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>status-backend</id>
+                <phase>validate</phase>
+                <goals><goal>exec</goal></goals>
+                <configuration>
+                  <executable>mvn</executable>
+                  <arguments>
+                    <argument>-q</argument>
+                    <argument>-pl</argument>
+                    <argument>backend</argument>
+                    <argument>-Pdev-status</argument>
+                    <argument>validate</argument>
+                  </arguments>
+                </configuration>
+              </execution>
+              <execution>
+                <id>status-python-service</id>
+                <phase>validate</phase>
+                <goals><goal>exec</goal></goals>
+                <configuration>
+                  <executable>mvn</executable>
+                  <arguments>
+                    <argument>-q</argument>
+                    <argument>-pl</argument>
+                    <argument>python_ai_service</argument>
+                    <argument>-Pdev-status</argument>
+                    <argument>validate</argument>
+                  </arguments>
+                </configuration>
+              </execution>
+              <execution>
+                <id>status-frontend</id>
+                <phase>validate</phase>
+                <goals><goal>exec</goal></goals>
+                <configuration>
+                  <executable>mvn</executable>
+                  <arguments>
+                    <argument>-q</argument>
+                    <argument>-pl</argument>
+                    <argument>frontend</argument>
+                    <argument>-Pdev-status</argument>
+                    <argument>validate</argument>
+                  </arguments>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+    <profile>
+      <id>clean</id>
+      <build>
+        <plugins>
+          <plugin>
+            <artifactId>maven-clean-plugin</artifactId>
+            <version>3.3.2</version>
+            <configuration>
+              <filesets>
+                <fileset>
+                  <directory>backend/target</directory>
+                </fileset>
+                <fileset>
+                  <directory>frontend/target</directory>
+                </fileset>
+                <fileset>
+                  <directory>python_ai_service/target</directory>
+                </fileset>
+              </filesets>
+            </configuration>
           </plugin>
         </plugins>
       </build>

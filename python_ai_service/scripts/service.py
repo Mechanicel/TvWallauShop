@@ -17,6 +17,7 @@ UV_ENV_VAR = "UV_EXE"
 VENV_DIR = BASE_DIR / ".venv"
 
 LOG_FILE = TARGET_DIR / "uvicorn.log"
+SERVICE_NAME = "python_ai_service"
 
 
 def log(message: str) -> None:
@@ -303,13 +304,13 @@ def stop_service() -> None:
 def status_service() -> None:
     pid = read_pid()
     if pid and pid_alive(pid):
-        log(f"running (pid {pid})")
+        print(f"{SERVICE_NAME}: RUNNING (pid={pid})", flush=True)
         return
     if pid:
-        log(f"stopped (stale pid {pid})")
+        print(f"{SERVICE_NAME}: STOPPED (stale pid={pid})", flush=True)
         cleanup_files()
         return
-    log("stopped")
+    print(f"{SERVICE_NAME}: STOPPED", flush=True)
 
 
 def build_service() -> None:

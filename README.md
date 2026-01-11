@@ -80,7 +80,19 @@ AI_PY_TIMEOUT_MS=150000
 
 ```bash
 # Alles starten
-mvn -Pdev-start-all validate
+mvn -Pstart-all validate
+
+# Status aller Services (inkl. PID)
+mvn -Pstatus-all validate
+
+# Alles stoppen (inkl. Zusammenfassung am Ende)
+mvn -Pstop-all validate
+
+# Alles bauen
+mvn -Pbuild-all package
+
+# Nur target/ Ordner bereinigen
+mvn -Pclean clean
 ```
 
 ```bash
