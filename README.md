@@ -8,7 +8,7 @@ Dieses Repository enthaelt die Services fuer den TvWallauShop (Backend, Frontend
 
 - Node.js (empfohlen: aktuelle LTS)
 - MariaDB
-- Python 3 (nur fuer den AI-Service)
+- Python 3 und uv (nur fuer den AI-Service)
 
 ### Backend konfigurieren
 

@@ -33,7 +33,8 @@ Behavior
 Requirements
 ------------
 
-- Install uv and ensure it is on PATH.
+- Install uv and ensure it is on PATH, or install it in python_ai_service/.venv,
+  or set UV_EXE to the uv executable.
 - The service starts uvicorn with reload on http://localhost:8000.
 - Health endpoint: GET /health returns 200 with {"status": "ok"}.
 

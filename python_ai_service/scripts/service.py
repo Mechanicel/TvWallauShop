@@ -13,6 +13,8 @@ BASE_DIR = Path(__file__).resolve().parents[1]
 TARGET_DIR = BASE_DIR / "target"
 PID_FILE = TARGET_DIR / "dev.pid"
 META_FILE = TARGET_DIR / "dev.meta.json"
+UV_ENV_VAR = "UV_EXE"
+VENV_DIR = BASE_DIR / ".venv"
 
 
 def log(message: str) -> None:
@@ -21,6 +23,51 @@ def log(message: str) -> None:
 
 def log_error(message: str) -> None:
     print(f"[dev-runner] {message}", file=sys.stderr)
+
+
+def resolve_uv_command() -> list[str]:
+    uv_override = os.environ.get(UV_ENV_VAR)
+    if uv_override:
+        return [uv_override]
+    venv_python = None
+    if os.name == "nt":
+        candidate = VENV_DIR / "Scripts" / "python.exe"
+        if candidate.exists():
+            venv_python = str(candidate)
+    else:
+        candidate = VENV_DIR / "bin" / "python"
+        if candidate.exists():
+            venv_python = str(candidate)
+    if venv_python:
+        venv_candidate = subprocess.run(
+            [venv_python, "-m", "uv", "--version"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if venv_candidate.returncode == 0:
+            return [venv_python, "-m", "uv"]
+    candidate = subprocess.run(
+        ["uv", "--version"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if candidate.returncode == 0:
+        return ["uv"]
+    python_candidate = subprocess.run(
+        [sys.executable, "-m", "uv", "--version"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if python_candidate.returncode == 0:
+        return [sys.executable, "-m", "uv"]
+    log_error(
+        "uv was not found. Install uv, create python_ai_service/.venv with uv, "
+        "or set UV_EXE to the uv executable."
+    )
+    sys.exit(1)
 
 
 def read_pid() -> int | None:
@@ -96,8 +143,9 @@ def ensure_target() -> None:
 
 
 def run_uv_sync() -> None:
+    uv_command = resolve_uv_command()
     log("Running uv sync")
-    result = subprocess.run(["uv", "sync"], cwd=BASE_DIR, check=False)
+    result = subprocess.run([*uv_command, "sync"], cwd=BASE_DIR, check=False)
     if result.returncode != 0:
         log_error("uv sync failed")
         sys.exit(result.returncode)
@@ -115,8 +163,9 @@ def start_service() -> None:
     run_uv_sync()
     ensure_target()
 
+    uv_command = resolve_uv_command()
     command = [
-        "uv",
+        *uv_command,
         "run",
         "uvicorn",
         "app.main:app",
