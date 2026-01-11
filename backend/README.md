@@ -22,6 +22,7 @@ Behavior
 --------
 
 - The dev runner writes PID metadata to backend/target/dev.pid and backend/target/dev.meta.json.
+- Logs are written to backend/target/backend.log and backend/target/backend.err.log.
 - If a PID file exists and the process is still running, dev:start exits with code 1.
 - Stop is idempotent and cleans up stale PID files.
 

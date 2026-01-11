@@ -4,12 +4,16 @@ const fs = require('fs');
 const path = require('path');
 const { spawn, spawnSync } = require('child_process');
 
+let serviceName = null;
+
 function log(message) {
-  console.log(`[dev-runner] ${message}`);
+  const prefix = serviceName ? `[dev-runner:${serviceName}]` : '[dev-runner]';
+  console.log(`${prefix} ${message}`);
 }
 
 function logError(message) {
-  console.error(`[dev-runner] ${message}`);
+  const prefix = serviceName ? `[dev-runner:${serviceName}]` : '[dev-runner]';
+  console.error(`${prefix} ${message}`);
 }
 
 function parseArgs(argv) {
@@ -115,7 +119,37 @@ function stopProcess(pid) {
   return waitForExit(pid, 5000);
 }
 
-function startService(pidFile, metaFile, command) {
+function openLogFiles(logFile, errFile) {
+  if (!logFile && !errFile) {
+    return null;
+  }
+  const resolvedLogFile = logFile || errFile;
+  const resolvedErrFile = errFile || logFile;
+  if (resolvedLogFile) {
+    ensureDir(resolvedLogFile);
+  }
+  if (resolvedErrFile && resolvedErrFile !== resolvedLogFile) {
+    ensureDir(resolvedErrFile);
+  }
+  const outFd = resolvedLogFile ? fs.openSync(resolvedLogFile, 'a') : 'ignore';
+  const errFd = resolvedErrFile ? fs.openSync(resolvedErrFile, 'a') : outFd;
+  return { outFd, errFd };
+}
+
+function closeLogFiles(handles) {
+  if (!handles) {
+    return;
+  }
+  const { outFd, errFd } = handles;
+  if (typeof outFd === 'number') {
+    fs.closeSync(outFd);
+  }
+  if (typeof errFd === 'number' && errFd !== outFd) {
+    fs.closeSync(errFd);
+  }
+}
+
+function startService(pidFile, metaFile, command, logFile, errFile) {
   if (command.length === 0) {
     logError('Missing command for start.');
     process.exit(2);
@@ -134,11 +168,13 @@ function startService(pidFile, metaFile, command) {
 
   ensureDir(pidFile);
   const [cmd, ...args] = command;
+  const logHandles = openLogFiles(logFile, errFile);
   const child = spawn(cmd, args, {
     detached: true,
-    stdio: 'ignore',
+    stdio: ['ignore', logHandles ? logHandles.outFd : 'ignore', logHandles ? logHandles.errFd : 'ignore'],
     shell: process.platform === 'win32',
   });
+  closeLogFiles(logHandles);
   child.unref();
 
   fs.writeFileSync(pidFile, String(child.pid));
@@ -178,35 +214,48 @@ function stopService(pidFile, metaFile) {
   log(`Stopped service with pid ${pid}.`);
 }
 
-function statusService(pidFile, metaFile) {
+function formatStatus(name, state, pid) {
+  if (pid) {
+    return `${name}: ${state} (pid=${pid})`;
+  }
+  return `${name}: ${state}`;
+}
+
+function statusService(pidFile, metaFile, name) {
   const pid = readPid(pidFile);
+  const label = name || 'service';
   if (pid && isProcessAlive(pid)) {
-    log(`running (pid ${pid})`);
+    console.log(formatStatus(label, 'RUNNING', pid));
     return;
   }
   if (pid) {
-    log(`stopped (stale pid ${pid})`);
+    console.log(formatStatus(label, 'STOPPED', pid));
     cleanupFiles(pidFile, metaFile);
     return;
   }
-  log('stopped');
+  console.log(formatStatus(label, 'STOPPED'));
 }
 
 const { action, options, command } = parseArgs(process.argv.slice(2));
 const pidFile = options['pid-file'];
 const metaFile = options['meta-file'];
+serviceName = options['service-name'] || null;
+const logFile = options['log-file'];
+const errFile = options['err-file'];
 
 if (!action || !pidFile) {
-  logError('Usage: service-runner-node.js <start|stop|status> --pid-file <path> [--meta-file <path>] -- <command>');
+  logError(
+    'Usage: service-runner-node.js <start|stop|status> --pid-file <path> [--meta-file <path>] [--service-name <name>] [--log-file <path>] [--err-file <path>] -- <command>',
+  );
   process.exit(2);
 }
 
 if (action === 'start') {
-  startService(pidFile, metaFile, command);
+  startService(pidFile, metaFile, command, logFile, errFile);
 } else if (action === 'stop') {
   stopService(pidFile, metaFile);
 } else if (action === 'status') {
-  statusService(pidFile, metaFile);
+  statusService(pidFile, metaFile, serviceName);
 } else {
   logError(`Unknown action: ${action}`);
   process.exit(2);
