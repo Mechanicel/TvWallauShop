@@ -1,0 +1,31 @@
+[project]
+name = "tvwallau-ai-service"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = [
+  "fastapi",
+  "uvicorn[standard]",
+  "pydantic",
+  "python-dotenv",
+  "pytest",
+  "requests",
+  "torch",
+  "torchvision",
+  "Pillow",
+  # fehlte bei dir (CLIPModel / CLIPProcessor)
+  "transformers>=4.40,<5",
+  "hf-xet>=1.2.0",
+]
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+# Wichtig: verhindert, dass setuptools aus Versehen "target" als Package mitsammelt
+[tool.setuptools]
+package-dir = { "" = "." }
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]
+exclude = ["target*", ".venv*", "scripts*", "tests*"]

@@ -8,7 +8,7 @@ Dieses Repository enthaelt die Services fuer den TvWallauShop (Backend, Frontend
 
 - Node.js (empfohlen: aktuelle LTS)
 - MariaDB
-- Python 3 (nur fuer den AI-Service)
+- Python 3 und uv (nur fuer den AI-Service)
 
 ### Backend konfigurieren
 
@@ -77,6 +77,23 @@ AI_PY_TIMEOUT_MS=150000
 ```
 
 ### Services starten (lokal)
+
+```bash
+# Alles starten
+mvn -Pstart-all validate
+
+# Status aller Services (inkl. PID)
+mvn -Pstatus-all validate
+
+# Alles stoppen (inkl. Zusammenfassung am Ende)
+mvn -Pstop-all validate
+
+# Alles bauen
+mvn -Pbuild-all package
+
+# Nur target/ Ordner bereinigen
+mvn -Pclean clean
+```
 
 ```bash
 # Backend

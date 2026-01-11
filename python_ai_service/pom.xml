@@ -13,12 +13,12 @@
   <packaging>pom</packaging>
 
   <properties>
-    <python.executable>${project.basedir}/.venv/Scripts/python.exe</python.executable>
-    <killport.script>${maven.multiModuleProjectDirectory}/scripts/kill-port.ps1</killport.script>
+    <python.executable>python3</python.executable>
+    <python.launcher.args/>
+    <python.venv.executable>${project.basedir}/.venv/bin/python</python.venv.executable>
   </properties>
 
   <profiles>
-
     <profile>
       <id>dev-start</id>
       <build>
@@ -34,21 +34,9 @@
                 <configuration>
                   <workingDirectory>${project.basedir}</workingDirectory>
                   <executable>${python.executable}</executable>
-                  <arguments>
-                    <argument>-m</argument>
-                    <argument>uvicorn</argument>
-                    <argument>app.main:app</argument>
-
-                    <argument>--reload</argument>
-                    <argument>--reload-dir</argument>
-                    <argument>${project.basedir}</argument>
-
-                    <argument>--host</argument><argument>0.0.0.0</argument>
-                    <argument>--port</argument><argument>8000</argument>
-                  </arguments>
+                  <skip>${skip.module.dev}</skip>
+                  <commandlineArgs>${python.launcher.args} scripts/service.py start</commandlineArgs>
                   <inheritIo>true</inheritIo>
-                  <async>true</async>
-                  <asyncDestroyOnShutdown>true</asyncDestroyOnShutdown>
                 </configuration>
               </execution>
             </executions>
@@ -70,16 +58,10 @@
                 <phase>validate</phase>
                 <goals><goal>exec</goal></goals>
                 <configuration>
-                  <executable>powershell.exe</executable>
-                  <arguments>
-                    <argument>-NoProfile</argument>
-                    <argument>-ExecutionPolicy</argument>
-                    <argument>Bypass</argument>
-                    <argument>-File</argument>
-                    <argument>${killport.script}</argument>
-                    <argument>-Ports</argument>
-                    <argument>8000</argument>
-                  </arguments>
+                  <workingDirectory>${project.basedir}</workingDirectory>
+                  <executable>${python.executable}</executable>
+                  <skip>${skip.module.dev}</skip>
+                  <commandlineArgs>${python.launcher.args} scripts/service.py stop</commandlineArgs>
                   <inheritIo>true</inheritIo>
                 </configuration>
               </execution>
@@ -90,7 +72,7 @@
     </profile>
 
     <profile>
-      <id>dev-restart</id>
+      <id>dev-status</id>
       <build>
         <plugins>
           <plugin>
@@ -98,39 +80,15 @@
             <artifactId>exec-maven-plugin</artifactId>
             <executions>
               <execution>
-                <id>python-restart-stop</id>
-                <phase>validate</phase>
-                <goals><goal>exec</goal></goals>
-                <configuration>
-                  <executable>powershell.exe</executable>
-                  <arguments>
-                    <argument>-NoProfile</argument>
-                    <argument>-ExecutionPolicy</argument>
-                    <argument>Bypass</argument>
-                    <argument>-File</argument>
-                    <argument>${killport.script}</argument>
-                    <argument>-Ports</argument>
-                    <argument>8000</argument>
-                  </arguments>
-                </configuration>
-              </execution>
-
-              <execution>
-                <id>python-restart-start</id>
+                <id>python-status</id>
                 <phase>validate</phase>
                 <goals><goal>exec</goal></goals>
                 <configuration>
                   <workingDirectory>${project.basedir}</workingDirectory>
                   <executable>${python.executable}</executable>
-                  <arguments>
-                    <argument>-m</argument><argument>uvicorn</argument><argument>app.main:app</argument>
-                    <argument>--reload</argument><argument>--reload-dir</argument><argument>${project.basedir}</argument>
-                    <argument>--host</argument><argument>0.0.0.0</argument>
-                    <argument>--port</argument><argument>8000</argument>
-                  </arguments>
+                  <skip>${skip.module.dev}</skip>
+                  <commandlineArgs>${python.launcher.args} scripts/service.py status</commandlineArgs>
                   <inheritIo>true</inheritIo>
-                  <async>true</async>
-                  <asyncDestroyOnShutdown>true</asyncDestroyOnShutdown>
                 </configuration>
               </execution>
             </executions>
@@ -140,34 +98,72 @@
     </profile>
 
     <profile>
-      <id>setup</id>
+      <id>clean</id>
+    </profile>
+
+    <profile>
+      <id>release-ready</id>
       <build>
         <plugins>
+          <plugin>
+            <artifactId>maven-clean-plugin</artifactId>
+            <version>3.3.2</version>
+            <configuration>
+              <filesets>
+                <fileset>
+                  <directory>${project.basedir}/.venv</directory>
+                </fileset>
+                <fileset>
+                  <directory>${project.basedir}/.pytest_cache</directory>
+                </fileset>
+                <fileset>
+                  <directory>${project.basedir}/__pycache__</directory>
+                </fileset>
+              </filesets>
+            </configuration>
+          </plugin>
           <plugin>
             <groupId>org.codehaus.mojo</groupId>
             <artifactId>exec-maven-plugin</artifactId>
             <executions>
               <execution>
-                <id>python-setup</id>
-                <phase>validate</phase>
+                <id>python-create-venv</id>
+                <phase>clean</phase>
                 <goals><goal>exec</goal></goals>
                 <configuration>
                   <workingDirectory>${project.basedir}</workingDirectory>
-                  <executable>powershell.exe</executable>
-                  <arguments>
-                    <argument>-NoProfile</argument>
-                    <argument>-ExecutionPolicy</argument>
-                    <argument>Bypass</argument>
-                    <argument>-Command</argument>
-                    <argument>
-                      if (-not (Test-Path ".venv")) { py -m venv .venv };
-                      .\.venv\Scripts\python -m pip install -U pip;
-                      if (Test-Path "requirements.txt") { .\.venv\Scripts\python -m pip install -r requirements.txt }
-                      else { .\.venv\Scripts\python -m pip install "uvicorn[standard]" fastapi };
-                      exit 0
-                    </argument>
-                  </arguments>
-                  <inheritIo>true</inheritIo>
+                  <executable>${python.executable}</executable>
+                  <commandlineArgs>${python.launcher.args} -m venv .venv</commandlineArgs>
+                </configuration>
+              </execution>
+              <execution>
+                <id>python-install</id>
+                <phase>clean</phase>
+                <goals><goal>exec</goal></goals>
+                <configuration>
+                  <workingDirectory>${project.basedir}</workingDirectory>
+                  <executable>${python.venv.executable}</executable>
+                  <commandlineArgs>-m pip install -e .</commandlineArgs>
+                </configuration>
+              </execution>
+              <execution>
+                <id>python-compile</id>
+                <phase>compile</phase>
+                <goals><goal>exec</goal></goals>
+                <configuration>
+                  <workingDirectory>${project.basedir}</workingDirectory>
+                  <executable>${python.venv.executable}</executable>
+                  <commandlineArgs>-m compileall app</commandlineArgs>
+                </configuration>
+              </execution>
+              <execution>
+                <id>python-test</id>
+                <phase>test</phase>
+                <goals><goal>exec</goal></goals>
+                <configuration>
+                  <workingDirectory>${project.basedir}</workingDirectory>
+                  <executable>${python.venv.executable}</executable>
+                  <commandlineArgs>-m pytest</commandlineArgs>
                 </configuration>
               </execution>
             </executions>
@@ -175,6 +171,5 @@
         </plugins>
       </build>
     </profile>
-
   </profiles>
 </project>

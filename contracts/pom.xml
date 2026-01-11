@@ -10,4 +10,88 @@
 
   <artifactId>contracts</artifactId>
   <packaging>pom</packaging>
+
+  <properties>
+    <npm.executable>npm</npm.executable>
+  </properties>
+
+  <profiles>
+    <profile>
+      <id>dev-start</id>
+    </profile>
+
+    <profile>
+      <id>dev-stop</id>
+    </profile>
+
+    <profile>
+      <id>dev-status</id>
+    </profile>
+
+    <profile>
+      <id>clean</id>
+    </profile>
+
+    <profile>
+      <id>release-ready</id>
+      <build>
+        <plugins>
+          <plugin>
+            <artifactId>maven-clean-plugin</artifactId>
+            <version>3.3.2</version>
+            <configuration>
+              <filesets>
+                <fileset>
+                  <directory>${project.basedir}/node_modules</directory>
+                </fileset>
+              </filesets>
+            </configuration>
+          </plugin>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>contracts-install</id>
+                <phase>clean</phase>
+                <goals><goal>exec</goal></goals>
+                <configuration>
+                  <workingDirectory>${project.basedir}</workingDirectory>
+                  <executable>${npm.executable}</executable>
+                  <arguments>
+                    <argument>install</argument>
+                  </arguments>
+                </configuration>
+              </execution>
+              <execution>
+                <id>contracts-compile</id>
+                <phase>compile</phase>
+                <goals><goal>exec</goal></goals>
+                <configuration>
+                  <workingDirectory>${project.basedir}</workingDirectory>
+                  <executable>${npm.executable}</executable>
+                  <arguments>
+                    <argument>run</argument>
+                    <argument>build</argument>
+                  </arguments>
+                </configuration>
+              </execution>
+              <execution>
+                <id>contracts-test</id>
+                <phase>test</phase>
+                <goals><goal>exec</goal></goals>
+                <configuration>
+                  <workingDirectory>${project.basedir}</workingDirectory>
+                  <executable>${npm.executable}</executable>
+                  <arguments>
+                    <argument>test</argument>
+                  </arguments>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>

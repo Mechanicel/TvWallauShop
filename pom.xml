@@ -16,6 +16,12 @@
     <module>frontend</module>
   </modules>
 
+  <properties>
+    <npm.executable>npm</npm.executable>
+    <python.executable>python3</python.executable>
+    <python.launcher.args/>
+  </properties>
+
   <build>
     <pluginManagement>
       <plugins>
@@ -27,4 +33,47 @@
       </plugins>
     </pluginManagement>
   </build>
+
+  <profiles>
+    <profile>
+      <id>dev-start</id>
+    </profile>
+
+    <profile>
+      <id>dev-stop</id>
+    </profile>
+
+    <profile>
+      <id>dev-status</id>
+    </profile>
+
+    <profile>
+      <id>clean</id>
+      <build>
+        <plugins>
+          <plugin>
+            <artifactId>maven-clean-plugin</artifactId>
+            <version>3.3.2</version>
+            <configuration>
+              <filesets>
+                <fileset>
+                  <directory>backend/target</directory>
+                </fileset>
+                <fileset>
+                  <directory>frontend/target</directory>
+                </fileset>
+                <fileset>
+                  <directory>python_ai_service/target</directory>
+                </fileset>
+              </filesets>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+    <profile>
+      <id>release-ready</id>
+    </profile>
+  </profiles>
 </project>
