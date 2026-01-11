@@ -12,6 +12,7 @@
     "preview": "vite preview",
     "lint": "eslint \"src/**/*.{ts,tsx}\"",
     "format": "prettier --write \"src/**/*.{ts,tsx,json,css}\"",
+    "test": "node --test",
     "clean": "rimraf ./dist"
   },
   "dependencies": {
