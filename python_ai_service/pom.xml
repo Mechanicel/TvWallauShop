@@ -13,8 +13,7 @@
   <packaging>pom</packaging>
 
   <properties>
-    <python.executable>${project.basedir}/.venv/Scripts/python.exe</python.executable>
-    <killport.script>${maven.multiModuleProjectDirectory}/scripts/kill-port.ps1</killport.script>
+    <python.executable>python</python.executable>
   </properties>
 
   <profiles>
@@ -35,20 +34,10 @@
                   <workingDirectory>${project.basedir}</workingDirectory>
                   <executable>${python.executable}</executable>
                   <arguments>
-                    <argument>-m</argument>
-                    <argument>uvicorn</argument>
-                    <argument>app.main:app</argument>
-
-                    <argument>--reload</argument>
-                    <argument>--reload-dir</argument>
-                    <argument>${project.basedir}</argument>
-
-                    <argument>--host</argument><argument>0.0.0.0</argument>
-                    <argument>--port</argument><argument>8000</argument>
+                    <argument>scripts/service.py</argument>
+                    <argument>start</argument>
                   </arguments>
                   <inheritIo>true</inheritIo>
-                  <async>true</async>
-                  <asyncDestroyOnShutdown>true</asyncDestroyOnShutdown>
                 </configuration>
               </execution>
             </executions>
@@ -70,15 +59,11 @@
                 <phase>validate</phase>
                 <goals><goal>exec</goal></goals>
                 <configuration>
-                  <executable>powershell.exe</executable>
+                  <workingDirectory>${project.basedir}</workingDirectory>
+                  <executable>${python.executable}</executable>
                   <arguments>
-                    <argument>-NoProfile</argument>
-                    <argument>-ExecutionPolicy</argument>
-                    <argument>Bypass</argument>
-                    <argument>-File</argument>
-                    <argument>${killport.script}</argument>
-                    <argument>-Ports</argument>
-                    <argument>8000</argument>
+                    <argument>scripts/service.py</argument>
+                    <argument>stop</argument>
                   </arguments>
                   <inheritIo>true</inheritIo>
                 </configuration>
@@ -90,7 +75,7 @@
     </profile>
 
     <profile>
-      <id>dev-restart</id>
+      <id>dev-status</id>
       <build>
         <plugins>
           <plugin>
@@ -98,39 +83,17 @@
             <artifactId>exec-maven-plugin</artifactId>
             <executions>
               <execution>
-                <id>python-restart-stop</id>
-                <phase>validate</phase>
-                <goals><goal>exec</goal></goals>
-                <configuration>
-                  <executable>powershell.exe</executable>
-                  <arguments>
-                    <argument>-NoProfile</argument>
-                    <argument>-ExecutionPolicy</argument>
-                    <argument>Bypass</argument>
-                    <argument>-File</argument>
-                    <argument>${killport.script}</argument>
-                    <argument>-Ports</argument>
-                    <argument>8000</argument>
-                  </arguments>
-                </configuration>
-              </execution>
-
-              <execution>
-                <id>python-restart-start</id>
+                <id>python-status</id>
                 <phase>validate</phase>
                 <goals><goal>exec</goal></goals>
                 <configuration>
                   <workingDirectory>${project.basedir}</workingDirectory>
                   <executable>${python.executable}</executable>
                   <arguments>
-                    <argument>-m</argument><argument>uvicorn</argument><argument>app.main:app</argument>
-                    <argument>--reload</argument><argument>--reload-dir</argument><argument>${project.basedir}</argument>
-                    <argument>--host</argument><argument>0.0.0.0</argument>
-                    <argument>--port</argument><argument>8000</argument>
+                    <argument>scripts/service.py</argument>
+                    <argument>status</argument>
                   </arguments>
                   <inheritIo>true</inheritIo>
-                  <async>true</async>
-                  <asyncDestroyOnShutdown>true</asyncDestroyOnShutdown>
                 </configuration>
               </execution>
             </executions>
@@ -140,7 +103,7 @@
     </profile>
 
     <profile>
-      <id>setup</id>
+      <id>dev-build</id>
       <build>
         <plugins>
           <plugin>
@@ -148,24 +111,15 @@
             <artifactId>exec-maven-plugin</artifactId>
             <executions>
               <execution>
-                <id>python-setup</id>
-                <phase>validate</phase>
+                <id>python-build</id>
+                <phase>package</phase>
                 <goals><goal>exec</goal></goals>
                 <configuration>
                   <workingDirectory>${project.basedir}</workingDirectory>
-                  <executable>powershell.exe</executable>
+                  <executable>${python.executable}</executable>
                   <arguments>
-                    <argument>-NoProfile</argument>
-                    <argument>-ExecutionPolicy</argument>
-                    <argument>Bypass</argument>
-                    <argument>-Command</argument>
-                    <argument>
-                      if (-not (Test-Path ".venv")) { py -m venv .venv };
-                      .\.venv\Scripts\python -m pip install -U pip;
-                      if (Test-Path "requirements.txt") { .\.venv\Scripts\python -m pip install -r requirements.txt }
-                      else { .\.venv\Scripts\python -m pip install "uvicorn[standard]" fastapi };
-                      exit 0
-                    </argument>
+                    <argument>scripts/service.py</argument>
+                    <argument>build</argument>
                   </arguments>
                   <inheritIo>true</inheritIo>
                 </configuration>

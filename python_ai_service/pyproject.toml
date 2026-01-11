@@ -1,0 +1,18 @@
+[project]
+name = "tvwallau-ai-service"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = [
+  "fastapi",
+  "uvicorn[standard]",
+  "pydantic",
+  "python-dotenv",
+  "requests",
+  "torch",
+  "torchvision",
+  "Pillow",
+]
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
