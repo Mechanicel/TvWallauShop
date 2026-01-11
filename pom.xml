@@ -16,6 +16,12 @@
     <module>frontend</module>
   </modules>
 
+  <properties>
+    <npm.executable>npm</npm.executable>
+    <python.executable>python3</python.executable>
+    <python.launcher.args/>
+  </properties>
+
   <build>
     <pluginManagement>
       <plugins>
@@ -30,93 +36,7 @@
 
   <profiles>
     <profile>
-      <id>profiles</id>
-      <build>
-        <plugins>
-          <plugin>
-            <groupId>org.codehaus.mojo</groupId>
-            <artifactId>exec-maven-plugin</artifactId>
-            <executions>
-              <execution>
-                <id>list-profiles</id>
-                <phase>validate</phase>
-                <goals><goal>exec</goal></goals>
-                <configuration>
-                  <executable>mvn</executable>
-                  <arguments>
-                    <argument>-q</argument>
-                    <argument>-DforceStdout</argument>
-                    <argument>help:all-profiles</argument>
-                  </arguments>
-                </configuration>
-              </execution>
-            </executions>
-          </plugin>
-        </plugins>
-      </build>
-    </profile>
-
-    <profile>
-      <id>build-all</id>
-      <build>
-        <plugins>
-          <plugin>
-            <groupId>org.codehaus.mojo</groupId>
-            <artifactId>exec-maven-plugin</artifactId>
-            <executions>
-              <execution>
-                <id>build-backend</id>
-                <phase>package</phase>
-                <goals><goal>exec</goal></goals>
-                <configuration>
-                  <executable>mvn</executable>
-                  <arguments>
-                    <argument>-q</argument>
-                    <argument>-pl</argument>
-                    <argument>backend</argument>
-                    <argument>-Pdev-build</argument>
-                    <argument>package</argument>
-                  </arguments>
-                </configuration>
-              </execution>
-              <execution>
-                <id>build-frontend</id>
-                <phase>package</phase>
-                <goals><goal>exec</goal></goals>
-                <configuration>
-                  <executable>mvn</executable>
-                  <arguments>
-                    <argument>-q</argument>
-                    <argument>-pl</argument>
-                    <argument>frontend</argument>
-                    <argument>-Pdev-build</argument>
-                    <argument>package</argument>
-                  </arguments>
-                </configuration>
-              </execution>
-              <execution>
-                <id>build-python-service</id>
-                <phase>package</phase>
-                <goals><goal>exec</goal></goals>
-                <configuration>
-                  <executable>mvn</executable>
-                  <arguments>
-                    <argument>-q</argument>
-                    <argument>-pl</argument>
-                    <argument>python_ai_service</argument>
-                    <argument>-Pdev-build</argument>
-                    <argument>package</argument>
-                  </arguments>
-                </configuration>
-              </execution>
-            </executions>
-          </plugin>
-        </plugins>
-      </build>
-    </profile>
-
-    <profile>
-      <id>start-all</id>
+      <id>dev-start</id>
       <build>
         <plugins>
           <plugin>
@@ -125,47 +45,44 @@
             <executions>
               <execution>
                 <id>start-backend</id>
+                <inherited>false</inherited>
                 <phase>validate</phase>
                 <goals><goal>exec</goal></goals>
                 <configuration>
-                  <executable>mvn</executable>
+                  <workingDirectory>${project.basedir}/backend</workingDirectory>
+                  <executable>${npm.executable}</executable>
                   <arguments>
-                    <argument>-q</argument>
-                    <argument>-pl</argument>
-                    <argument>backend</argument>
-                    <argument>-Pdev-start</argument>
-                    <argument>validate</argument>
+                    <argument>run</argument>
+                    <argument>dev:start</argument>
                   </arguments>
+                  <inheritIo>true</inheritIo>
                 </configuration>
               </execution>
               <execution>
                 <id>start-python-service</id>
+                <inherited>false</inherited>
                 <phase>validate</phase>
                 <goals><goal>exec</goal></goals>
                 <configuration>
-                  <executable>mvn</executable>
-                  <arguments>
-                    <argument>-q</argument>
-                    <argument>-pl</argument>
-                    <argument>python_ai_service</argument>
-                    <argument>-Pdev-start</argument>
-                    <argument>validate</argument>
-                  </arguments>
+                  <workingDirectory>${project.basedir}/python_ai_service</workingDirectory>
+                  <executable>${python.executable}</executable>
+                  <commandlineArgs>${python.launcher.args} scripts/service.py start</commandlineArgs>
+                  <inheritIo>true</inheritIo>
                 </configuration>
               </execution>
               <execution>
                 <id>start-frontend</id>
+                <inherited>false</inherited>
                 <phase>validate</phase>
                 <goals><goal>exec</goal></goals>
                 <configuration>
-                  <executable>mvn</executable>
+                  <workingDirectory>${project.basedir}/frontend</workingDirectory>
+                  <executable>${npm.executable}</executable>
                   <arguments>
-                    <argument>-q</argument>
-                    <argument>-pl</argument>
-                    <argument>frontend</argument>
-                    <argument>-Pdev-start</argument>
-                    <argument>validate</argument>
+                    <argument>run</argument>
+                    <argument>dev:start</argument>
                   </arguments>
+                  <inheritIo>true</inheritIo>
                 </configuration>
               </execution>
             </executions>
@@ -175,7 +92,7 @@
     </profile>
 
     <profile>
-      <id>stop-all</id>
+      <id>dev-stop</id>
       <build>
         <plugins>
           <plugin>
@@ -184,60 +101,44 @@
             <executions>
               <execution>
                 <id>stop-backend</id>
+                <inherited>false</inherited>
                 <phase>validate</phase>
                 <goals><goal>exec</goal></goals>
                 <configuration>
-                  <executable>mvn</executable>
+                  <workingDirectory>${project.basedir}/backend</workingDirectory>
+                  <executable>${npm.executable}</executable>
                   <arguments>
-                    <argument>-q</argument>
-                    <argument>-pl</argument>
-                    <argument>backend</argument>
-                    <argument>-Pdev-stop</argument>
-                    <argument>validate</argument>
+                    <argument>run</argument>
+                    <argument>dev:stop</argument>
                   </arguments>
+                  <inheritIo>true</inheritIo>
                 </configuration>
               </execution>
               <execution>
                 <id>stop-python-service</id>
+                <inherited>false</inherited>
                 <phase>validate</phase>
                 <goals><goal>exec</goal></goals>
                 <configuration>
-                  <executable>mvn</executable>
-                  <arguments>
-                    <argument>-q</argument>
-                    <argument>-pl</argument>
-                    <argument>python_ai_service</argument>
-                    <argument>-Pdev-stop</argument>
-                    <argument>validate</argument>
-                  </arguments>
+                  <workingDirectory>${project.basedir}/python_ai_service</workingDirectory>
+                  <executable>${python.executable}</executable>
+                  <commandlineArgs>${python.launcher.args} scripts/service.py stop</commandlineArgs>
+                  <inheritIo>true</inheritIo>
                 </configuration>
               </execution>
               <execution>
                 <id>stop-frontend</id>
+                <inherited>false</inherited>
                 <phase>validate</phase>
                 <goals><goal>exec</goal></goals>
                 <configuration>
-                  <executable>mvn</executable>
+                  <workingDirectory>${project.basedir}/frontend</workingDirectory>
+                  <executable>${npm.executable}</executable>
                   <arguments>
-                    <argument>-q</argument>
-                    <argument>-pl</argument>
-                    <argument>frontend</argument>
-                    <argument>-Pdev-stop</argument>
-                    <argument>validate</argument>
+                    <argument>run</argument>
+                    <argument>dev:stop</argument>
                   </arguments>
-                </configuration>
-              </execution>
-              <execution>
-                <id>status-summary</id>
-                <phase>validate</phase>
-                <goals><goal>exec</goal></goals>
-                <configuration>
-                  <executable>mvn</executable>
-                  <arguments>
-                    <argument>-q</argument>
-                    <argument>-Pstatus-all</argument>
-                    <argument>validate</argument>
-                  </arguments>
+                  <inheritIo>true</inheritIo>
                 </configuration>
               </execution>
             </executions>
@@ -247,7 +148,7 @@
     </profile>
 
     <profile>
-      <id>status-all</id>
+      <id>dev-status</id>
       <build>
         <plugins>
           <plugin>
@@ -256,47 +157,44 @@
             <executions>
               <execution>
                 <id>status-backend</id>
+                <inherited>false</inherited>
                 <phase>validate</phase>
                 <goals><goal>exec</goal></goals>
                 <configuration>
-                  <executable>mvn</executable>
+                  <workingDirectory>${project.basedir}/backend</workingDirectory>
+                  <executable>${npm.executable}</executable>
                   <arguments>
-                    <argument>-q</argument>
-                    <argument>-pl</argument>
-                    <argument>backend</argument>
-                    <argument>-Pdev-status</argument>
-                    <argument>validate</argument>
+                    <argument>run</argument>
+                    <argument>dev:status</argument>
                   </arguments>
+                  <inheritIo>true</inheritIo>
                 </configuration>
               </execution>
               <execution>
                 <id>status-python-service</id>
+                <inherited>false</inherited>
                 <phase>validate</phase>
                 <goals><goal>exec</goal></goals>
                 <configuration>
-                  <executable>mvn</executable>
-                  <arguments>
-                    <argument>-q</argument>
-                    <argument>-pl</argument>
-                    <argument>python_ai_service</argument>
-                    <argument>-Pdev-status</argument>
-                    <argument>validate</argument>
-                  </arguments>
+                  <workingDirectory>${project.basedir}/python_ai_service</workingDirectory>
+                  <executable>${python.executable}</executable>
+                  <commandlineArgs>${python.launcher.args} scripts/service.py status</commandlineArgs>
+                  <inheritIo>true</inheritIo>
                 </configuration>
               </execution>
               <execution>
                 <id>status-frontend</id>
+                <inherited>false</inherited>
                 <phase>validate</phase>
                 <goals><goal>exec</goal></goals>
                 <configuration>
-                  <executable>mvn</executable>
+                  <workingDirectory>${project.basedir}/frontend</workingDirectory>
+                  <executable>${npm.executable}</executable>
                   <arguments>
-                    <argument>-q</argument>
-                    <argument>-pl</argument>
-                    <argument>frontend</argument>
-                    <argument>-Pdev-status</argument>
-                    <argument>validate</argument>
+                    <argument>run</argument>
+                    <argument>dev:status</argument>
                   </arguments>
+                  <inheritIo>true</inheritIo>
                 </configuration>
               </execution>
             </executions>
@@ -328,6 +226,10 @@
           </plugin>
         </plugins>
       </build>
+    </profile>
+
+    <profile>
+      <id>release-ready</id>
     </profile>
   </profiles>
 </project>

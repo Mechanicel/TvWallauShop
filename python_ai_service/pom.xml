@@ -13,28 +13,12 @@
   <packaging>pom</packaging>
 
   <properties>
-    <!-- Default for Unix/macOS -->
     <python.executable>python3</python.executable>
-    <!-- Optional extra args before the script, e.g. Windows: -3.12 -->
     <python.launcher.args/>
+    <python.venv.executable>${project.basedir}/.venv/bin/python</python.venv.executable>
   </properties>
 
   <profiles>
-
-    <!-- Windows: force Python 3.12 via the Python Launcher ("py") so we don't accidentally use Python 3.14 -->
-    <profile>
-      <id>windows-python</id>
-      <activation>
-        <os>
-          <family>Windows</family>
-        </os>
-      </activation>
-      <properties>
-        <python.executable>py</python.executable>
-        <python.launcher.args>-3.12</python.launcher.args>
-      </properties>
-    </profile>
-
     <profile>
       <id>dev-start</id>
       <build>
@@ -111,22 +95,72 @@
     </profile>
 
     <profile>
-      <id>dev-build</id>
+      <id>clean</id>
+    </profile>
+
+    <profile>
+      <id>release-ready</id>
       <build>
         <plugins>
+          <plugin>
+            <artifactId>maven-clean-plugin</artifactId>
+            <version>3.3.2</version>
+            <configuration>
+              <filesets>
+                <fileset>
+                  <directory>${project.basedir}/.venv</directory>
+                </fileset>
+                <fileset>
+                  <directory>${project.basedir}/.pytest_cache</directory>
+                </fileset>
+                <fileset>
+                  <directory>${project.basedir}/__pycache__</directory>
+                </fileset>
+              </filesets>
+            </configuration>
+          </plugin>
           <plugin>
             <groupId>org.codehaus.mojo</groupId>
             <artifactId>exec-maven-plugin</artifactId>
             <executions>
               <execution>
-                <id>python-build</id>
-                <phase>package</phase>
+                <id>python-create-venv</id>
+                <phase>clean</phase>
                 <goals><goal>exec</goal></goals>
                 <configuration>
                   <workingDirectory>${project.basedir}</workingDirectory>
                   <executable>${python.executable}</executable>
-                  <commandlineArgs>${python.launcher.args} scripts/service.py build</commandlineArgs>
-                  <inheritIo>true</inheritIo>
+                  <commandlineArgs>${python.launcher.args} -m venv .venv</commandlineArgs>
+                </configuration>
+              </execution>
+              <execution>
+                <id>python-install</id>
+                <phase>clean</phase>
+                <goals><goal>exec</goal></goals>
+                <configuration>
+                  <workingDirectory>${project.basedir}</workingDirectory>
+                  <executable>${python.venv.executable}</executable>
+                  <commandlineArgs>-m pip install -e .</commandlineArgs>
+                </configuration>
+              </execution>
+              <execution>
+                <id>python-compile</id>
+                <phase>compile</phase>
+                <goals><goal>exec</goal></goals>
+                <configuration>
+                  <workingDirectory>${project.basedir}</workingDirectory>
+                  <executable>${python.venv.executable}</executable>
+                  <commandlineArgs>-m compileall app</commandlineArgs>
+                </configuration>
+              </execution>
+              <execution>
+                <id>python-test</id>
+                <phase>test</phase>
+                <goals><goal>exec</goal></goals>
+                <configuration>
+                  <workingDirectory>${project.basedir}</workingDirectory>
+                  <executable>${python.venv.executable}</executable>
+                  <commandlineArgs>-m pytest</commandlineArgs>
                 </configuration>
               </execution>
             </executions>
@@ -134,6 +168,5 @@
         </plugins>
       </build>
     </profile>
-
   </profiles>
 </project>
