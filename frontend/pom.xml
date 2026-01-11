@@ -17,7 +17,6 @@
   </properties>
 
   <profiles>
-
     <profile>
       <id>dev-start</id>
       <build>
@@ -103,16 +102,46 @@
     </profile>
 
     <profile>
-      <id>dev-build</id>
+      <id>clean</id>
+    </profile>
+
+    <profile>
+      <id>release-ready</id>
       <build>
         <plugins>
+          <plugin>
+            <artifactId>maven-clean-plugin</artifactId>
+            <version>3.3.2</version>
+            <configuration>
+              <filesets>
+                <fileset>
+                  <directory>${project.basedir}/node_modules</directory>
+                </fileset>
+                <fileset>
+                  <directory>${project.basedir}/dist</directory>
+                </fileset>
+              </filesets>
+            </configuration>
+          </plugin>
           <plugin>
             <groupId>org.codehaus.mojo</groupId>
             <artifactId>exec-maven-plugin</artifactId>
             <executions>
               <execution>
-                <id>frontend-build</id>
-                <phase>package</phase>
+                <id>frontend-install</id>
+                <phase>clean</phase>
+                <goals><goal>exec</goal></goals>
+                <configuration>
+                  <workingDirectory>${project.basedir}</workingDirectory>
+                  <executable>${npm.executable}</executable>
+                  <arguments>
+                    <argument>install</argument>
+                  </arguments>
+                </configuration>
+              </execution>
+              <execution>
+                <id>frontend-compile</id>
+                <phase>compile</phase>
                 <goals><goal>exec</goal></goals>
                 <configuration>
                   <workingDirectory>${project.basedir}</workingDirectory>
@@ -121,7 +150,18 @@
                     <argument>run</argument>
                     <argument>build</argument>
                   </arguments>
-                  <inheritIo>true</inheritIo>
+                </configuration>
+              </execution>
+              <execution>
+                <id>frontend-test</id>
+                <phase>test</phase>
+                <goals><goal>exec</goal></goals>
+                <configuration>
+                  <workingDirectory>${project.basedir}</workingDirectory>
+                  <executable>${npm.executable}</executable>
+                  <arguments>
+                    <argument>test</argument>
+                  </arguments>
                 </configuration>
               </execution>
             </executions>
@@ -129,6 +169,5 @@
         </plugins>
       </build>
     </profile>
-
   </profiles>
 </project>
