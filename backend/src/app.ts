@@ -19,7 +19,7 @@ const APP_ORIGINS = (process.env.APP_ORIGIN || 'http://localhost:3001')
 const app = express();
 
 // --------------------
-// 🛠 Middlewares
+// Middlewares
 // --------------------
 app.use(
     cors({
@@ -40,12 +40,12 @@ app.get('/health', (_req, res) => {
 });
 
 // --------------------
-// 🚪 API Gateway Routes
+// API Gateway Routes
 // --------------------
 app.use(gatewayApp);
 
 // --------------------
-// ⚙️ Debug Routes
+// Debug Routes
 // --------------------
 if (DEBUG_ROUTES) {
     app.get(`${API_BASE_PATH}/debug/ping`, (req, res) => {
@@ -79,7 +79,7 @@ if (DEBUG_ROUTES) {
 }
 
 // --------------------
-// 🚨 Error Handler
+// Error Handler
 // --------------------
 app.use(errorHandler);
 
