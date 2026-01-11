@@ -79,6 +79,11 @@ AI_PY_TIMEOUT_MS=150000
 ### Services starten (lokal)
 
 ```bash
+# Alles starten
+mvn -Pdev-start-all validate
+```
+
+```bash
 # Backend
 cd backend
 npm install
