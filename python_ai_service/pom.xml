@@ -130,7 +130,16 @@
                   <directory>${project.basedir}/.pytest_cache</directory>
                 </fileset>
                 <fileset>
-                  <directory>${project.basedir}/__pycache__</directory>
+                  <directory>${project.basedir}</directory>
+                  <includes>
+                    <include>**/__pycache__/**</include>
+                  </includes>
+                </fileset>
+                <fileset>
+                  <directory>${project.basedir}</directory>
+                  <includes>
+                    <include>**/*.egg-info/**</include>
+                  </includes>
                 </fileset>
               </filesets>
             </configuration>
