@@ -27,4 +27,62 @@
       </plugins>
     </pluginManagement>
   </build>
+
+  <profiles>
+    <profile>
+      <id>dev-start-all</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>start-python-service</id>
+                <phase>validate</phase>
+                <goals><goal>exec</goal></goals>
+                <configuration>
+                  <workingDirectory>${project.basedir}/python_ai_service</workingDirectory>
+                  <executable>python</executable>
+                  <arguments>
+                    <argument>scripts/service.py</argument>
+                    <argument>start</argument>
+                  </arguments>
+                  <inheritIo>true</inheritIo>
+                </configuration>
+              </execution>
+              <execution>
+                <id>start-backend</id>
+                <phase>validate</phase>
+                <goals><goal>exec</goal></goals>
+                <configuration>
+                  <workingDirectory>${project.basedir}/backend</workingDirectory>
+                  <executable>npm</executable>
+                  <arguments>
+                    <argument>run</argument>
+                    <argument>dev:start</argument>
+                  </arguments>
+                  <inheritIo>true</inheritIo>
+                </configuration>
+              </execution>
+              <execution>
+                <id>start-frontend</id>
+                <phase>validate</phase>
+                <goals><goal>exec</goal></goals>
+                <configuration>
+                  <workingDirectory>${project.basedir}/frontend</workingDirectory>
+                  <executable>npm</executable>
+                  <arguments>
+                    <argument>run</argument>
+                    <argument>dev:start</argument>
+                  </arguments>
+                  <inheritIo>true</inheritIo>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>
