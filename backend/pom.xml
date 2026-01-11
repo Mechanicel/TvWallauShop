@@ -13,8 +13,7 @@
   <packaging>pom</packaging>
 
   <properties>
-    <npm.executable>npm.cmd</npm.executable>
-    <killport.script>${maven.multiModuleProjectDirectory}/scripts/kill-port.ps1</killport.script>
+    <npm.executable>npm</npm.executable>
   </properties>
 
   <profiles>
@@ -36,11 +35,9 @@
                   <executable>${npm.executable}</executable>
                   <arguments>
                     <argument>run</argument>
-                    <argument>start:dev</argument>
+                    <argument>dev:start</argument>
                   </arguments>
                   <inheritIo>true</inheritIo>
-                  <async>true</async>
-                  <asyncDestroyOnShutdown>true</asyncDestroyOnShutdown>
                 </configuration>
               </execution>
             </executions>
@@ -62,15 +59,11 @@
                 <phase>validate</phase>
                 <goals><goal>exec</goal></goals>
                 <configuration>
-                  <executable>powershell.exe</executable>
+                  <workingDirectory>${project.basedir}</workingDirectory>
+                  <executable>${npm.executable}</executable>
                   <arguments>
-                    <argument>-NoProfile</argument>
-                    <argument>-ExecutionPolicy</argument>
-                    <argument>Bypass</argument>
-                    <argument>-File</argument>
-                    <argument>${killport.script}</argument>
-                    <argument>-Ports</argument>
-                    <argument>3000</argument>
+                    <argument>run</argument>
+                    <argument>dev:stop</argument>
                   </arguments>
                   <inheritIo>true</inheritIo>
                 </configuration>
@@ -82,7 +75,7 @@
     </profile>
 
     <profile>
-      <id>dev-restart</id>
+      <id>dev-status</id>
       <build>
         <plugins>
           <plugin>
@@ -90,58 +83,16 @@
             <artifactId>exec-maven-plugin</artifactId>
             <executions>
               <execution>
-                <id>backend-restart-stop</id>
+                <id>backend-status</id>
                 <phase>validate</phase>
                 <goals><goal>exec</goal></goals>
                 <configuration>
-                  <executable>powershell.exe</executable>
+                  <workingDirectory>${project.basedir}</workingDirectory>
+                  <executable>${npm.executable}</executable>
                   <arguments>
-                    <argument>-NoProfile</argument>
-                    <argument>-ExecutionPolicy</argument>
-                    <argument>Bypass</argument>
-                    <argument>-File</argument>
-                    <argument>${killport.script}</argument>
-                    <argument>-Ports</argument>
-                    <argument>3000</argument>
+                    <argument>run</argument>
+                    <argument>dev:status</argument>
                   </arguments>
-                </configuration>
-              </execution>
-
-              <execution>
-                <id>backend-restart-start</id>
-                <phase>validate</phase>
-                <goals><goal>exec</goal></goals>
-                <configuration>
-                  <workingDirectory>${project.basedir}</workingDirectory>
-                  <executable>${npm.executable}</executable>
-                  <arguments><argument>run</argument><argument>start:dev</argument></arguments>
-                  <inheritIo>true</inheritIo>
-                  <async>true</async>
-                  <asyncDestroyOnShutdown>true</asyncDestroyOnShutdown>
-                </configuration>
-              </execution>
-            </executions>
-          </plugin>
-        </plugins>
-      </build>
-    </profile>
-
-    <profile>
-      <id>setup</id>
-      <build>
-        <plugins>
-          <plugin>
-            <groupId>org.codehaus.mojo</groupId>
-            <artifactId>exec-maven-plugin</artifactId>
-            <executions>
-              <execution>
-                <id>backend-setup</id>
-                <phase>validate</phase>
-                <goals><goal>exec</goal></goals>
-                <configuration>
-                  <workingDirectory>${project.basedir}</workingDirectory>
-                  <executable>${npm.executable}</executable>
-                  <arguments><argument>install</argument></arguments>
                   <inheritIo>true</inheritIo>
                 </configuration>
               </execution>
@@ -152,7 +103,7 @@
     </profile>
 
     <profile>
-      <id>build</id>
+      <id>dev-build</id>
       <build>
         <plugins>
           <plugin>
@@ -166,7 +117,10 @@
                 <configuration>
                   <workingDirectory>${project.basedir}</workingDirectory>
                   <executable>${npm.executable}</executable>
-                  <arguments><argument>run</argument><argument>build</argument></arguments>
+                  <arguments>
+                    <argument>run</argument>
+                    <argument>build</argument>
+                  </arguments>
                   <inheritIo>true</inheritIo>
                 </configuration>
               </execution>
