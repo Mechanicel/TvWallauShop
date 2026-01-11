@@ -20,6 +20,19 @@
 
   <profiles>
     <profile>
+      <id>windows</id>
+      <activation>
+        <os>
+          <family>Windows</family>
+        </os>
+      </activation>
+      <properties>
+        <python.executable>python</python.executable>
+        <python.venv.executable>${project.basedir}/.venv/Scripts/python.exe</python.venv.executable>
+      </properties>
+    </profile>
+
+    <profile>
       <id>dev-start</id>
       <build>
         <plugins>
@@ -128,7 +141,7 @@
             <executions>
               <execution>
                 <id>python-create-venv</id>
-                <phase>clean</phase>
+                <phase>compile</phase>
                 <goals><goal>exec</goal></goals>
                 <configuration>
                   <workingDirectory>${project.basedir}</workingDirectory>
@@ -138,7 +151,7 @@
               </execution>
               <execution>
                 <id>python-install</id>
-                <phase>clean</phase>
+                <phase>compile</phase>
                 <goals><goal>exec</goal></goals>
                 <configuration>
                   <workingDirectory>${project.basedir}</workingDirectory>
