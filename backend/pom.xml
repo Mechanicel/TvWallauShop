@@ -123,6 +123,12 @@
                 <fileset>
                   <directory>${project.basedir}/dist</directory>
                 </fileset>
+                <fileset>
+                  <directory>${project.basedir}/logs</directory>
+                </fileset>
+                <fileset>
+                  <directory>${project.basedir}/uploads</directory>
+                </fileset>
               </filesets>
             </configuration>
           </plugin>
