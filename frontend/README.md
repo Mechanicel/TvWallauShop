@@ -4,12 +4,12 @@ TvWallauShop Frontend
 Development commands
 --------------------
 
-Maven (module-scoped):
+Nx (workspace):
 
-- Start: mvn -pl frontend -Pdev-start validate
-- Stop: mvn -pl frontend -Pdev-stop validate
-- Status: mvn -pl frontend -Pdev-status validate
-- Build: mvn -pl frontend -Pdev-build package
+- Start: npx nx run frontend:serve
+- Stop: npx nx run frontend:stop
+- Status: npx nx run frontend:status
+- Build: npx nx run frontend:build
 
 Direct npm scripts:
 

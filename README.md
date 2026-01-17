@@ -81,50 +81,43 @@ AI_PY_SERVICE_URL=http://localhost:8000
 AI_PY_TIMEOUT_MS=150000
 ```
 
-### Services starten (lokal)
+### Monorepo Workflow (Nx)
 
 ```bash
-# Alles starten
-mvn -Pstart-all validate
+# Abhaengigkeiten installieren (Root)
+npm ci
 
-# Status aller Services (inkl. PID)
-mvn -Pstatus-all validate
+# Build aller Projekte
+npx nx run-many -t build
 
-# Alles stoppen (inkl. Zusammenfassung am Ende)
-mvn -Pstop-all validate
+# Tests ausfuehren
+npx nx run-many -t test
 
-# Alles bauen
-mvn -Pbuild-all package
+# Linting ausfuehren
+npx nx run-many -t lint
 
-# Nur target/ Ordner bereinigen
-mvn -Pclean clean
+# Dev-Services starten (parallel)
+npx nx run-many -t serve --parallel
+
+# Nx-Graph anzeigen
+npx nx graph
 ```
 
 ```bash
-# Backend
-cd backend
-npm install
-npm run dev
+# Einzelne Services gezielt starten
+npx nx run backend:serve
+npx nx run frontend:serve
+npx nx run python-ai-service:serve
 ```
 
 ```bash
-# Frontend
-cd frontend
-npm install
-npm run dev
-```
-
-```bash
-# Python AI Service
-cd python_ai_service
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-python -m uvicorn main:app --reload --port 8000
+# Python AI Service Dependencies
+npx nx run python-ai-service:install
 ```
 
 ## Projektstruktur
 
-- `backend/` - Node.js API
-- `frontend/` - Frontend-Anwendung
-- `python_ai_service/` - Python Microservice fuer KI-Produktinformationen
+- `backend/` - Node.js API (Nx: backend)
+- `frontend/` - Frontend-Anwendung (Nx: frontend)
+- `contracts/` - Shared TypeScript contracts (Nx: contracts)
+- `python_ai_service/` - Python Microservice fuer KI-Produktinformationen (Nx: python-ai-service)

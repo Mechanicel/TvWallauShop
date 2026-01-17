@@ -4,12 +4,12 @@ TvWallauShop Backend
 Development commands
 --------------------
 
-Maven (module-scoped):
+Nx (workspace):
 
-- Start: mvn -pl backend -Pdev-start validate
-- Stop: mvn -pl backend -Pdev-stop validate
-- Status: mvn -pl backend -Pdev-status validate
-- Build: mvn -pl backend -Pdev-build package
+- Start: npx nx run backend:serve
+- Stop: npx nx run backend:stop
+- Status: npx nx run backend:status
+- Build: npx nx run backend:build
 
 Direct npm scripts:
 
