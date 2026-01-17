@@ -91,6 +91,12 @@ npm install
 # Reproduzierbare Installationen (z.B. CI)
 npm ci
 
+# Generierte Artefakte entfernen (node_modules, dist/build, caches, venvs)
+npm run clear
+
+# Optional: Abhaengigkeiten inkl. Lockfiles zuruecksetzen (danach neu installieren)
+npm run deps:reset
+
 # Build aller Projekte
 npm run build
 
@@ -128,6 +134,8 @@ Hinweise
 - Jeder Service verwaltet Start/Stop selbst ueber seine dev:start/dev:stop Scripts (PID/Meta-Dateien liegen in `target/`).
 - Python-Abhaengigkeiten fuer den AI-Service werden via uv installiert; `pytest` ist Teil der Dependencies.
 - Das contracts-Paket ist eine Library und hat keine Dev-Start/Stop Targets.
+- `npm run clear` entfernt nur generierte Artefakte (z.B. node_modules, dist/build, caches, venvs), laesst aber Lockfiles unangetastet.
+- `npm run deps:reset` entfernt zusaetzlich Lockfiles (package-lock.json, uv.lock/poetry.lock). Danach muessen Dependencies neu installiert werden.
 
 ## Projektstruktur
 

@@ -15,6 +15,8 @@ Nx (workspace):
 - Stop: npx nx run frontend:stop
 - Status: npx nx run frontend:status
 - Build: npx nx run frontend:build
+- Clear generated artifacts: npx nx run frontend:clear
+- Reset dependencies (removes lockfile): npx nx run frontend:deps:reset
 
 Direct npm scripts:
 
@@ -30,6 +32,8 @@ Behavior
 - Logs are written to frontend/target/frontend.log and frontend/target/frontend.err.log.
 - If a PID file exists and the process is still running, dev:start exits with code 1.
 - Stop is idempotent and cleans up stale PID files.
+- The clear target removes generated artifacts (node_modules, dist/build, caches, target) but keeps package-lock.json.
+- The deps:reset target also removes package-lock.json; rerun npm install/npm ci afterward.
 
 Wait-on requirement
 -------------------

@@ -51,6 +51,20 @@
         "command": "python scripts/service.py status",
         "cwd": "python_ai_service"
       }
+    },
+    "clear": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "rimraf .venv __pycache__ \"**/__pycache__\" .pytest_cache .mypy_cache .ruff_cache dist build \"*.egg-info\" target",
+        "cwd": "python_ai_service"
+      }
+    },
+    "deps:reset": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "rimraf .venv uv.lock poetry.lock",
+        "cwd": "python_ai_service"
+      }
     }
   }
 }
