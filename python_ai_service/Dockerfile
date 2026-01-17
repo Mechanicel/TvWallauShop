@@ -4,6 +4,7 @@ WORKDIR /app
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+ENV UV_EXTRA_INDEX_URL=https://download.pytorch.org/whl/cpu
 
 RUN pip install --no-cache-dir uv
 

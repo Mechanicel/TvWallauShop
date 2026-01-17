@@ -6,14 +6,14 @@
     "install": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "python scripts/service.py build",
+        "command": "npm run install",
         "cwd": "python_ai_service"
       }
     },
     "build": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "python scripts/service.py build",
+        "command": "npm run build",
         "cwd": "python_ai_service"
       }
     },
@@ -28,7 +28,7 @@
     "test": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "python scripts/service.py test",
+        "command": "npm run test",
         "cwd": "python_ai_service"
       }
     },
@@ -42,21 +42,21 @@
     "serve": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "python scripts/service.py start",
+        "command": "npm run dev:start",
         "cwd": "python_ai_service"
       }
     },
     "stop": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "python scripts/service.py stop",
+        "command": "npm run dev:stop",
         "cwd": "python_ai_service"
       }
     },
     "status": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "python scripts/service.py status",
+        "command": "npm run dev:status",
         "cwd": "python_ai_service"
       }
     },

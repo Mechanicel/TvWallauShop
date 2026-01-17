@@ -10,6 +10,9 @@ cp infra/backend.env.example infra/backend.env
 ```
 
 Befuelle anschließend die Werte in `infra/.env` und `infra/backend.env`.
+Beim Aufruf von `npm run infra:up` oder `npm run stack:init` werden die
+leeren `.env`-Dateien automatisch aus den Example-Dateien erzeugt,
+falls sie noch nicht existieren.
 
 ## Start/Stop
 
@@ -25,6 +28,12 @@ Weitere hilfreiche Kommandos:
 npm run infra:logs
 ```
 
+Einmaliges DB-Init (Migration + Seeds):
+
+```bash
+npm run stack:init
+```
+
 ## Ports
 
 Die Ports werden in `infra/.env` gesetzt:
@@ -33,10 +42,27 @@ Die Ports werden in `infra/.env` gesetzt:
 - `PYTHON_PORT` → Python AI Service (Container-Port 8000)
 - `FRONTEND_PORT` → Frontend (Container-Port 80)
 
+## MariaDB Environment Keys
+
+In `infra/.env` werden folgende Keys erwartet:
+
+- `MARIADB_DATABASE`
+- `MARIADB_USER`
+- `MARIADB_PASSWORD`
+- `MARIADB_ROOT_PASSWORD`
+
+## Init vs. Normal Start
+
+- **Init (einmalig):** `npm run stack:init` startet das `db-init` Profil und
+  fuehrt Migration + Seeds aus.
+- **Normal:** `npm run stack:up` startet den Stack, das Backend fuehrt nur
+  Migrationen beim Start aus (keine Seeds).
+
 ## Services & Volumes
 
 - `mariadb` nutzt ein benanntes Volume `mariadb_data`.
 - `backend` erwartet `DB_HOST=mariadb` und `AI_PY_SERVICE_URL=http://python-ai-service:8000`.
+- `db-init` laeuft nur mit `--profile init` und fuehrt Migration + Seeds aus.
 
 ## Troubleshooting
 

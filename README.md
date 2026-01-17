@@ -61,7 +61,7 @@ ACCESS_TOKEN_EXPIRES_IN=1m
 # Expiration time for refresh tokens (e.g. 7d, 30d)
 REFRESH_TOKEN_EXPIRES_IN=7d
 
-REFRESH_COOKIE_MAX_AGE_MS=1000 * 60 * 60 * 24 * 7
+REFRESH_COOKIE_MAX_AGE_MS=604800000
 
 # ------------------------------------------------------------------
 # SMTP Configuration (Strato)
@@ -86,15 +86,15 @@ AI_PY_TIMEOUT_MS=150000
 
 ```bash
 # Abhaengigkeiten installieren (Root, Workspaces)
-npm install
+npm run install:all
 
 # Reproduzierbare Installationen (z.B. CI)
-npm ci
+npm run ci
 
 # Generierte Artefakte entfernen (inkl. root node_modules, dist/build, caches, venvs)
 npm run clear
 
-# Optional: Abhaengigkeiten inkl. Lockfiles zuruecksetzen (danach neu installieren)
+# Optional: Abhaengigkeiten inkl. Root-Lockfile zuruecksetzen (danach neu installieren)
 npm run deps:reset
 
 # Build aller Projekte
@@ -111,9 +111,6 @@ npm run dev
 
 # Dev-Services stoppen (parallel)
 npm run stop
-
-# Nx-Graph anzeigen
-npx nx graph
 ```
 
 ```bash
@@ -132,23 +129,29 @@ Hinweise
 --------
 
 - Jeder Service verwaltet Start/Stop selbst ueber seine dev:start/dev:stop Scripts (PID/Meta-Dateien liegen in `target/`).
-- Python-Abhaengigkeiten fuer den AI-Service werden via uv installiert; `pytest` ist Teil der Dependencies.
 - Das contracts-Paket ist eine Library und hat keine Dev-Start/Stop Targets.
 - `npm run clear` entfernt nur generierte Artefakte (inkl. root node_modules, dist/build, caches, venvs), laesst aber Lockfiles unangetastet.
-- `npm run deps:reset` entfernt zusaetzlich Lockfiles (package-lock.json, uv.lock/poetry.lock). Danach muessen Dependencies neu installiert werden.
+- `npm run deps:reset` entfernt zusaetzlich das Root-Lockfile (package-lock.json). Danach muessen Dependencies neu installiert werden.
+- Uebrig bleibende node.exe Prozesse von IntelliJ (prettier/js-language-service) sind normal und nicht Teil des Stack.
 
 ## Docker Stack (infra/)
 
-```bash
-cp infra/.env.example infra/.env
-cp infra/backend.env.example infra/backend.env
-```
+Erstes Setup (einmalig, mit Seeds):
 
 ```bash
-npm run docker:build
+# 1) infra/.env und infra/backend.env ausfuellen (werden bei infra:up/stack:init automatisch erzeugt)
+# 2) Images bauen + DB initialisieren (migrate + seed)
+npm run stack:init
+```
+
+Normaler Start (nur Migration beim Backend-Start):
+
+```bash
 npm run stack:up
 npm run stack:down
 ```
+
+Logs:
 
 ```bash
 npm run infra:logs

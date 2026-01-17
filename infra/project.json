@@ -5,7 +5,7 @@
     "compose:up": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "docker compose up -d",
+        "command": "node ../scripts/env/init-env.js && docker compose up -d",
         "cwd": "infra"
       }
     },
@@ -27,6 +27,13 @@
       "executor": "nx:run-commands",
       "options": {
         "command": "docker compose ps",
+        "cwd": "infra"
+      }
+    },
+    "compose:init": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node ../scripts/env/init-env.js && docker compose --profile init up --abort-on-container-exit db-init",
         "cwd": "infra"
       }
     }
