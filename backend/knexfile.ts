@@ -4,6 +4,7 @@
 
 // Lädt automatisch deine .env (beste Variante für knex)
 import 'dotenv/config';
+import path from 'path';
 import type { Knex } from 'knex';
 
 // 🔍 DEBUG: Zeigt beim Start genau an, auf welche DB zugegriffen wird
@@ -18,6 +19,11 @@ console.log("===========================================");
 // -----------------------------------------------------
 //  KNEX CONFIG EXPORT
 // -----------------------------------------------------
+
+const isCompiled = __dirname.split(path.sep).includes('dist');
+const migrationsDirectory = path.join(__dirname, 'migrations');
+const seedsDirectory = path.join(__dirname, 'seeds');
+const migrationsExtension = isCompiled ? 'js' : 'ts';
 
 const config: { [key: string]: Knex.Config } = {
     development: {
@@ -34,13 +40,13 @@ const config: { [key: string]: Knex.Config } = {
             max: 10,
         },
         migrations: {
-            directory: './migrations',
-            extension: 'ts',
+            directory: migrationsDirectory,
+            extension: migrationsExtension,
             tableName: 'knex_migrations',
         },
         seeds: {
-            directory: './seeds',
-            extension: 'ts',
+            directory: seedsDirectory,
+            extension: migrationsExtension,
         },
     },
 
@@ -55,13 +61,13 @@ const config: { [key: string]: Knex.Config } = {
             database: process.env.DB_NAME,
         },
         migrations: {
-            directory: './migrations',
-            extension: 'ts',
+            directory: migrationsDirectory,
+            extension: migrationsExtension,
             tableName: 'knex_migrations',
         },
         seeds: {
-            directory: './seeds',
-            extension: 'ts',
+            directory: seedsDirectory,
+            extension: migrationsExtension,
         },
     },
 };
