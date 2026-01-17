@@ -4,6 +4,11 @@ TvWallauShop Frontend
 Development commands
 --------------------
 
+Install dependencies from the repo root (npm workspaces) before running any commands:
+
+- npm install (first-time setup / lockfile regeneration)
+- npm ci (CI / reproducible installs)
+
 Nx (workspace):
 
 - Start: npx nx run frontend:serve
