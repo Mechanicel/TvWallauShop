@@ -37,6 +37,13 @@
         "cwd": "infra"
       }
     },
+    "compose:db:stop": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "docker compose stop mariadb",
+        "cwd": "infra"
+      }
+    },
     "compose:init": {
       "executor": "nx:run-commands",
       "options": {
