@@ -137,6 +137,28 @@ Hinweise
 - `npm run clear` entfernt nur generierte Artefakte (inkl. root node_modules, dist/build, caches, venvs), laesst aber Lockfiles unangetastet.
 - `npm run deps:reset` entfernt zusaetzlich Lockfiles (package-lock.json, uv.lock/poetry.lock). Danach muessen Dependencies neu installiert werden.
 
+## Docker Stack (infra/)
+
+```bash
+cp infra/.env.example infra/.env
+cp infra/backend.env.example infra/backend.env
+```
+
+```bash
+npm run docker:build
+npm run stack:up
+npm run stack:down
+```
+
+```bash
+npm run infra:logs
+```
+
+Hinweise:
+
+- Lokal ohne Docker nutzt das Backend typischerweise `DB_HOST=localhost` und `AI_PY_SERVICE_URL=http://localhost:8000`.
+- Im Docker-Stack wird `DB_HOST=mariadb` und `AI_PY_SERVICE_URL=http://python-ai-service:8000` gesetzt.
+
 ## Projektstruktur
 
 - `backend/` - Node.js API (Nx: backend)

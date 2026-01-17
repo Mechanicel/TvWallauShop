@@ -11,6 +11,14 @@
       },
       "outputs": ["{projectRoot}/dist"]
     },
+    "docker:build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "docker build -t tvwallaushop/frontend:local -f frontend/Dockerfile .",
+        "cwd": "."
+      },
+      "dependsOn": ["build"]
+    },
     "test": {
       "executor": "nx:run-commands",
       "options": {
