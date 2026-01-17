@@ -4,5 +4,6 @@
     "rootDir": ".",
     "outDir": "dist"
   },
-  "include": ["knexfile.ts", "migrations/**/*.ts", "seeds/**/*.ts"]
+  "include": ["knexfile.ts", "migrations/**/*.ts", "seeds/**/*.ts"],
+  "exclude": ["src"]
 }
