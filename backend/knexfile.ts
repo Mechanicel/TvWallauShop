@@ -21,9 +21,11 @@ console.log("===========================================");
 // -----------------------------------------------------
 
 const isCompiled = __dirname.split(path.sep).includes('dist');
+const isProductionRuntime = isCompiled || process.env.NODE_ENV === 'production';
 const migrationsDirectory = path.join(__dirname, 'migrations');
 const seedsDirectory = path.join(__dirname, 'seeds');
-const migrationsExtension = isCompiled ? 'js' : 'ts';
+const migrationsExtension = isProductionRuntime ? 'js' : 'ts';
+const migrationsLoadExtensions = isProductionRuntime ? ['.js'] : ['.ts'];
 
 const config: { [key: string]: Knex.Config } = {
     development: {
@@ -42,11 +44,13 @@ const config: { [key: string]: Knex.Config } = {
         migrations: {
             directory: migrationsDirectory,
             extension: migrationsExtension,
+            loadExtensions: migrationsLoadExtensions,
             tableName: 'knex_migrations',
         },
         seeds: {
             directory: seedsDirectory,
             extension: migrationsExtension,
+            loadExtensions: migrationsLoadExtensions,
         },
     },
 
@@ -63,11 +67,13 @@ const config: { [key: string]: Knex.Config } = {
         migrations: {
             directory: migrationsDirectory,
             extension: migrationsExtension,
+            loadExtensions: migrationsLoadExtensions,
             tableName: 'knex_migrations',
         },
         seeds: {
             directory: seedsDirectory,
             extension: migrationsExtension,
+            loadExtensions: migrationsLoadExtensions,
         },
     },
 };
