@@ -13,6 +13,7 @@ Dieses Repository enthaelt die Services fuer den TvWallauShop (Backend, Frontend
 ### Hinweise zu Node-Abhaengigkeiten
 
 - `package-lock.json` soll mit committed werden (fuer reproduzierbare Builds).
+- Dieses Repo nutzt npm Workspaces. Abhaengigkeiten werden zentral im Repo-Root installiert.
 - In CI wird `npm ci` genutzt, um Installationen aus dem Lockfile zu machen.
 
 ### Backend konfigurieren
@@ -84,20 +85,23 @@ AI_PY_TIMEOUT_MS=150000
 ### Monorepo Workflow (Nx)
 
 ```bash
-# Abhaengigkeiten installieren (Root)
+# Abhaengigkeiten installieren (Root, Workspaces)
+npm install
+
+# Reproduzierbare Installationen (z.B. CI)
 npm ci
 
 # Build aller Projekte
-npx nx run-many -t build
+npm run build
 
 # Tests ausfuehren
-npx nx run-many -t test
+npm run test
 
 # Linting ausfuehren
-npx nx run-many -t lint
+npm run lint
 
 # Dev-Services starten (parallel)
-npx nx run-many -t serve --parallel
+npm run dev
 
 # Nx-Graph anzeigen
 npx nx graph

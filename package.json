@@ -2,6 +2,11 @@
   "name": "tvwallaushop",
   "version": "1.0.0",
   "private": true,
+  "workspaces": [
+    "contracts",
+    "backend",
+    "frontend"
+  ],
   "scripts": {
     "nx": "nx",
     "build": "nx run-many -t build",
