@@ -132,13 +132,13 @@
             <executions>
               <execution>
                 <id>frontend-install</id>
-                <phase>clean</phase>
+                <phase>compile</phase>
                 <goals><goal>exec</goal></goals>
                 <configuration>
                   <workingDirectory>${project.basedir}</workingDirectory>
                   <executable>${npm.executable}</executable>
                   <arguments>
-                    <argument>install</argument>
+                    <argument>ci</argument>
                   </arguments>
                 </configuration>
               </execution>

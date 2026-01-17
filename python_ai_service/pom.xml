@@ -20,6 +20,19 @@
 
   <profiles>
     <profile>
+      <id>windows</id>
+      <activation>
+        <os>
+          <family>Windows</family>
+        </os>
+      </activation>
+      <properties>
+        <python.executable>python</python.executable>
+        <python.venv.executable>${project.basedir}/.venv/Scripts/python.exe</python.venv.executable>
+      </properties>
+    </profile>
+
+    <profile>
       <id>dev-start</id>
       <build>
         <plugins>
@@ -117,7 +130,16 @@
                   <directory>${project.basedir}/.pytest_cache</directory>
                 </fileset>
                 <fileset>
-                  <directory>${project.basedir}/__pycache__</directory>
+                  <directory>${project.basedir}</directory>
+                  <includes>
+                    <include>**/__pycache__/**</include>
+                  </includes>
+                </fileset>
+                <fileset>
+                  <directory>${project.basedir}</directory>
+                  <includes>
+                    <include>**/*.egg-info/**</include>
+                  </includes>
                 </fileset>
               </filesets>
             </configuration>
@@ -128,7 +150,7 @@
             <executions>
               <execution>
                 <id>python-create-venv</id>
-                <phase>clean</phase>
+                <phase>compile</phase>
                 <goals><goal>exec</goal></goals>
                 <configuration>
                   <workingDirectory>${project.basedir}</workingDirectory>
@@ -138,7 +160,7 @@
               </execution>
               <execution>
                 <id>python-install</id>
-                <phase>clean</phase>
+                <phase>compile</phase>
                 <goals><goal>exec</goal></goals>
                 <configuration>
                   <workingDirectory>${project.basedir}</workingDirectory>

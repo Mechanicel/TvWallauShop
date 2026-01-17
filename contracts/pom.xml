@@ -53,7 +53,7 @@
             <executions>
               <execution>
                 <id>contracts-install</id>
-                <phase>clean</phase>
+                <phase>compile</phase>
                 <goals><goal>exec</goal></goals>
                 <configuration>
                   <workingDirectory>${project.basedir}</workingDirectory>

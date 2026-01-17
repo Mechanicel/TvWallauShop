@@ -3,4 +3,3 @@ dist/
 .env
 uploads/
 logs/
-/package-lock.json

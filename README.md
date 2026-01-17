@@ -10,6 +10,11 @@ Dieses Repository enthaelt die Services fuer den TvWallauShop (Backend, Frontend
 - MariaDB
 - Python 3 und uv (nur fuer den AI-Service)
 
+### Hinweise zu Node-Abhaengigkeiten
+
+- `package-lock.json` soll mit committed werden (fuer reproduzierbare Builds).
+- In CI wird `npm ci` genutzt, um Installationen aus dem Lockfile zu machen.
+
 ### Backend konfigurieren
 
 Lege die Datei `backend/.env` an und uebernimm die folgenden Variablen:

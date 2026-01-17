@@ -11,7 +11,25 @@
   <artifactId>infra</artifactId>
   <packaging>pom</packaging>
 
+  <properties>
+    <infra.test.executable>/bin/sh</infra.test.executable>
+    <infra.test.commandlineArgs>tests/run-tests.sh</infra.test.commandlineArgs>
+  </properties>
+
   <profiles>
+    <profile>
+      <id>windows</id>
+      <activation>
+        <os>
+          <family>Windows</family>
+        </os>
+      </activation>
+      <properties>
+        <infra.test.executable>cmd</infra.test.executable>
+        <infra.test.commandlineArgs>/c tests\\run-tests.cmd</infra.test.commandlineArgs>
+      </properties>
+    </profile>
+
     <profile>
       <id>dev-start</id>
     </profile>
@@ -42,10 +60,8 @@
                 <goals><goal>exec</goal></goals>
                 <configuration>
                   <workingDirectory>${project.basedir}</workingDirectory>
-                  <executable>/bin/sh</executable>
-                  <arguments>
-                    <argument>tests/run-tests.sh</argument>
-                  </arguments>
+                  <executable>${infra.test.executable}</executable>
+                  <commandlineArgs>${infra.test.commandlineArgs}</commandlineArgs>
                 </configuration>
               </execution>
             </executions>
