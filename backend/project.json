@@ -57,7 +57,7 @@
     "clear": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "rimraf node_modules dist build coverage .turbo .vite .next out target",
+        "command": "rimraf node_modules dist build coverage .turbo .vite .next out target logs",
         "cwd": "backend"
       }
     },
