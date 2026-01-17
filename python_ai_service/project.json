@@ -1,0 +1,56 @@
+{
+  "name": "python-ai-service",
+  "projectType": "application",
+  "sourceRoot": "python_ai_service/app",
+  "targets": {
+    "install": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "python scripts/service.py build",
+        "cwd": "python_ai_service"
+      }
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "python scripts/service.py build",
+        "cwd": "python_ai_service"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "python -m pytest",
+        "cwd": "python_ai_service"
+      }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "echo \"No lint configured for python_ai_service\"",
+        "cwd": "python_ai_service"
+      }
+    },
+    "serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "python scripts/service.py start",
+        "cwd": "python_ai_service"
+      }
+    },
+    "stop": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "python scripts/service.py stop",
+        "cwd": "python_ai_service"
+      }
+    },
+    "status": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "python scripts/service.py status",
+        "cwd": "python_ai_service"
+      }
+    }
+  }
+}

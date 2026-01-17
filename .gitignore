@@ -1,2 +1,12 @@
 .idea
 /python_ai_service/.env
+
+**/node_modules/
+**/dist/
+**/build/
+**/coverage/
+**/target/
+**/.nx/cache/
+**/.venv/
+**/__pycache__/
+**/.pytest_cache/

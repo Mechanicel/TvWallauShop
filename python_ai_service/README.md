@@ -8,12 +8,12 @@ product tags.
 Development commands
 --------------------
 
-Maven (module-scoped):
+Nx (workspace):
 
-- Start: mvn -pl python_ai_service -Pdev-start validate
-- Stop: mvn -pl python_ai_service -Pdev-stop validate
-- Status: mvn -pl python_ai_service -Pdev-status validate
-- Build: mvn -pl python_ai_service -Pdev-build package
+- Start: npx nx run python-ai-service:serve
+- Stop: npx nx run python-ai-service:stop
+- Status: npx nx run python-ai-service:status
+- Build: npx nx run python-ai-service:build
 
 Direct Python commands:
 

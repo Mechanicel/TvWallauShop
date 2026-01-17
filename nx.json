@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json.schemastore.org/nx",
+  "namedInputs": {
+    "default": [
+      "{projectRoot}/**/*",
+      "!{projectRoot}/node_modules/**",
+      "!{projectRoot}/dist/**",
+      "!{projectRoot}/build/**",
+      "!{projectRoot}/.next/**",
+      "!{projectRoot}/coverage/**",
+      "!{projectRoot}/target/**",
+      "!{projectRoot}/.venv/**",
+      "!{projectRoot}/__pycache__/**",
+      "!{projectRoot}/.pytest_cache/**"
+    ],
+    "sharedGlobals": [
+      "{workspaceRoot}/package-lock.json",
+      "{workspaceRoot}/nx.json",
+      "{workspaceRoot}/pyproject.toml",
+      "{workspaceRoot}/python_ai_service/pyproject.toml"
+    ]
+  },
+  "targetDefaults": {
+    "build": {
+      "inputs": ["default", "sharedGlobals"]
+    },
+    "test": {
+      "inputs": ["default", "sharedGlobals"]
+    },
+    "lint": {
+      "inputs": ["default", "sharedGlobals"]
+    },
+    "serve": {
+      "inputs": ["default", "sharedGlobals"]
+    },
+    "install": {
+      "inputs": ["default", "sharedGlobals"]
+    }
+  }
+}
