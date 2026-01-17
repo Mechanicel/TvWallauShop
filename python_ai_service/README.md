@@ -14,6 +14,7 @@ Nx (workspace):
 - Stop: npx nx run python-ai-service:stop
 - Status: npx nx run python-ai-service:status
 - Build: npx nx run python-ai-service:build
+- Test: npx nx run python-ai-service:test
 
 Direct Python commands:
 
@@ -21,6 +22,7 @@ Direct Python commands:
 - Stop: python scripts/service.py stop
 - Status: python scripts/service.py status
 - Build: python scripts/service.py build
+- Test: python scripts/service.py test
 
 Behavior
 --------
@@ -35,6 +37,7 @@ Requirements
 
 - Install uv and ensure it is on PATH, or install it in python_ai_service/.venv,
   or set UV_EXE to the uv executable.
+- Install dependencies: uv sync (or run `npx nx run python-ai-service:install`).
 - The service starts uvicorn with reload on http://localhost:8000.
 - Health endpoint: GET /health returns 200 with {"status": "ok"}.
 
@@ -44,3 +47,4 @@ Troubleshooting
 - Stale PID file: run python scripts/service.py stop or delete
   python_ai_service/target/dev.pid if the process is gone.
 - Port already in use: check which process is using port 8000 and stop it manually.
+- "No module named pytest": run uv sync (or `npx nx run python-ai-service:install`) and re-run tests.

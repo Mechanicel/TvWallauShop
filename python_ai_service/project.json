@@ -20,7 +20,7 @@
     "test": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "python -m pytest",
+        "command": "python scripts/service.py test",
         "cwd": "python_ai_service"
       }
     },
