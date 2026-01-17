@@ -1,0 +1,46 @@
+services:
+  mariadb:
+    image: mariadb:11.4
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: ${MARIADB_DATABASE}
+      MARIADB_USER: ${MARIADB_USER}
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD}
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD}
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    image: tvwallaushop/backend:local
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    env_file:
+      - ./backend.env
+    environment:
+      DB_HOST: mariadb
+      DB_PORT: 3306
+      AI_PY_SERVICE_URL: http://python-ai-service:8000
+      DB_USER: ${MARIADB_USER}
+      DB_PASS: ${MARIADB_PASSWORD}
+      DB_NAME: ${MARIADB_DATABASE}
+    ports:
+      - "${BACKEND_PORT}:3000"
+
+  python-ai-service:
+    image: tvwallaushop/python-ai-service:local
+    ports:
+      - "${PYTHON_PORT}:8000"
+
+  frontend:
+    image: tvwallaushop/frontend:local
+    ports:
+      - "${FRONTEND_PORT}:80"
+
+volumes:
+  mariadb_data:

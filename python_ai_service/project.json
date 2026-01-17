@@ -17,6 +17,14 @@
         "cwd": "python_ai_service"
       }
     },
+    "docker:build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "docker build -t tvwallaushop/python-ai-service:local -f python_ai_service/Dockerfile .",
+        "cwd": "."
+      },
+      "dependsOn": ["build"]
+    },
     "test": {
       "executor": "nx:run-commands",
       "options": {
