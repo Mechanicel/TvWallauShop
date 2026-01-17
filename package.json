@@ -14,8 +14,8 @@
     "lint": "nx run-many -t lint",
     "dev": "nx run-many -t serve --parallel --output-style=stream",
     "stop": "nx run-many -t stop --parallel --output-style=stream",
-    "clear": "nx run-many -t clear --parallel --output-style=stream",
-    "deps:reset": "nx run-many -t deps:reset --parallel --output-style=stream",
+    "clear": "nx run repo-tools:clear --output-style=stream && nx run-many -t clear --parallel --output-style=stream",
+    "deps:reset": "nx run repo-tools:deps:reset --output-style=stream && nx run-many -t deps:reset --parallel --output-style=stream",
     "graph": "nx graph"
   },
   "devDependencies": {
