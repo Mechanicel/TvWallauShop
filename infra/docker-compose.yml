@@ -29,8 +29,26 @@ services:
       DB_USER: ${MARIADB_USER}
       DB_PASS: ${MARIADB_PASSWORD}
       DB_NAME: ${MARIADB_DATABASE}
+    command: ["sh", "-c", "cd backend && npm run migrate && npm run start"]
     ports:
       - "${BACKEND_PORT}:3000"
+
+  db-init:
+    image: tvwallaushop/backend:local
+    profiles: ["init"]
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    env_file:
+      - ./backend.env
+    environment:
+      DB_HOST: mariadb
+      DB_PORT: 3306
+      AI_PY_SERVICE_URL: http://python-ai-service:8000
+      DB_USER: ${MARIADB_USER}
+      DB_PASS: ${MARIADB_PASSWORD}
+      DB_NAME: ${MARIADB_DATABASE}
+    command: ["sh", "-c", "cd backend && npm run migrate && npm run seed"]
 
   python-ai-service:
     image: tvwallaushop/python-ai-service:local

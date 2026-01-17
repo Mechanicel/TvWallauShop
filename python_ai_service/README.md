@@ -44,6 +44,8 @@ Requirements
 - Install dependencies: uv sync (or run `npx nx run python-ai-service:install`).
 - The service starts uvicorn with reload on http://localhost:8000.
 - Health endpoint: GET /health returns 200 with {"status": "ok"}.
+- CPU-only PyTorch wheels are used via the PyTorch CPU index; GPU/CUDA wheels
+  are not required for the default setup.
 
 Troubleshooting
 ---------------

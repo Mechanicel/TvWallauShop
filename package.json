@@ -5,7 +5,8 @@
   "workspaces": [
     "contracts",
     "backend",
-    "frontend"
+    "frontend",
+    "python_ai_service"
   ],
   "scripts": {
     "nx": "nx",
@@ -15,7 +16,7 @@
     "test": "nx run-many -t test",
     "lint": "nx run-many -t lint",
     "dev": "nx run-many -t serve --parallel --output-style=stream",
-    "stop": "nx run-many -t stop --parallel --output-style=stream && nx daemon --stop",
+    "stop": "nx run-many -t stop --parallel --output-style=stream",
     "clear": "nx run repo-tools:clear --output-style=stream && nx run-many -t clear --parallel --output-style=stream",
     "deps:reset": "nx run repo-tools:deps:reset --output-style=stream && nx run-many -t deps:reset --parallel --output-style=stream",
     "graph": "nx graph",
@@ -23,6 +24,7 @@
     "infra:up": "nx run infra:compose:up --output-style=stream",
     "infra:down": "nx run infra:compose:down --output-style=stream",
     "infra:logs": "nx run infra:compose:logs --output-style=stream",
+    "stack:init": "npm run docker:build && nx run infra:compose:init --output-style=stream",
     "stack:up": "npm run docker:build && npm run infra:up",
     "stack:down": "npm run infra:down"
   },
