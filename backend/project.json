@@ -45,6 +45,20 @@
         "command": "npm run dev:status",
         "cwd": "backend"
       }
+    },
+    "clear": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "rimraf node_modules dist build coverage .turbo .vite .next out target",
+        "cwd": "backend"
+      }
+    },
+    "deps:reset": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "rimraf node_modules package-lock.json",
+        "cwd": "backend"
+      }
     }
   }
 }

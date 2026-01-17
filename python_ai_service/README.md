@@ -15,6 +15,8 @@ Nx (workspace):
 - Status: npx nx run python-ai-service:status
 - Build: npx nx run python-ai-service:build
 - Test: npx nx run python-ai-service:test
+- Clear generated artifacts: npx nx run python-ai-service:clear
+- Reset dependencies (removes lockfile): npx nx run python-ai-service:deps:reset
 
 Direct Python commands:
 
@@ -31,6 +33,8 @@ Behavior
   python_ai_service/target/dev.meta.json.
 - If a PID file exists and the process is still running, start exits with code 1.
 - Stop is idempotent and cleans up stale PID files.
+- The clear target removes generated artifacts (venv, caches, dist/build, target) but keeps uv.lock/poetry.lock.
+- The deps:reset target also removes uv.lock/poetry.lock; rerun uv sync/poetry install afterward.
 
 Requirements
 ------------
