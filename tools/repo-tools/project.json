@@ -5,7 +5,7 @@
     "clear": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "rimraf node_modules .nx/cache dist build coverage tmp",
+        "command": "rimraf node_modules dist build coverage tmp",
         "cwd": "."
       }
     },
