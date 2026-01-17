@@ -103,6 +103,9 @@ npm run lint
 # Dev-Services starten (parallel)
 npm run dev
 
+# Dev-Services stoppen (parallel)
+npm run stop
+
 # Nx-Graph anzeigen
 npx nx graph
 ```
@@ -118,6 +121,13 @@ npx nx run python-ai-service:serve
 # Python AI Service Dependencies
 npx nx run python-ai-service:install
 ```
+
+Hinweise
+--------
+
+- Jeder Service verwaltet Start/Stop selbst ueber seine dev:start/dev:stop Scripts (PID/Meta-Dateien liegen in `target/`).
+- Python-Abhaengigkeiten fuer den AI-Service werden via uv installiert; `pytest` ist Teil der Dependencies.
+- Das contracts-Paket ist eine Library und hat keine Dev-Start/Stop Targets.
 
 ## Projektstruktur
 

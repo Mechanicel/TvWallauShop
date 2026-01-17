@@ -12,7 +12,8 @@
     "build": "nx run-many -t build",
     "test": "nx run-many -t test",
     "lint": "nx run-many -t lint",
-    "dev": "nx run-many -t serve --parallel",
+    "dev": "nx run-many -t serve --parallel --output-style=stream",
+    "stop": "nx run-many -t stop --parallel --output-style=stream",
     "graph": "nx graph"
   },
   "devDependencies": {
