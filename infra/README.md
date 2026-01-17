@@ -46,10 +46,11 @@ Die Ports werden in `infra/.env` gesetzt:
 
 In `infra/.env` werden folgende Keys erwartet:
 
-- `MARIADB_DATABASE`
-- `MARIADB_USER`
-- `MARIADB_PASSWORD`
-- `MARIADB_ROOT_PASSWORD`
+- `DB_NAME`
+- `DB_USER`
+- `DB_PASS`
+- `DB_ROOT_PASS`
+- `DB_PORT`
 
 ## Init vs. Normal Start
 
