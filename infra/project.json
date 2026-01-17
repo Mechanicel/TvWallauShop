@@ -30,6 +30,13 @@
         "cwd": "infra"
       }
     },
+    "compose:db": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node ../scripts/env/init-env.js && docker compose up -d mariadb",
+        "cwd": "infra"
+      }
+    },
     "compose:init": {
       "executor": "nx:run-commands",
       "options": {
