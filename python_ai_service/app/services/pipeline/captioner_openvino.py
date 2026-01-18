@@ -9,20 +9,28 @@ import openvino_genai as ov_genai
 
 from ...config import get_settings
 from ...contracts_models import Caption
+from ...model_manager import build_model_specs, check_assets, model_fetch_hint
 from ..errors import AiServiceError
 
 settings = get_settings()
 
 
 def _resolve_caption_paths() -> tuple[Path, Path]:
-    base = Path(settings.OV_CAPTION_DIR)
+    spec = build_model_specs(settings)["caption"]
+    base = spec.target_dir
     model_path = base / "model.xml"
     tokenizer_path = base / "tokenizer.json"
-    if not model_path.exists() or not tokenizer_path.exists():
+    missing = check_assets(spec)
+    if missing:
         raise AiServiceError(
             code="MODEL_NOT_AVAILABLE",
-            message="Caption model assets are missing.",
-            details={"directory": str(base)},
+            message=f"Caption model assets are missing. {model_fetch_hint()}",
+            details={
+                "model": "caption",
+                "missing": missing,
+                "directory": str(base),
+                "hint": model_fetch_hint(),
+            },
             http_status=503,
         )
     return model_path, tokenizer_path

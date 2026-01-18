@@ -21,11 +21,14 @@ class Settings:
         "yes",
         "on",
     )
-    MODEL_CACHE_DIR: str = os.getenv("MODEL_CACHE_DIR", "models").strip()
+    MODEL_DIR: str = os.getenv("MODEL_DIR", "models").strip()
+    MODEL_CACHE_DIR: str = os.getenv("MODEL_CACHE_DIR", MODEL_DIR).strip()
+    OFFLINE: bool = os.getenv("OFFLINE", "0").strip() in ("1", "true", "yes", "on")
+    MODEL_FETCH_MODE: str = os.getenv("MODEL_FETCH_MODE", "never").strip()
 
-    OV_CLIP_DIR: str = os.getenv("OV_CLIP_DIR", "models/clip").strip()
-    OV_CAPTION_DIR: str = os.getenv("OV_CAPTION_DIR", "models/caption").strip()
-    OV_LLM_DIR: str = os.getenv("OV_LLM_DIR", "models/llm").strip()
+    OV_CLIP_DIR: str = os.getenv("OV_CLIP_DIR", f"{MODEL_DIR}/clip").strip()
+    OV_CAPTION_DIR: str = os.getenv("OV_CAPTION_DIR", f"{MODEL_DIR}/caption").strip()
+    OV_LLM_DIR: str = os.getenv("OV_LLM_DIR", f"{MODEL_DIR}/llm").strip()
 
     MAX_TAGS: int = int(os.getenv("MAX_TAGS", "10"))
     MAX_CAPTIONS_PER_IMAGE: int = int(os.getenv("MAX_CAPTIONS_PER_IMAGE", "1"))
