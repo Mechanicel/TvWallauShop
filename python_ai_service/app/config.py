@@ -1,4 +1,5 @@
 import os
+from typing import Literal
 from functools import lru_cache
 
 from dotenv import load_dotenv
@@ -33,6 +34,14 @@ class Settings:
     CAPTION_HF_ID: str = os.getenv(
         "CAPTION_HF_ID", "Salesforce/blip-image-captioning-base"
     ).strip()
+    LLM_SOURCE: Literal["prebuilt_ov_ir", "hf_export"] = os.getenv(
+        "LLM_SOURCE", "prebuilt_ov_ir"
+    ).strip()
+    LLM_HF_ID: str = os.getenv("LLM_HF_ID", "Qwen/Qwen2.5-3B-Instruct").strip()
+    LLM_HF_OV_REPO: str = os.getenv(
+        "LLM_HF_OV_REPO", "llmware/qwen2.5-3b-instruct-ov"
+    ).strip()
+    LLM_REVISION: str | None = os.getenv("LLM_REVISION") or None
 
     MAX_TAGS: int = int(os.getenv("MAX_TAGS", "10"))
     MAX_CAPTIONS_PER_IMAGE: int = int(os.getenv("MAX_CAPTIONS_PER_IMAGE", "1"))

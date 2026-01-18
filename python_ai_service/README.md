@@ -54,16 +54,17 @@ Requirements
 Model setup
 -----------
 
-The AI pipeline expects OpenVINO models stored locally. You can either drop pre-converted
-IR artifacts in place or allow a one-time download/convert via `MODEL_FETCH_MODE=download`
-with `OFFLINE=0`. When `OFFLINE=1`, the service will never access the network and missing
+The AI pipeline expects OpenVINO models stored locally. By default, the LLM uses a prebuilt
+OpenVINO GenAI snapshot download (`LLM_SOURCE=prebuilt_ov_ir`) so startup does not require
+`optimum-cli`. When `OFFLINE=1`, the service will never access the network and missing
 assets will return `MODEL_NOT_AVAILABLE`.
 
 Model sources (local-only inference):
 
 - Tagger: `openai/clip-vit-base-patch32` (OpenVINO IR)
 - Captioner: `Salesforce/blip-image-captioning-base` (OpenVINO IR)
-- LLM: `Qwen/Qwen2.5-3B-Instruct` (OpenVINO IR INT4 via `optimum-cli export openvino`)
+- LLM (default): `llmware/qwen2.5-3b-instruct-ov` (OpenVINO GenAI IR via snapshot download)
+- LLM (optional export path): `Qwen/Qwen2.5-3B-Instruct` (OpenVINO IR INT4 via `optimum-cli export openvino`)
 
 Expected local filesystem layout:
 
@@ -83,11 +84,29 @@ models/
   llm/
     openvino_model.xml
     openvino_model.bin
-    tokenizer.json
+    tokenizer.json (or tokenizer.model)
     config.json
+    openvino_tokenizer.xml
+    openvino_tokenizer.bin
+    openvino_detokenizer.xml
+    openvino_detokenizer.bin
 ```
 
-One-time conversion commands (requires `MODEL_FETCH_MODE=download` and `OFFLINE=0`):
+One-time model preparation (requires `MODEL_FETCH_MODE=download` and `OFFLINE=0`):
+
+- Default LLM snapshot download:
+
+```
+MODEL_FETCH_MODE=download OFFLINE=0 python scripts/service.py start
+```
+
+- After the snapshot is present, offline runs should use:
+
+```
+MODEL_FETCH_MODE=never OFFLINE=1 python scripts/service.py start
+```
+
+- Optional (legacy) export path for the LLM (may break with incompatible Torch/Optimum versions):
 
 ```
 optimum-cli export openvino --model "openai/clip-vit-base-patch32" --task feature-extraction --output "models/clip"
@@ -105,6 +124,10 @@ Environment variables:
 - `OV_CLIP_DIR` (default: `models/clip`, derived from `MODEL_DIR`)
 - `OV_CAPTION_DIR` (default: `models/caption`, derived from `MODEL_DIR`)
 - `OV_LLM_DIR` (default: `models/llm`, derived from `MODEL_DIR`)
+- `LLM_SOURCE` (default: `prebuilt_ov_ir`, allowed: `prebuilt_ov_ir`, `hf_export`)
+- `LLM_HF_OV_REPO` (default: `llmware/qwen2.5-3b-instruct-ov`, used when `LLM_SOURCE=prebuilt_ov_ir`)
+- `LLM_HF_ID` (default: `Qwen/Qwen2.5-3B-Instruct`, used when `LLM_SOURCE=hf_export`)
+- `LLM_REVISION` (default: empty, optional Hugging Face revision/tag for the snapshot)
 - `MAX_TAGS` (default: `10`)
 - `MAX_CAPTIONS_PER_IMAGE` (default: `1`)
 - `LLM_MAX_NEW_TOKENS` (default: `220`)
