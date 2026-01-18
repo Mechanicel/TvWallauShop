@@ -55,7 +55,14 @@ async def startup_check_models() -> None:
                 settings=settings,
             )
         except AiServiceError as exc:
-            logger.error("Model startup check failed: %s", exc.message)
+            details = exc.details or {}
+            logger.error(
+                "Model startup check failed: code=%s message=%s stdout_tail=%s stderr_tail=%s",
+                exc.code,
+                exc.message,
+                details.get("stdout_tail"),
+                details.get("stderr_tail"),
+            )
             raise RuntimeError("Model startup check failed.") from exc
         except Exception as exc:
             logger.error("Model startup check failed unexpectedly: %s", exc)
