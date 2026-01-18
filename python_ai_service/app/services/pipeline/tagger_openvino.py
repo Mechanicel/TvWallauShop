@@ -87,6 +87,7 @@ class ClipTagger:
         self.input_names: list[str] = []
         self.output_names: list[str] = []
         self.combined_text_seq_len: int | None = None
+        self._tokenizer_method: str | None = None
         self.clip_dir = clip_dir
         self.found_files = found_files
         if combined_model_path.exists():
@@ -229,12 +230,41 @@ class ClipTagger:
         )
         return output[name_map[chosen]]
 
-    def _prepare_text_inputs(self, texts: list[str]) -> tuple[np.ndarray, np.ndarray]:
-        tokenized = self.tokenizer.encode_batch(texts)
-        input_ids = np.array(tokenized.input_ids, dtype=np.int64)
-        attention_mask = np.array(tokenized.attention_mask, dtype=np.int64)
-        if self.combined_text_seq_len:
+    def _prepare_text_inputs(
+        self, texts: list[str]
+    ) -> tuple[np.ndarray | ov.Tensor, np.ndarray | ov.Tensor]:
+        if hasattr(self.tokenizer, "encode"):
+            method = "encode"
+            tokenized = self.tokenizer.encode(texts)
+        elif hasattr(self.tokenizer, "encode_batch"):
+            method = "encode_batch"
+            tokenized = self.tokenizer.encode_batch(texts)
+        else:
+            raise AiServiceError(
+                code="MODEL_NOT_AVAILABLE",
+                message="Tokenizer does not support encode().",
+                details={"tokenizer_type": str(type(self.tokenizer))},
+            )
+        if self._tokenizer_method is None:
+            self._tokenizer_method = method
+            logger.info(
+                "CLIP tokenizer type=%s using method=%s",
+                type(self.tokenizer),
+                method,
+            )
+        input_ids = tokenized.input_ids
+        attention_mask = tokenized.attention_mask
+        if isinstance(input_ids, list):
+            input_ids = np.array(input_ids, dtype=np.int64)
+        if isinstance(attention_mask, list):
+            attention_mask = np.array(attention_mask, dtype=np.int64)
+        if isinstance(input_ids, np.ndarray) and input_ids.dtype != np.int64:
+            input_ids = input_ids.astype(np.int64)
+        if isinstance(attention_mask, np.ndarray) and attention_mask.dtype != np.int64:
+            attention_mask = attention_mask.astype(np.int64)
+        if self.combined_text_seq_len and isinstance(input_ids, np.ndarray):
             input_ids = self._pad_or_trim(input_ids, self.combined_text_seq_len)
+        if self.combined_text_seq_len and isinstance(attention_mask, np.ndarray):
             attention_mask = self._pad_or_trim(attention_mask, self.combined_text_seq_len)
         return input_ids, attention_mask
 
@@ -260,7 +290,7 @@ class ClipTagger:
     def _encode_text(self, texts: list[str]) -> np.ndarray:
         if self.model:
             input_ids, attention_mask = self._prepare_text_inputs(texts)
-            inputs: dict[str, np.ndarray] = {}
+            inputs: dict[str, np.ndarray | ov.Tensor] = {}
             input_ids_name = self._find_input_name(["input_ids"])
             attention_mask_name = self._find_input_name(["attention_mask"])
             if not input_ids_name or not attention_mask_name:
