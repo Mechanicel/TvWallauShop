@@ -197,17 +197,26 @@ class LlmCopywriter:
                     http_status=500,
                 ) from exc
             raise
+        raw = result
+        max_chars = settings.DEBUG_AI_MAX_CHARS
+        raw_trunc = _truncate_text(raw, max_chars)
+        if settings.DEBUG_AI:
+            logger.info("LLM raw output (truncated): %s", raw_trunc)
+            if settings.DEBUG_AI_INCLUDE_PROMPT:
+                logger.info(
+                    "LLM prompt (truncated): %s",
+                    _truncate_text(full_prompt, max_chars),
+                )
         if debug:
-            max_chars = settings.DEBUG_AI_MAX_CHARS
-            debug.raw_output = _truncate_text(result, max_chars)
+            debug.raw_output = raw_trunc
             if include_prompt:
                 debug.prompt = _truncate_text(full_prompt, max_chars)
-            extracted = _extract_first_json_block(result)
+            extracted = _extract_first_json_block(raw)
             if extracted:
                 debug.extracted_json = _truncate_text(extracted, max_chars)
 
         try:
-            return parse_llm_json(result)
+            return parse_llm_json(raw)
         except json.JSONDecodeError as exc:
             if retry:
                 retry_prompt = (
@@ -221,8 +230,19 @@ class LlmCopywriter:
                     include_prompt=include_prompt,
                 )
             if debug:
+                extracted = _extract_first_json_block(raw)
+                if extracted:
+                    debug.extracted_json = _truncate_text(extracted, max_chars)
                 debug.parse_error = str(exc)
             logger.warning("LLM output JSON parse failed: %s", exc)
+            if settings.DEBUG_AI:
+                extracted = _extract_first_json_block(raw)
+                if extracted:
+                    logger.warning(
+                        "LLM extracted JSON (truncated): %s",
+                        _truncate_text(extracted, max_chars),
+                    )
+                logger.warning("LLM raw output (truncated): %s", raw_trunc)
             raise AiServiceError(
                 code="LLM_OUTPUT_INVALID",
                 message="LLM output did not match the required JSON schema.",
