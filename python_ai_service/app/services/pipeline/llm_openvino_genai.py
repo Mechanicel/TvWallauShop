@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 from ...config import get_settings
@@ -22,7 +23,10 @@ def _resolve_llm_dir() -> Path:
             message=f"LLM model assets are missing. {model_fetch_hint()}",
             details={
                 "model": "llm",
-                "missing": missing,
+                "missing": missing.missing,
+                "checked_dir": str(missing.checked_dir),
+                "found_files": missing.found_files,
+                "asset_details": missing.details,
                 "directory": str(model_dir),
                 "hint": model_fetch_hint(),
             },
@@ -60,12 +64,21 @@ class LlmCopywriter:
         try:
             self.pipeline = ov_genai.LLMPipeline(str(model_dir), device)
         except Exception as exc:
+            try:
+                files = sorted(os.listdir(model_dir))
+            except FileNotFoundError:
+                files = []
             raise AiServiceError(
                 code="MODEL_NOT_AVAILABLE",
                 message=(
                     "Failed to initialize LLM pipeline (tokenizer extension likely missing or incompatible)."
                 ),
-                details={"model_dir": str(model_dir), "device": device, "error": str(exc)},
+                details={
+                    "model_dir": str(model_dir),
+                    "device": device,
+                    "files": files,
+                    "error": str(exc),
+                },
                 http_status=503,
             ) from exc
 
