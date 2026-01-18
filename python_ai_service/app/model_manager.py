@@ -18,7 +18,7 @@ from .config import Settings, get_settings
 from .services.errors import AiServiceError
 
 
-@dataclass(frozen=True)
+@dataclass
 class ModelSpec:
     name: str
     source_kind: str
@@ -26,6 +26,7 @@ class ModelSpec:
     target_dir: Path
     required_files: tuple[str, ...]
     export_args: list[str] = field(default_factory=list)
+    actual_dir: Path | None = None
 
     def missing_files(self) -> list[str]:
         return [str(self.target_dir / fname) for fname in self.required_files]
@@ -41,6 +42,14 @@ class ModelSpec:
             self.hf_id,
             *self.export_args,
         )
+
+
+@dataclass(frozen=True)
+class AssetCheck:
+    missing: list[str]
+    checked_dir: Path
+    found_files: list[str]
+    expected: list[str] | None = None
 
 
 @contextmanager
@@ -153,19 +162,73 @@ def check_device_available(device: str) -> str:
     return "GPU"
 
 
-def check_assets(spec: ModelSpec) -> list[str]:
-    missing = [str(spec.target_dir / fname) for fname in spec.required_files]
-    return [path for path in missing if not Path(path).exists()]
+def _list_files(directory: Path) -> list[str]:
+    if not directory.exists() or not directory.is_dir():
+        return []
+    return sorted(path.name for path in directory.iterdir() if path.is_file())
 
 
-def _raise_model_missing(spec: ModelSpec, missing: list[str]) -> None:
+def _find_ir_dir(target_dir: Path) -> Path | None:
+    if not target_dir.exists():
+        return None
+    xml_dirs = {path.parent for path in target_dir.rglob("*.xml") if path.is_file()}
+    bin_dirs = {path.parent for path in target_dir.rglob("*.bin") if path.is_file()}
+    candidates = xml_dirs & bin_dirs
+    if not candidates:
+        return None
+    if target_dir in candidates:
+        return target_dir
+    return sorted(candidates, key=lambda path: (len(path.parts), str(path)))[0]
+
+
+def _update_actual_dir(spec: ModelSpec) -> None:
+    actual = _find_ir_dir(spec.target_dir)
+    if actual is not None:
+        spec.actual_dir = actual
+
+
+def check_assets(spec: ModelSpec) -> AssetCheck:
+    _update_actual_dir(spec)
+    checked_dir = spec.actual_dir or spec.target_dir
+    found_files = _list_files(checked_dir)
+    missing: list[str] = []
+    expected_ir = ["*.xml", "*.bin"]
+    xml_found = any(checked_dir.glob("*.xml"))
+    bin_found = any(checked_dir.glob("*.bin"))
+    if not xml_found:
+        missing.append("*.xml")
+    if not bin_found:
+        missing.append("*.bin")
+    for filename in spec.required_files:
+        if filename.endswith((".xml", ".bin")):
+            continue
+        checked_path = checked_dir / filename
+        fallback_path = spec.target_dir / filename
+        if not checked_path.exists() and not fallback_path.exists():
+            missing.append(str(checked_path))
+    expected = expected_ir if any(entry in expected_ir for entry in missing) else None
+    return AssetCheck(
+        missing=missing,
+        checked_dir=checked_dir,
+        found_files=found_files,
+        expected=expected,
+    )
+
+
+def _raise_model_missing(spec: ModelSpec, status: AssetCheck) -> None:
     raise AiServiceError(
         code="MODEL_NOT_AVAILABLE",
-        message=f"{spec.name.upper()} model assets are missing. {model_fetch_hint()}",
+        message=(
+            f"{spec.name.upper()} model assets are missing in {status.checked_dir}. "
+            f"Found files: {status.found_files}. {model_fetch_hint()}"
+        ),
         details={
             "model": spec.name,
-            "missing": missing,
+            "missing": status.missing,
             "directory": str(spec.target_dir),
+            "dir": str(status.checked_dir),
+            "found_files": status.found_files,
+            "expected": status.expected,
             "hint": model_fetch_hint(),
         },
         http_status=503,
@@ -290,18 +353,36 @@ def ensure_models(mode: str, offline: bool, settings: Settings | None = None) ->
 
     with _model_lock(model_dir / ".lock"):
         for spec in specs.values():
-            missing = check_assets(spec)
-            if not missing and mode != "force":
+            status = check_assets(spec)
+            if not status.missing and mode != "force":
                 continue
             if offline:
-                _raise_model_missing(spec, missing or spec.missing_files())
+                if not status.missing:
+                    status = AssetCheck(
+                        missing=spec.missing_files(),
+                        checked_dir=spec.actual_dir or spec.target_dir,
+                        found_files=_list_files(spec.actual_dir or spec.target_dir),
+                    )
+                _raise_model_missing(spec, status)
             if mode in {"download", "force"}:
+                if spec.target_dir.exists():
+                    if mode == "force":
+                        shutil.rmtree(spec.target_dir)
+                        spec.actual_dir = None
+                    elif status.missing:
+                        print(
+                            f"{spec.name.upper()} model directory appears incomplete; "
+                            "removing before re-export.",
+                            file=sys.stderr,
+                        )
+                        shutil.rmtree(spec.target_dir)
+                        spec.actual_dir = None
                 _run_conversion(spec, settings, offline)
-                missing = check_assets(spec)
-                if missing:
-                    _raise_model_missing(spec, missing)
+                status = check_assets(spec)
+                if status.missing:
+                    _raise_model_missing(spec, status)
             else:
-                _raise_model_missing(spec, missing)
+                _raise_model_missing(spec, status)
 
     if not offline and mode == "download":
         _write_manifest(model_dir, list(specs.values()))
