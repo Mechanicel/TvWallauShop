@@ -16,6 +16,15 @@ class Settings:
 
     # AI pipeline
     AI_DEVICE: str = os.getenv("AI_DEVICE", "openvino:GPU").strip()
+    AI_DEVICE_CLIP: str = os.getenv("AI_DEVICE_CLIP", "openvino:GPU").strip()
+    AI_DEVICE_BLIP: str = os.getenv("AI_DEVICE_BLIP", "openvino:GPU").strip()
+    AI_DEVICE_LLM: str = os.getenv("AI_DEVICE_LLM", "openvino:NPU").strip()
+    AI_DEVICE_STRICT: bool = os.getenv("AI_DEVICE_STRICT", "1").strip() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
     ENABLE_CPU_FALLBACK: bool = os.getenv("ENABLE_CPU_FALLBACK", "0").strip() in (
         "1",
         "true",
