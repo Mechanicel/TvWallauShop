@@ -10,6 +10,7 @@ dependencies = [
   "numpy",
   "requests",
   "Pillow",
+  "filelock>=3.13.0",
   "openvino>=2024.0",
   "openvino-genai",
   "datamodel-code-generator",
@@ -28,5 +29,5 @@ where = ["."]
 include = ["app*"]
 exclude = ["target*", ".venv*", "scripts*", "tests*"]
 
-[tool.uv]
-dev-dependencies = ["pytest"]
+[dependency-groups]
+dev = ["pytest"]
