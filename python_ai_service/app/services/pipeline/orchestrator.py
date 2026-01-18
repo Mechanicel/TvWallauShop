@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import time
 
-import openvino as ov
-
 from ...config import get_settings
 from ...contracts_models import (
     AnalyzeProductRequest,
@@ -13,6 +11,7 @@ from ...contracts_models import (
     PipelineTimings,
 )
 from ..errors import AiServiceError
+from ...model_manager import check_device_available, ensure_models
 from .captioner_openvino import Captioner
 from .image_loader import load_images
 from .llm_openvino_genai import LlmCopywriter
@@ -20,30 +19,6 @@ from .normalize import normalize_tags
 from .tagger_openvino import ClipTagger
 
 settings = get_settings()
-
-
-def _resolve_device() -> str:
-    mapping = {
-        "openvino:GPU": "GPU",
-        "openvino:NPU": "NPU",
-    }
-    if settings.AI_DEVICE not in mapping:
-        raise AiServiceError(
-            code="INVALID_INPUT",
-            message="Unsupported AI_DEVICE value.",
-            details={"device": settings.AI_DEVICE},
-            http_status=400,
-        )
-    device = mapping[settings.AI_DEVICE]
-    core = ov.Core()
-    if device not in core.available_devices:
-        raise AiServiceError(
-            code="DEVICE_NOT_AVAILABLE",
-            message="Requested OpenVINO device is not available.",
-            details={"device": settings.AI_DEVICE, "available": core.available_devices},
-            http_status=503,
-        )
-    return device
 
 
 def run_pipeline(payload: AnalyzeProductRequest) -> AnalyzeProductResponse:
@@ -55,7 +30,8 @@ def run_pipeline(payload: AnalyzeProductRequest) -> AnalyzeProductResponse:
             http_status=400,
         )
 
-    device = _resolve_device()
+    ensure_models(mode="never", offline=settings.OFFLINE, settings=settings)
+    device = check_device_available(settings.AI_DEVICE)
     start = time.perf_counter()
 
     image_start = time.perf_counter()

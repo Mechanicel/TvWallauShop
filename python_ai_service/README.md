@@ -49,7 +49,18 @@ Requirements
 Model setup
 -----------
 
-The AI pipeline expects pre-converted OpenVINO models in the filesystem:
+The AI pipeline expects OpenVINO models stored locally. You can either drop pre-converted
+IR artifacts in place or allow a one-time download/convert via `MODEL_FETCH_MODE=download`
+with `OFFLINE=0`. When `OFFLINE=1`, the service will never access the network and missing
+assets will return `MODEL_NOT_AVAILABLE`.
+
+Model sources (local-only inference):
+
+- Tagger: `openai/clip-vit-base-patch32` (OpenVINO IR)
+- Captioner: `Salesforce/blip-image-captioning-base` (OpenVINO IR)
+- LLM: `Qwen/Qwen2.5-3B-Instruct` (OpenVINO IR INT4 via `optimum-cli export openvino`)
+
+Expected local filesystem layout:
 
 ```
 models/
@@ -70,16 +81,54 @@ models/
     config.json
 ```
 
+One-time conversion commands (requires `MODEL_FETCH_MODE=download` and `OFFLINE=0`):
+
+```
+optimum-cli export openvino --model "openai/clip-vit-base-patch32" --task feature-extraction --output "models/clip"
+optimum-cli export openvino --model "Salesforce/blip-image-captioning-base" --task image-to-text --output "models/caption"
+optimum-cli export openvino --model "Qwen/Qwen2.5-3B-Instruct" --task text-generation-with-past --trust-remote-code --weight-format int4 --group-size 128 --ratio 1.0 --sym "models/llm"
+```
+
 Environment variables:
 
-- `AI_DEVICE` (default: `openvino:GPU`, allowed: `openvino:GPU` or `openvino:NPU`)
-- `OV_CLIP_DIR` (default: `models/clip`)
-- `OV_CAPTION_DIR` (default: `models/caption`)
-- `OV_LLM_DIR` (default: `models/llm`)
+- `AI_DEVICE` (default: `openvino:GPU`, only supported value)
+- `MODEL_DIR` (default: `models`)
+- `MODEL_CACHE_DIR` (default: `models`)
+- `OFFLINE` (default: `0`, when `1` the service never accesses the network)
+- `MODEL_FETCH_MODE` (default: `never`, allowed: `never`, `download`, `force`)
+- `OV_CLIP_DIR` (default: `models/clip`, derived from `MODEL_DIR`)
+- `OV_CAPTION_DIR` (default: `models/caption`, derived from `MODEL_DIR`)
+- `OV_LLM_DIR` (default: `models/llm`, derived from `MODEL_DIR`)
 - `MAX_TAGS` (default: `10`)
 - `MAX_CAPTIONS_PER_IMAGE` (default: `1`)
 - `LLM_MAX_NEW_TOKENS` (default: `220`)
 - `LLM_TEMPERATURE` (default: `0.4`)
+
+API request payload
+-------------------
+
+Example JSON payload:
+
+```json
+{
+  "jobId": 123,
+  "price": {
+    "amount": 49.99,
+    "currency": "USD"
+  },
+  "images": [
+    {
+      "kind": "base64",
+      "value": "..."
+    }
+  ],
+  "maxTags": 10,
+  "maxCaptions": 1
+}
+```
+
+Note: the API no longer accepts the legacy `image_paths` field. Requests that include
+`image_paths` instead of `images` will return HTTP 422 (validation error).
 
 Troubleshooting
 ---------------
