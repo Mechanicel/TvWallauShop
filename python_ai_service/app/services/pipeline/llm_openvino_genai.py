@@ -5,8 +5,6 @@ import logging
 import os
 from pathlib import Path
 
-import openvino as ov
-
 from ...config import get_settings
 from ...contracts_models import LlmDebug
 from ...model_manager import build_model_specs, check_assets, model_fetch_hint
@@ -109,21 +107,6 @@ class LlmCopywriter:
     def __init__(self, device: str) -> None:
         import openvino_genai as ov_genai
 
-        if settings.AI_DEVICE_STRICT and "AUTO" in device:
-            raise AiServiceError(
-                code="INVALID_INPUT",
-                message="AUTO device not allowed for LLM in strict mode.",
-                details={"device": device},
-                http_status=400,
-            )
-        core = ov.Core()
-        if device == "NPU" and "NPU" not in core.available_devices:
-            raise AiServiceError(
-                code="DEVICE_NOT_AVAILABLE",
-                message="Requested OpenVINO NPU device is not available.",
-                details={"device": device, "available": core.available_devices},
-                http_status=503,
-            )
         model_dir = _resolve_llm_dir()
         ensure_openvino_tokenizers_extension_loaded()
         try:

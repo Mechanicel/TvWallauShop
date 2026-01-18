@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 import time
 
 from ...config import get_settings
@@ -24,7 +23,6 @@ from .normalize import normalize_tags
 from .tagger_openvino import ClipTagger
 
 settings = get_settings()
-logger = logging.getLogger("tvwallau-ai")
 
 
 def run_pipeline(payload: AnalyzeProductRequest) -> AnalyzeProductResponse:
@@ -37,12 +35,7 @@ def run_pipeline(payload: AnalyzeProductRequest) -> AnalyzeProductResponse:
         )
 
     ensure_models(mode="never", offline=settings.OFFLINE, settings=settings)
-    clip_device = check_device_available(settings.AI_DEVICE_CLIP)
-    blip_device = check_device_available(settings.AI_DEVICE_BLIP)
-    llm_device = check_device_available(settings.AI_DEVICE_LLM)
-    logger.info("CLIP device=%s", clip_device)
-    logger.info("BLIP device=%s", blip_device)
-    logger.info("LLM device=%s", llm_device)
+    device = check_device_available(settings.AI_DEVICE)
     debug_enabled = settings.DEBUG_AI or payload.debug
     include_prompt = settings.DEBUG_AI_INCLUDE_PROMPT or payload.debug_include_prompt
     debug_response = debug_enabled and settings.DEBUG_AI_RESPONSE
@@ -50,20 +43,20 @@ def run_pipeline(payload: AnalyzeProductRequest) -> AnalyzeProductResponse:
     if debug_enabled:
         debug_info = AiDebugInfo(
             clip=ClipDebug(
-                device=clip_device,
+                device=device,
                 model_dir=settings.OV_CLIP_DIR,
                 num_images=len(payload.images),
                 candidate_prompts_count=0,
                 top_tags=[],
             ),
             blip=BlipDebug(
-                device=blip_device,
+                device=device,
                 model_dir=settings.OV_CAPTION_DIR,
                 expected_hw=[0, 0],
                 captions=[],
             ),
             llm=LlmDebug(
-                device=llm_device,
+                device=device,
                 model_dir=settings.OV_LLM_DIR,
                 raw_output="",
             ),
@@ -76,7 +69,7 @@ def run_pipeline(payload: AnalyzeProductRequest) -> AnalyzeProductResponse:
         image_load_ms = (time.perf_counter() - image_start) * 1000
 
         tagger_start = time.perf_counter()
-        tagger = ClipTagger(clip_device)
+        tagger = ClipTagger(device)
         max_tags = payload.max_tags or settings.MAX_TAGS
         tags = tagger.predict(
             [asset.image for asset in image_assets],
@@ -87,7 +80,7 @@ def run_pipeline(payload: AnalyzeProductRequest) -> AnalyzeProductResponse:
         tagger_ms = (time.perf_counter() - tagger_start) * 1000
 
         caption_start = time.perf_counter()
-        captioner = Captioner(blip_device)
+        captioner = Captioner(device)
         max_captions = payload.max_captions or settings.MAX_CAPTIONS_PER_IMAGE
         captions = captioner.generate(
             [asset.image for asset in image_assets],
@@ -97,7 +90,7 @@ def run_pipeline(payload: AnalyzeProductRequest) -> AnalyzeProductResponse:
         captioner_ms = (time.perf_counter() - caption_start) * 1000
 
         llm_start = time.perf_counter()
-        llm = LlmCopywriter(llm_device)
+        llm = LlmCopywriter(device)
         tag_values = normalize_tags([tag.value for tag in tags])
         caption_texts = [caption.text for caption in captions]
         title, description = llm.generate(
@@ -114,7 +107,7 @@ def run_pipeline(payload: AnalyzeProductRequest) -> AnalyzeProductResponse:
 
         meta = PipelineMeta(
             contract_version="1.0",
-            device=f"clip:{clip_device},blip:{blip_device},llm:{llm_device}",
+            device=settings.AI_DEVICE,
             models=PipelineModels(
                 tagger=f"openvino:clip:{settings.OV_CLIP_DIR}",
                 captioner=f"openvino:caption:{settings.OV_CAPTION_DIR}",
