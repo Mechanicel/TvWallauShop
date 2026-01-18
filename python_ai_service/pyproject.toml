@@ -16,8 +16,13 @@ dependencies = [
   "openvino>=2024.0",
   "openvino-genai",
   "torch",
-  "transformers",
   "datamodel-code-generator",
+  # FEHLT für MODEL_FETCH_MODE=download:
+  "optimum-intel[openvino]",
+  "transformers",
+  "huggingface-hub",
+  # optional, aber häufig nötig:
+  "sentencepiece",
 ]
 
 [build-system]
