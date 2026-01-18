@@ -48,6 +48,8 @@ Requirements
 - Keep `openvino`, `openvino-genai`, and `openvino-tokenizers` pinned to the same
   release line. The `openvino-genai` wheel is built against specific OpenVINO
   and tokenizer versions; updating one package alone can break tokenizer loading.
+- Windows requires the OpenVINO Tokenizers extension DLL (`openvino_tokenizers.dll`);
+  the service loads it at startup to avoid `unsupported opset: extension` errors.
 
 Model setup
 -----------

@@ -7,6 +7,7 @@ from .services.jobs import analyze
 from .services.errors import AiServiceError
 from .config import get_settings
 from .model_manager import ensure_models
+from .openvino_tokenizers_ext import ensure_openvino_tokenizers_extension_loaded
 
 settings = get_settings()
 
@@ -42,6 +43,17 @@ async def health_get():
 
 @app.on_event("startup")
 async def startup_check_models() -> None:
+    try:
+        info = ensure_openvino_tokenizers_extension_loaded()
+        logger.info(
+            "Loaded OpenVINO tokenizers extension: %s",
+            info["dll_path"],
+        )
+    except AiServiceError as exc:
+        logger.error(
+            "OpenVINO tokenizers extension unavailable: %s",
+            exc.message,
+        )
     if settings.MODEL_FETCH_MODE != "never":
         logger.info(
             "Ensuring model assets MODE=%s OFFLINE=%s",
