@@ -5,7 +5,7 @@ import fs from 'fs/promises';
 import { knex } from '../database';
 import { getIO } from '../middlewares/websocket';
 import { analyzeProductViaPython } from './aiPythonClient';
-import type { ProductAiJob, ProductAiJobStatus } from '@tvwallaushop/contracts';
+import type { ProductAiJob, ProductAiJobStatus, Tag } from '@tvwallaushop/contracts';
 import { ProductAiError } from '../errors/ProductAiError';
 
 export interface ProductAiJobRow {
@@ -60,6 +60,11 @@ function normalizeTags(tags: string[] | null | undefined): string[] {
                 .map((t) => t.toLowerCase())
         )
     );
+}
+
+function extractTagValues(tags: Tag[] | null | undefined): string[] {
+    if (!tags?.length) return [];
+    return tags.map((tag) => tag.value);
 }
 
 export async function getProductAiJobById(jobId: number): Promise<ProductAiJob | null> {
@@ -195,13 +200,13 @@ async function processProductAiJobImpl(jobId: number, allowIfAlreadyProcessing: 
         });
 
         const aiRes = await analyzeProductViaPython({ jobId, price, imageUrls });
-        const tags = normalizeTags(aiRes.tags);
+        const tags = normalizeTags(extractTagValues(aiRes.tags));
 
         await knex('product_ai_jobs')
             .where({ id: jobId })
             .update({
                 status: 'SUCCESS',
-                result_display_name: aiRes.display_name,
+                result_display_name: aiRes.title,
                 result_description: aiRes.description,
                 result_tags: JSON.stringify(tags),
                 error_message: null,
