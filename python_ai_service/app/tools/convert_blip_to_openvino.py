@@ -4,27 +4,9 @@ import argparse
 import sys
 from pathlib import Path
 
-import numpy as np
 import openvino as ov
 import torch
-from PIL import Image
 from transformers import BlipForConditionalGeneration, BlipProcessor
-
-
-def _flatten_past_key_values(past_key_values: tuple[tuple[torch.Tensor, torch.Tensor], ...]) -> tuple[torch.Tensor, ...]:
-    flat: list[torch.Tensor] = []
-    for layer in past_key_values:
-        flat.extend(layer)
-    return tuple(flat)
-
-
-def _pair_past_key_values(flat: tuple[torch.Tensor, ...]) -> tuple[tuple[torch.Tensor, torch.Tensor], ...]:
-    if len(flat) % 2 != 0:
-        raise ValueError("Past key values must be an even-length tuple of tensors.")
-    paired: list[tuple[torch.Tensor, torch.Tensor]] = []
-    for idx in range(0, len(flat), 2):
-        paired.append((flat[idx], flat[idx + 1]))
-    return tuple(paired)
 
 
 class VisionEncoderWrapper(torch.nn.Module):
@@ -47,136 +29,108 @@ class TextDecoderWrapper(torch.nn.Module):
         input_ids: torch.Tensor,
         attention_mask: torch.Tensor,
         encoder_hidden_states: torch.Tensor,
-        encoder_attention_mask: torch.Tensor,
-    ) -> tuple[torch.Tensor, ...]:
+    ) -> torch.Tensor:
         outputs = self.decoder(
             input_ids=input_ids,
             attention_mask=attention_mask,
             encoder_hidden_states=encoder_hidden_states,
-            encoder_attention_mask=encoder_attention_mask,
-            use_cache=True,
+            use_cache=False,
             return_dict=True,
         )
-        flat_past = _flatten_past_key_values(outputs.past_key_values)
-        return (outputs.logits, *flat_past)
+        return outputs.logits
 
 
-class TextDecoderWithPastWrapper(torch.nn.Module):
-    def __init__(self, model: BlipForConditionalGeneration) -> None:
-        super().__init__()
-        self.decoder = model.text_decoder
-
-    def forward(
-        self,
-        input_ids: torch.Tensor,
-        attention_mask: torch.Tensor,
-        encoder_hidden_states: torch.Tensor,
-        encoder_attention_mask: torch.Tensor,
-        *past_key_values: torch.Tensor,
-    ) -> tuple[torch.Tensor, ...]:
-        paired_past = _pair_past_key_values(tuple(past_key_values))
-        outputs = self.decoder(
-            input_ids=input_ids,
-            attention_mask=attention_mask,
-            encoder_hidden_states=encoder_hidden_states,
-            encoder_attention_mask=encoder_attention_mask,
-            past_key_values=paired_past,
-            use_cache=True,
-            return_dict=True,
-        )
-        flat_past = _flatten_past_key_values(outputs.past_key_values)
-        return (outputs.logits, *flat_past)
-
-
-def _build_dummy_inputs(processor: BlipProcessor) -> torch.Tensor:
-    dummy_image = Image.fromarray(np.zeros((384, 384, 3), dtype=np.uint8))
-    inputs = processor(images=dummy_image, return_tensors="pt")
-    pixel_values = inputs["pixel_values"]
-    return pixel_values
-
-
-def _build_decoder_inputs(
-    processor: BlipProcessor,
-    encoder_hidden_states: torch.Tensor,
-) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+def _resolve_bos_token_id(processor: BlipProcessor) -> int:
     tokenizer = processor.tokenizer
-    bos_token_id = tokenizer.bos_token_id
-    if bos_token_id is None:
-        bos_token_id = tokenizer.cls_token_id or 0
-    input_ids = torch.tensor([[bos_token_id]], dtype=torch.long)
-    attention_mask = torch.ones_like(input_ids)
-    encoder_attention_mask = torch.ones(
-        encoder_hidden_states.shape[:2], dtype=torch.long
+    return tokenizer.bos_token_id or tokenizer.cls_token_id or 0
+
+
+def _assert_ir_outputs(xml_path: Path) -> None:
+    bin_path = xml_path.with_suffix(".bin")
+    if not xml_path.exists() or not bin_path.exists():
+        raise RuntimeError(
+            f"Expected OpenVINO IR files not found: {xml_path.name}, {bin_path.name}"
+        )
+
+
+def _export_vision_encoder(
+    model: BlipForConditionalGeneration,
+    pixel_values: torch.Tensor,
+    onnx_path: Path,
+) -> None:
+    wrapper = VisionEncoderWrapper(model)
+    torch.onnx.export(
+        wrapper,
+        (pixel_values,),
+        str(onnx_path),
+        opset_version=17,
+        do_constant_folding=True,
+        input_names=["pixel_values"],
+        output_names=["image_embeds"],
     )
-    return input_ids, attention_mask, encoder_attention_mask
+
+
+def _export_text_decoder(
+    model: BlipForConditionalGeneration,
+    input_ids: torch.Tensor,
+    attention_mask: torch.Tensor,
+    encoder_hidden_states: torch.Tensor,
+    onnx_path: Path,
+) -> None:
+    wrapper = TextDecoderWrapper(model)
+    torch.onnx.export(
+        wrapper,
+        (input_ids, attention_mask, encoder_hidden_states),
+        str(onnx_path),
+        opset_version=17,
+        do_constant_folding=True,
+        input_names=["input_ids", "attention_mask", "encoder_hidden_states"],
+        output_names=["logits"],
+    )
 
 
 def convert(model_id: str, outdir: Path) -> None:
     outdir.mkdir(parents=True, exist_ok=True)
     print(f"Loading BLIP model '{model_id}'...")
-    model = BlipForConditionalGeneration.from_pretrained(model_id)
     processor = BlipProcessor.from_pretrained(model_id)
+    model = BlipForConditionalGeneration.from_pretrained(model_id)
     model.eval()
+    model.config.use_cache = False
 
-    pixel_values = _build_dummy_inputs(processor)
+    print("Saving processor configuration...")
+    processor.save_pretrained(outdir)
+
+    pixel_values = torch.zeros((1, 3, 224, 224), dtype=torch.float32)
     with torch.no_grad():
         encoder_hidden_states = model.vision_model(
             pixel_values=pixel_values, return_dict=True
         ).last_hidden_state
 
-    input_ids, attention_mask, encoder_attention_mask = _build_decoder_inputs(
-        processor, encoder_hidden_states
-    )
+    bos_token_id = _resolve_bos_token_id(processor)
+    input_ids = torch.tensor([[bos_token_id]], dtype=torch.long)
+    attention_mask = torch.ones_like(input_ids)
 
-    print("Converting vision encoder...")
-    vision_wrapper = VisionEncoderWrapper(model)
-    ov_vision = ov.convert_model(vision_wrapper, example_input=pixel_values)
-    vision_path = outdir / "vision_encoder.xml"
-    ov.save_model(ov_vision, vision_path)
+    vision_onnx = outdir / "vision_encoder.onnx"
+    text_onnx = outdir / "text_decoder.onnx"
 
-    print("Converting text decoder...")
-    decoder_wrapper = TextDecoderWrapper(model)
-    ov_decoder = ov.convert_model(
-        decoder_wrapper,
-        example_input=(
-            input_ids,
-            attention_mask,
-            encoder_hidden_states,
-            encoder_attention_mask,
-        ),
-    )
-    decoder_path = outdir / "text_decoder.xml"
-    ov.save_model(ov_decoder, decoder_path)
+    print("Exporting vision encoder to ONNX...")
+    _export_vision_encoder(model, pixel_values, vision_onnx)
 
-    print("Preparing decoder-with-past inputs...")
-    with torch.no_grad():
-        decoder_outputs = model.text_decoder(
-            input_ids=input_ids,
-            attention_mask=attention_mask,
-            encoder_hidden_states=encoder_hidden_states,
-            encoder_attention_mask=encoder_attention_mask,
-            use_cache=True,
-            return_dict=True,
-        )
-    flat_past = _flatten_past_key_values(decoder_outputs.past_key_values)
+    print("Exporting text decoder to ONNX...")
+    _export_text_decoder(model, input_ids, attention_mask, encoder_hidden_states, text_onnx)
 
-    print("Converting text decoder with past...")
-    decoder_with_past_wrapper = TextDecoderWithPastWrapper(model)
-    ov_decoder_with_past = ov.convert_model(
-        decoder_with_past_wrapper,
-        example_input=(
-            input_ids,
-            attention_mask,
-            encoder_hidden_states,
-            encoder_attention_mask,
-            *flat_past,
-        ),
-    )
-    decoder_with_past_path = outdir / "text_decoder_with_past.xml"
-    ov.save_model(ov_decoder_with_past, decoder_with_past_path)
+    print("Converting ONNX to OpenVINO IR...")
+    vision_ir = outdir / "vision_encoder.xml"
+    text_ir = outdir / "text_decoder.xml"
 
-    print("Saving processor configuration...")
-    processor.save_pretrained(outdir)
+    vision_ov = ov.convert_model(str(vision_onnx))
+    ov.save_model(vision_ov, str(vision_ir))
+
+    text_ov = ov.convert_model(str(text_onnx))
+    ov.save_model(text_ov, str(text_ir))
+
+    _assert_ir_outputs(vision_ir)
+    _assert_ir_outputs(text_ir)
 
     print("Conversion completed. Generated files:")
     for path in sorted(outdir.iterdir()):

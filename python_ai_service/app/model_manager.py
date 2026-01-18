@@ -117,8 +117,6 @@ def build_model_specs(settings: Settings) -> dict[str, ModelSpec]:
                 "vision_encoder.bin",
                 "text_decoder.xml",
                 "text_decoder.bin",
-                "text_decoder_with_past.xml",
-                "text_decoder_with_past.bin",
             ),
             converter="blip_openvino_script",
         ),
@@ -275,7 +273,6 @@ def _conversion_env(settings: Settings, offline: bool) -> dict[str, str]:
     model_dir = Path(settings.MODEL_DIR)
     env.setdefault("HF_HOME", str(model_dir / ".hf_home"))
     env.setdefault("HUGGINGFACE_HUB_CACHE", str(model_dir / ".hf_cache"))
-    env.setdefault("TRANSFORMERS_CACHE", str(model_dir / ".hf_cache"))
     if offline:
         env.setdefault("HF_HUB_OFFLINE", "1")
         env.setdefault("TRANSFORMERS_OFFLINE", "1")
