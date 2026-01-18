@@ -1,17 +1,11 @@
 // backend/src/services/aiPythonClient.ts
-import axios, {AxiosResponse} from 'axios';
+import axios, { AxiosResponse } from 'axios';
+import type { AnalyzeProductRequest, AnalyzeProductResponse, ImageRef } from '@tvwallaushop/contracts';
 
-export type AnalyzeProductRequest = {
+export type AnalyzeProductPayload = {
     jobId: number;
     price: number;
     imageUrls: string[];
-};
-
-export type AnalyzeProductResponse = {
-    job_id?: number | null;
-    display_name: string;
-    description: string;
-    tags: string[];
 };
 
 const AI_PY_SERVICE_URL = (process.env.AI_PY_SERVICE_URL || 'http://localhost:8000').replace(/\/$/, '');
@@ -21,16 +15,22 @@ const AI_PY_TIMEOUT_MS = Number(process.env.AI_PY_TIMEOUT_MS || 8000); // ‚¨Ö k√
  * Ruft den Python-AI-Service auf und analysiert ein Produkt
  */
 export async function analyzeProductViaPython(
-    payload: AnalyzeProductRequest
+    payload: AnalyzeProductPayload
 ): Promise<AnalyzeProductResponse> {
     const url = `${AI_PY_SERVICE_URL}/analyze-product`;
+    const images: ImageRef[] = payload.imageUrls.map((url) => ({
+        kind: 'url',
+        value: url,
+    }));
 
     const res: AxiosResponse<AnalyzeProductResponse> = await axios.post(
         url,
         {
-            job_id: payload.jobId,
-            price: payload.price,
-            image_paths: payload.imageUrls,
+            jobId: payload.jobId,
+            price: {
+                amount: payload.price,
+            },
+            images,
         },
         {
             timeout: AI_PY_TIMEOUT_MS,
