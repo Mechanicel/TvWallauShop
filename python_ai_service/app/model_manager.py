@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Iterable
 
 import openvino as ov
+from filelock import FileLock
 
 from .config import Settings, get_settings
 from .services.errors import AiServiceError
@@ -30,22 +31,9 @@ class ModelSpec:
 @contextmanager
 def _model_lock(lock_path: Path) -> Iterable[None]:
     lock_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(lock_path, "w", encoding="utf-8") as lock_file:
-        try:
-            import fcntl
-
-            fcntl.flock(lock_file, fcntl.LOCK_EX)
-        except OSError:
-            pass
-        try:
-            yield
-        finally:
-            try:
-                import fcntl
-
-                fcntl.flock(lock_file, fcntl.LOCK_UN)
-            except OSError:
-                pass
+    lock = FileLock(str(lock_path))
+    with lock:
+        yield
 
 
 def model_fetch_hint() -> str:

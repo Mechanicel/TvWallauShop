@@ -1,5 +1,5 @@
 import logging
-from fastapi import Response, FastAPI, status
+from fastapi import Response, FastAPI, Request, status
 from fastapi.responses import JSONResponse
 
 from .contracts_models import AnalyzeProductRequest, AnalyzeProductResponse
@@ -14,6 +14,25 @@ logger = logging.getLogger("tvwallau-ai")
 logging.basicConfig(level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO))
 
 app = FastAPI(title="TvWallauShop AI Product Service", version="0.2.0")
+
+
+@app.exception_handler(AiServiceError)
+async def ai_service_error_handler(request: Request, exc: AiServiceError):
+    logger.warning("AI service error at %s: %s", request.url.path, exc.message)
+    return JSONResponse(status_code=exc.http_status, content=exc.to_contract_dict())
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    logger.exception("Unhandled exception at %s", request.url.path)
+    return JSONResponse(
+        status_code=500,
+        content={
+            "code": "INTERNAL_ERROR",
+            "message": "Unexpected server error.",
+            "details": {"error": str(exc), "path": request.url.path},
+        },
+    )
 
 
 @app.get("/health", status_code=200)
