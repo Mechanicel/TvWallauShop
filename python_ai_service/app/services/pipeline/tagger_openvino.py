@@ -10,6 +10,7 @@ import openvino_genai as ov_genai
 
 from ...config import get_settings
 from ...contracts_models import Tag
+from ...model_manager import build_model_specs, check_assets, model_fetch_hint
 from ..errors import AiServiceError
 from .normalize import normalize_tags
 
@@ -54,15 +55,22 @@ CANDIDATES_EN: list[ClipCandidate] = [
 
 
 def _resolve_clip_paths() -> tuple[Path, Path, Path]:
-    base = Path(settings.OV_CLIP_DIR)
+    spec = build_model_specs(settings)["clip"]
+    base = spec.target_dir
     tokenizer = base / "tokenizer.json"
     image_model = base / "image_encoder.xml"
     text_model = base / "text_encoder.xml"
-    if not tokenizer.exists() or not image_model.exists() or not text_model.exists():
+    missing = check_assets(spec)
+    if missing:
         raise AiServiceError(
             code="MODEL_NOT_AVAILABLE",
-            message="CLIP model assets are missing.",
-            details={"directory": str(base)},
+            message=f"CLIP model assets are missing. {model_fetch_hint()}",
+            details={
+                "model": "clip",
+                "missing": missing,
+                "directory": str(base),
+                "hint": model_fetch_hint(),
+            },
             http_status=503,
         )
     return image_model, text_model, tokenizer

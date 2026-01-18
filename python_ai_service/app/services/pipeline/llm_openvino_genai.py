@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from ...config import get_settings
+from ...model_manager import build_model_specs, check_assets, model_fetch_hint
 from ..errors import AiServiceError
 from .prompts import COPYWRITER_SYSTEM, build_copy_prompt
 
@@ -11,12 +12,19 @@ settings = get_settings()
 
 
 def _resolve_llm_dir() -> Path:
-    model_dir = Path(settings.OV_LLM_DIR)
-    if not model_dir.exists():
+    spec = build_model_specs(settings)["llm"]
+    model_dir = spec.target_dir
+    missing = check_assets(spec)
+    if missing:
         raise AiServiceError(
             code="MODEL_NOT_AVAILABLE",
-            message="LLM model directory is missing.",
-            details={"directory": str(model_dir)},
+            message=f"LLM model assets are missing. {model_fetch_hint()}",
+            details={
+                "model": "llm",
+                "missing": missing,
+                "directory": str(model_dir),
+                "hint": model_fetch_hint(),
+            },
             http_status=503,
         )
     return model_dir

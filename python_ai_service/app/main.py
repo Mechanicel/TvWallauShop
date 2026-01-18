@@ -6,6 +6,7 @@ from .contracts_models import AnalyzeProductRequest, AnalyzeProductResponse
 from .services.jobs import analyze
 from .services.errors import AiServiceError
 from .config import get_settings
+from .model_manager import ensure_models
 
 settings = get_settings()
 
@@ -18,6 +19,17 @@ app = FastAPI(title="TvWallauShop AI Product Service", version="0.2.0")
 @app.get("/health", status_code=200)
 async def health_get():
     return {"status": "ok"}
+
+
+@app.on_event("startup")
+async def startup_check_models() -> None:
+    if settings.MODEL_FETCH_MODE != "never":
+        logger.info(
+            "Ensuring model assets MODE=%s OFFLINE=%s",
+            settings.MODEL_FETCH_MODE,
+            settings.OFFLINE,
+        )
+        ensure_models(mode=settings.MODEL_FETCH_MODE, offline=settings.OFFLINE, settings=settings)
 
 
 @app.head("/health", status_code=200)
