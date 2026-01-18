@@ -1,7 +1,10 @@
 import logging
-from fastapi import Response, FastAPI, HTTPException, status
-from .schemas import AnalyzeProductRequest, AnalyzeProductResponse
+from fastapi import Response, FastAPI, status
+from fastapi.responses import JSONResponse
+
+from .contracts_models import AnalyzeProductRequest, AnalyzeProductResponse
 from .services.jobs import analyze
+from .services.errors import AiServiceError
 from .config import get_settings
 
 settings = get_settings()
@@ -12,12 +15,14 @@ logging.basicConfig(level=getattr(logging, settings.LOG_LEVEL.upper(), logging.I
 app = FastAPI(title="TvWallauShop AI Product Service", version="0.2.0")
 
 
+@app.get("/health", status_code=200)
+async def health_get():
+    return {"status": "ok"}
 
 
 @app.head("/health", status_code=200)
 async def health_head():
     return Response(status_code=200)
-
 
 
 @app.post(
@@ -29,9 +34,22 @@ async def analyze_product(payload: AnalyzeProductRequest):
     try:
         logger.info(
             "analyze-product job_id=%s price=%s images=%s",
-            payload.job_id, payload.price, len(payload.image_paths)
+            payload.job_id,
+            payload.price.amount,
+            len(payload.images),
         )
         return analyze(payload)
-    except Exception as e:
-        logger.exception("AI analyze failed")
-        raise HTTPException(status_code=500, detail=str(e))
+    except AiServiceError as exc:
+        logger.warning("AI analyze failed: %s", exc.message)
+        return JSONResponse(status_code=exc.http_status, content=exc.to_contract_dict())
+    except Exception as exc:
+        logger.exception("Unexpected AI analyze failure")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "code": "INFERENCE_FAILED",
+                "message": "Unexpected inference error.",
+                "details": {"error": str(exc)},
+                "jobId": payload.job_id,
+            },
+        )

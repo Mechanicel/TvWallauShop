@@ -13,23 +13,28 @@ class Settings:
     AI_SERVICE_PORT: int = int(os.getenv("AI_SERVICE_PORT", "8000"))
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "info")
 
-    # Tagging
-    TAG_MODE: str = os.getenv("TAG_MODE", "free").strip().lower()  # free | restricted
-    TAG_LANG: str = os.getenv("TAG_LANG", "de").strip().lower()    # de | en
-    DEBUG: bool = os.getenv("DEBUG", "0").strip() in ("1", "true", "yes", "on")
+    # AI pipeline
+    AI_DEVICE: str = os.getenv("AI_DEVICE", "openvino:GPU").strip()
+    ENABLE_CPU_FALLBACK: bool = os.getenv("ENABLE_CPU_FALLBACK", "0").strip() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+    MODEL_CACHE_DIR: str = os.getenv("MODEL_CACHE_DIR", "models").strip()
 
-    # In free-mode: wie viele Tags sollen maximal/minimal rauskommen?
-    FREE_TAG_MAX: int = int(os.getenv("FREE_TAG_MAX", "8"))
-    FREE_TAG_MIN: int = int(os.getenv("FREE_TAG_MIN", "5"))
+    OV_CLIP_DIR: str = os.getenv("OV_CLIP_DIR", "models/clip").strip()
+    OV_CAPTION_DIR: str = os.getenv("OV_CAPTION_DIR", "models/caption").strip()
+    OV_LLM_DIR: str = os.getenv("OV_LLM_DIR", "models/llm").strip()
 
-    # Optional: wenn du später restricted willst
-    ALLOWED_TAGS_PATH: str = os.getenv("ALLOWED_TAGS_PATH", "models/allowed_tags.txt")
+    MAX_TAGS: int = int(os.getenv("MAX_TAGS", "10"))
+    MAX_CAPTIONS_PER_IMAGE: int = int(os.getenv("MAX_CAPTIONS_PER_IMAGE", "1"))
 
-    # Model
-    # FashionCLIP (Transformers)
-    CLIP_MODEL_NAME: str = os.getenv("CLIP_MODEL_NAME", "patrickjohncyh/fashion-clip")
-    CLIP_DEVICE: str = os.getenv("CLIP_DEVICE", "cpu")  # cpu | cuda (wenn verfügbar)
+    LLM_MAX_NEW_TOKENS: int = int(os.getenv("LLM_MAX_NEW_TOKENS", "220"))
+    LLM_TEMPERATURE: float = float(os.getenv("LLM_TEMPERATURE", "0.4"))
+
     REQUEST_TIMEOUT_SEC: float = float(os.getenv("REQUEST_TIMEOUT_SEC", "8"))
+    DEBUG: bool = os.getenv("DEBUG", "0").strip() in ("1", "true", "yes", "on")
 
 
 @lru_cache(maxsize=1)
