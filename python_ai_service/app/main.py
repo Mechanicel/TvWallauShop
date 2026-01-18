@@ -14,7 +14,6 @@ logger = logging.getLogger("tvwallau-ai")
 logging.basicConfig(level=getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO))
 
 app = FastAPI(title="TvWallauShop AI Product Service", version="0.2.0")
-app.state.model_startup_error = None
 
 
 @app.exception_handler(AiServiceError)
@@ -57,15 +56,10 @@ async def startup_check_models() -> None:
             )
         except AiServiceError as exc:
             logger.error("Model startup check failed: %s", exc.message)
-            app.state.model_startup_error = exc
+            raise RuntimeError("Model startup check failed.") from exc
         except Exception as exc:
             logger.error("Model startup check failed unexpectedly: %s", exc)
-            app.state.model_startup_error = AiServiceError(
-                code="MODEL_NOT_AVAILABLE",
-                message="Model startup check failed.",
-                details={"error": str(exc)},
-                http_status=503,
-            )
+            raise RuntimeError("Model startup check failed unexpectedly.") from exc
 
 
 @app.head("/health", status_code=200)
@@ -80,9 +74,6 @@ async def health_head():
 )
 async def analyze_product(payload: AnalyzeProductRequest):
     try:
-        if app.state.model_startup_error is not None:
-            error = app.state.model_startup_error
-            return JSONResponse(status_code=error.http_status, content=error.to_contract_dict())
         logger.info(
             "analyze-product job_id=%s price=%s images=%s",
             payload.job_id,

@@ -6,7 +6,7 @@ import shutil
 import subprocess
 import sys
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable
@@ -21,13 +21,26 @@ from .services.errors import AiServiceError
 @dataclass(frozen=True)
 class ModelSpec:
     name: str
-    hf_source: str
+    source_kind: str
+    hf_id: str
     target_dir: Path
     required_files: tuple[str, ...]
-    conversion_command: tuple[str, ...] | None = None
+    export_args: list[str] = field(default_factory=list)
 
     def missing_files(self) -> list[str]:
         return [str(self.target_dir / fname) for fname in self.required_files]
+
+    def build_conversion_command(self) -> tuple[str, ...] | None:
+        if self.source_kind != "hf_export":
+            return None
+        return (
+            "optimum-cli",
+            "export",
+            "openvino",
+            "--model",
+            self.hf_id,
+            *self.export_args,
+        )
 
 
 @contextmanager
@@ -43,50 +56,60 @@ def model_fetch_hint() -> str:
 
 
 def build_model_specs(settings: Settings) -> dict[str, ModelSpec]:
+    if settings.CLIP_SOURCE not in {"prebuilt_ir", "hf_export"}:
+        raise AiServiceError(
+            code="INVALID_INPUT",
+            message="Unsupported CLIP_SOURCE value.",
+            details={"clip_source": settings.CLIP_SOURCE},
+            http_status=400,
+        )
+    clip_required_files = (
+        ("model.xml", "model.bin")
+        if settings.CLIP_SOURCE == "prebuilt_ir"
+        else (
+            "image_encoder.xml",
+            "image_encoder.bin",
+            "text_encoder.xml",
+            "text_encoder.bin",
+            "tokenizer.json",
+        )
+    )
+    clip_export_args = (
+        []
+        if settings.CLIP_SOURCE == "prebuilt_ir"
+        else [
+            "--task",
+            "feature-extraction",
+            "--output",
+            settings.OV_CLIP_DIR,
+        ]
+    )
     return {
         "clip": ModelSpec(
             name="clip",
-            hf_source="openai/clip-vit-base-patch32",
+            source_kind=settings.CLIP_SOURCE,
+            hf_id="openai/clip-vit-base-patch32",
             target_dir=Path(settings.OV_CLIP_DIR),
-            required_files=(
-                "image_encoder.xml",
-                "image_encoder.bin",
-                "text_encoder.xml",
-                "text_encoder.bin",
-                "tokenizer.json",
-            ),
-            conversion_command=(
-                "optimum-cli",
-                "export",
-                "openvino",
-                "--model",
-                "openai/clip-vit-base-patch32",
-                "--task",
-                "feature-extraction",
-                "--output",
-                settings.OV_CLIP_DIR,
-            ),
+            required_files=clip_required_files,
+            export_args=clip_export_args,
         ),
         "caption": ModelSpec(
             name="caption",
-            hf_source="Salesforce/blip-image-captioning-base",
+            source_kind="hf_export",
+            hf_id="Salesforce/blip-image-captioning-base",
             target_dir=Path(settings.OV_CAPTION_DIR),
             required_files=("model.xml", "model.bin", "tokenizer.json"),
-            conversion_command=(
-                "optimum-cli",
-                "export",
-                "openvino",
-                "--model",
-                "Salesforce/blip-image-captioning-base",
+            export_args=[
                 "--task",
                 "image-to-text",
                 "--output",
                 settings.OV_CAPTION_DIR,
-            ),
+            ],
         ),
         "llm": ModelSpec(
             name="llm",
-            hf_source="Qwen/Qwen2.5-3B-Instruct",
+            source_kind="hf_export",
+            hf_id="Qwen/Qwen2.5-3B-Instruct",
             target_dir=Path(settings.OV_LLM_DIR),
             required_files=(
                 "openvino_model.xml",
@@ -94,12 +117,7 @@ def build_model_specs(settings: Settings) -> dict[str, ModelSpec]:
                 "tokenizer.json",
                 "config.json",
             ),
-            conversion_command=(
-                "optimum-cli",
-                "export",
-                "openvino",
-                "--model",
-                "Qwen/Qwen2.5-3B-Instruct",
+            export_args=[
                 "--task",
                 "text-generation-with-past",
                 "--trust-remote-code",
@@ -111,7 +129,7 @@ def build_model_specs(settings: Settings) -> dict[str, ModelSpec]:
                 "1.0",
                 "--sym",
                 settings.OV_LLM_DIR,
-            ),
+            ],
         ),
     }
 
@@ -179,7 +197,7 @@ def _find_optimum_cli() -> str | None:
     return None
 
 
-def _tail_output(value: str | None, limit: int = 2000) -> str | None:
+def _tail_output(value: str | None, limit: int = 4000) -> str | None:
     if not value:
         return None
     if len(value) <= limit:
@@ -189,9 +207,10 @@ def _tail_output(value: str | None, limit: int = 2000) -> str | None:
 
 def _run_conversion(spec: ModelSpec, settings: Settings, offline: bool) -> None:
     spec.target_dir.mkdir(parents=True, exist_ok=True)
-    if spec.conversion_command is None:
+    conversion_command = spec.build_conversion_command()
+    if conversion_command is None:
         return
-    command = list(spec.conversion_command)
+    command = list(conversion_command)
     if command and command[0] == "optimum-cli":
         optimum_cli = _find_optimum_cli()
         if not optimum_cli:
@@ -221,7 +240,8 @@ def _run_conversion(spec: ModelSpec, settings: Settings, offline: bool) -> None:
             message=f"Failed to convert/download {spec.name} model. {model_fetch_hint()}",
             details={
                 "model": spec.name,
-                "command": " ".join(command),
+                "cmd": command,
+                "returncode": exc.returncode,
                 "stdout_tail": _tail_output(exc.stdout),
                 "stderr_tail": _tail_output(exc.stderr),
             },
@@ -236,7 +256,7 @@ def _write_manifest(model_dir: Path, specs: list[ModelSpec]) -> None:
         "models": [
             {
                 "name": spec.name,
-                "source": spec.hf_source,
+                "source": spec.hf_id,
                 "directory": str(spec.target_dir),
                 "required_files": list(spec.required_files),
             }
@@ -285,3 +305,28 @@ def ensure_models(mode: str, offline: bool, settings: Settings | None = None) ->
 
     if not offline and mode == "download":
         _write_manifest(model_dir, list(specs.values()))
+
+
+def _cli_prepare() -> int:
+    settings = get_settings()
+    print(
+        f"Preparing models (MODE=download OFFLINE={settings.OFFLINE} CLIP_SOURCE={settings.CLIP_SOURCE})"
+    )
+    try:
+        ensure_models(mode="download", offline=settings.OFFLINE, settings=settings)
+    except AiServiceError as exc:
+        print(f"Model preparation failed: {exc.message}", file=sys.stderr)
+        print(json.dumps(exc.details, indent=2), file=sys.stderr)
+        return 1
+    except Exception as exc:
+        print(f"Model preparation failed unexpectedly: {exc}", file=sys.stderr)
+        return 1
+    print("Model preparation completed successfully.")
+    return 0
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2 or sys.argv[1] != "prepare":
+        print("Usage: python -m app.model_manager prepare", file=sys.stderr)
+        raise SystemExit(2)
+    raise SystemExit(_cli_prepare())
