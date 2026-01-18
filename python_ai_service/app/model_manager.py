@@ -198,7 +198,13 @@ def check_assets(spec: ModelSpec) -> AssetCheck:
     found_files = _list_files(checked_dir)
     missing: list[str] = []
     expected: list[str] | None = None
-    if spec.name == "caption":
+    if spec.name == "clip" and spec.source_kind == "hf_export":
+        expected = list(spec.required_files)
+        for filename in spec.required_files:
+            checked_path = checked_dir / filename
+            if not checked_path.exists():
+                missing.append(str(checked_path))
+    elif spec.name == "caption":
         expected = list(spec.required_files)
         for filename in spec.required_files:
             checked_path = checked_dir / filename
