@@ -63,6 +63,7 @@ class LlmCopywriter:
         ensure_openvino_tokenizers_extension_loaded()
         try:
             self.pipeline = ov_genai.LLMPipeline(str(model_dir), device)
+            self._ov_genai = ov_genai
         except Exception as exc:
             try:
                 files = sorted(os.listdir(model_dir))
@@ -87,13 +88,32 @@ class LlmCopywriter:
         raw = self._generate_with_retry(prompt, retry=True)
         return raw
 
+    def _build_full_prompt(self, user_prompt: str) -> str:
+        return (
+            "### System\n"
+            f"{COPYWRITER_SYSTEM}\n"
+            "### User\n"
+            f"{user_prompt}\n"
+            "### Assistant\n"
+        )
+
     def _generate_with_retry(self, prompt: str, retry: bool) -> tuple[str, str]:
-        result = self.pipeline.generate(
-            prompt,
+        full_prompt = self._build_full_prompt(prompt)
+        config = self._ov_genai.GenerationConfig(
             max_new_tokens=settings.LLM_MAX_NEW_TOKENS,
             temperature=settings.LLM_TEMPERATURE,
-            system_prompt=COPYWRITER_SYSTEM,
         )
+        try:
+            result = self.pipeline.generate(full_prompt, config)
+        except ValueError as exc:
+            if "incorrect GenerationConfig parameter" in str(exc):
+                raise AiServiceError(
+                    code="INVALID_CONFIG",
+                    message="Invalid OpenVINO GenAI GenerationConfig parameter.",
+                    details={"error": str(exc)},
+                    http_status=500,
+                ) from exc
+            raise
         try:
             return parse_llm_json(result)
         except Exception as exc:
