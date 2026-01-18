@@ -44,8 +44,42 @@ Requirements
 - Install dependencies: uv sync (or run `npx nx run python-ai-service:install`).
 - The service starts uvicorn with reload on http://localhost:8000.
 - Health endpoint: GET /health returns 200 with {"status": "ok"}.
-- CPU-only PyTorch wheels are used via the PyTorch CPU index; GPU/CUDA wheels
-  are not required for the default setup.
+- OpenVINO GPU/NPU is required; there is no CPU fallback.
+
+Model setup
+-----------
+
+The AI pipeline expects pre-converted OpenVINO models in the filesystem:
+
+```
+models/
+  clip/
+    image_encoder.xml
+    image_encoder.bin
+    text_encoder.xml
+    text_encoder.bin
+    tokenizer.json
+  caption/
+    model.xml
+    model.bin
+    tokenizer.json
+  llm/
+    openvino_model.xml
+    openvino_model.bin
+    tokenizer.json
+    config.json
+```
+
+Environment variables:
+
+- `AI_DEVICE` (default: `openvino:GPU`, allowed: `openvino:GPU` or `openvino:NPU`)
+- `OV_CLIP_DIR` (default: `models/clip`)
+- `OV_CAPTION_DIR` (default: `models/caption`)
+- `OV_LLM_DIR` (default: `models/llm`)
+- `MAX_TAGS` (default: `10`)
+- `MAX_CAPTIONS_PER_IMAGE` (default: `1`)
+- `LLM_MAX_NEW_TOKENS` (default: `220`)
+- `LLM_TEMPERATURE` (default: `0.4`)
 
 Troubleshooting
 ---------------

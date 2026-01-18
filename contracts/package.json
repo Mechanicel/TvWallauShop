@@ -21,14 +21,22 @@
     },
     "./errors": {
       "types": "./src/errors.ts"
+    },
+    "./ai-product": {
+      "types": "./src/ai-product.ts"
+    },
+    "./ai-errors": {
+      "types": "./src/ai-errors.ts"
     }
   },
   "types": "./src/index.ts",
   "scripts": {
     "build": "tsc -p tsconfig.json --noEmit",
-    "test": "node --test"
+    "test": "node --test",
+    "gen:schema": "ts-json-schema-generator --path src/ai-product.ts --type AnalyzeProductRequest --out schema/analyze-product-request.schema.json && ts-json-schema-generator --path src/ai-product.ts --type AnalyzeProductResponse --out schema/analyze-product-response.schema.json"
   },
   "devDependencies": {
-    "typescript": "^5.4.5"
+    "typescript": "^5.4.5",
+    "ts-json-schema-generator": "^2.0.0"
   }
 }
