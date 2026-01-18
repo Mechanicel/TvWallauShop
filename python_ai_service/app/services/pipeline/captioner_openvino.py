@@ -61,7 +61,8 @@ class Captioner:
         self.vision_encoder = core.compile_model(
             core.read_model(paths.vision_encoder), device
         )
-        self.text_decoder = core.compile_model(core.read_model(paths.text_decoder), device)
+        text_decoder_model = core.read_model(paths.text_decoder)
+        self.text_decoder = core.compile_model(text_decoder_model, device)
         self.processor = BlipProcessor.from_pretrained(paths.base)
         self.tokenizer = self.processor.tokenizer
         self.bos_token_id = self.tokenizer.bos_token_id or self.tokenizer.cls_token_id or 0
@@ -89,6 +90,23 @@ class Captioner:
             self.expected_h,
             self.expected_w,
         )
+        self.text_decoder_shapes = self._read_text_decoder_shapes(text_decoder_model)
+        logger.info(
+            "BLIP text decoder input_ids partial_shape=%s attention_mask partial_shape=%s",
+            self.text_decoder_shapes.get("input_ids"),
+            self.text_decoder_shapes.get("attention_mask"),
+        )
+
+    @staticmethod
+    def _read_text_decoder_shapes(model: ov.Model) -> dict[str, ov.PartialShape]:
+        shapes: dict[str, ov.PartialShape] = {}
+        for input_tensor in model.inputs:
+            name = input_tensor.get_any_name()
+            if "input_ids" in name:
+                shapes["input_ids"] = input_tensor.get_partial_shape()
+            elif "attention_mask" in name:
+                shapes["attention_mask"] = input_tensor.get_partial_shape()
+        return shapes
 
     def generate(self, images: list[Image.Image], max_captions: int) -> list[Caption]:
         captions: list[Caption] = []
@@ -138,7 +156,30 @@ class Captioner:
         encoder_hidden_states: np.ndarray,
         input_ids: np.ndarray,
         attention_mask: np.ndarray,
+        step: int,
     ) -> np.ndarray:
+        if input_ids.shape != attention_mask.shape:
+            raise AiServiceError(
+                code="INFERENCE_FAILED",
+                message="BLIP text decoder input shape mismatch.",
+                details={
+                    "input_ids": list(input_ids.shape),
+                    "attention_mask": list(attention_mask.shape),
+                    "step": step,
+                },
+                http_status=500,
+            )
+        if input_ids.shape[0] != 1:
+            raise AiServiceError(
+                code="INFERENCE_FAILED",
+                message="BLIP text decoder batch size must be 1.",
+                details={"input_ids": list(input_ids.shape), "step": step},
+                http_status=500,
+            )
+        if input_ids.dtype != np.int64:
+            input_ids = input_ids.astype(np.int64)
+        if attention_mask.dtype != np.int64:
+            attention_mask = attention_mask.astype(np.int64)
         inputs: dict[str, np.ndarray] = {}
         for input_tensor in self.text_decoder.inputs:
             name = input_tensor.get_any_name()
@@ -148,8 +189,29 @@ class Captioner:
                 inputs[name] = encoder_hidden_states
             elif "attention_mask" in name:
                 inputs[name] = attention_mask
-        outputs = self.text_decoder(inputs)
-        logits = next(iter(outputs.values()))
+        try:
+            outputs = self.text_decoder(inputs)
+            logits = next(iter(outputs.values()))
+        except Exception as exc:
+            raise AiServiceError(
+                code="INFERENCE_FAILED",
+                message="BLIP text decoder failed to run with provided shapes.",
+                details={
+                    "expected_partial_shapes": {
+                        "input_ids": str(self.text_decoder_shapes.get("input_ids")),
+                        "attention_mask": str(
+                            self.text_decoder_shapes.get("attention_mask")
+                        ),
+                    },
+                    "got_shapes": {
+                        "input_ids": list(input_ids.shape),
+                        "attention_mask": list(attention_mask.shape),
+                    },
+                    "step": step,
+                    "error": str(exc),
+                },
+                http_status=500,
+            ) from exc
         if logits.size == 0:
             raise AiServiceError(
                 code="INFERENCE_FAILED",
@@ -163,9 +225,11 @@ class Captioner:
         encoder_hidden_states = self._encode_image(image)
         input_ids = np.array([[self.bos_token_id]], dtype=np.int64)
 
-        for _ in range(self.max_length):
+        for step in range(self.max_length):
             attention_mask = np.ones_like(input_ids)
-            logits = self._decode(encoder_hidden_states, input_ids, attention_mask)
+            logits = self._decode(
+                encoder_hidden_states, input_ids, attention_mask, step
+            )
             next_token = int(np.argmax(logits[:, -1, :], axis=-1)[0])
             input_ids = np.concatenate(
                 [input_ids, np.array([[next_token]], dtype=np.int64)], axis=1
