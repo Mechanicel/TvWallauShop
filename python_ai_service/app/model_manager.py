@@ -80,10 +80,11 @@ def build_model_specs(settings: Settings) -> dict[str, ModelSpec]:
         else [
             "--task",
             "feature-extraction",
-            "--output",
             settings.OV_CLIP_DIR,
         ]
     )
+    if settings.CLIP_SOURCE == "hf_export":
+        Path(settings.OV_CLIP_DIR).mkdir(parents=True, exist_ok=True)
     return {
         "clip": ModelSpec(
             name="clip",
@@ -102,7 +103,6 @@ def build_model_specs(settings: Settings) -> dict[str, ModelSpec]:
             export_args=[
                 "--task",
                 "image-to-text",
-                "--output",
                 settings.OV_CAPTION_DIR,
             ],
         ),
