@@ -11,7 +11,7 @@ import openvino_genai as ov_genai
 
 from ...config import get_settings
 from ...contracts_models import Tag
-from ...model_manager import build_model_specs, check_assets, model_fetch_hint
+from ...model_manager import model_fetch_hint
 from ..errors import AiServiceError
 from .normalize import normalize_tags
 
@@ -56,10 +56,10 @@ CANDIDATES_EN: list[ClipCandidate] = [
 ]
 
 
-def _resolve_clip_dir() -> tuple[Path, list[str]]:
-    spec = build_model_specs(settings)["clip"]
-    status = check_assets(spec)
-    return status.checked_dir, status.found_files
+def _list_files(directory: Path) -> list[str]:
+    if not directory.exists() or not directory.is_dir():
+        return []
+    return sorted(path.name for path in directory.iterdir() if path.is_file())
 
 
 def _preprocess_image(image: Image.Image, size: int = 224) -> np.ndarray:
@@ -74,7 +74,8 @@ def _preprocess_image(image: Image.Image, size: int = 224) -> np.ndarray:
 
 class ClipTagger:
     def __init__(self, device: str) -> None:
-        clip_dir, found_files = _resolve_clip_dir()
+        clip_dir = Path(settings.OV_CLIP_DIR)
+        found_files = _list_files(clip_dir)
         image_model_path = clip_dir / "image_encoder.xml"
         text_model_path = clip_dir / "text_encoder.xml"
         combined_model_path = clip_dir / "openvino_model.xml"
@@ -82,11 +83,45 @@ class ClipTagger:
         core = ov.Core()
         self.image_model: ov.CompiledModel | None = None
         self.text_model: ov.CompiledModel | None = None
-        self.combined_model: ov.CompiledModel | None = None
-        self.combined_inputs: dict[str, str] = {}
-        self.combined_image_shape: tuple[int, int, int, int] | None = None
+        self.model: ov.CompiledModel | None = None
+        self.input_names: list[str] = []
+        self.output_names: list[str] = []
         self.combined_text_seq_len: int | None = None
-        if image_model_path.exists() and text_model_path.exists():
+        self.clip_dir = clip_dir
+        self.found_files = found_files
+        if combined_model_path.exists():
+            if not tokenizer_path.exists():
+                raise AiServiceError(
+                    code="MODEL_NOT_AVAILABLE",
+                    message=(
+                        "CLIP tokenizer.json is missing for single-graph CLIP. "
+                        f"{model_fetch_hint()}"
+                    ),
+                    details={
+                        "model": "clip",
+                        "missing": [str(tokenizer_path)],
+                        "directory": str(clip_dir),
+                        "found_files": found_files,
+                        "hint": model_fetch_hint(),
+                    },
+                    http_status=503,
+                )
+            model = core.read_model(combined_model_path)
+            self.model = core.compile_model(model, device)
+            self.input_names = [tensor.get_any_name() for tensor in self.model.inputs]
+            self.output_names = [tensor.get_any_name() for tensor in self.model.outputs]
+            logger.info(
+                "CLIP loaded as single-graph OpenVINO model (openvino_model.xml) inputs=%s",
+                self.input_names,
+            )
+            input_ids_name = self._find_input_name(["input_ids"])
+            if input_ids_name:
+                text_shape = model.input(input_ids_name).get_partial_shape()
+            else:
+                text_shape = None
+            if text_shape is not None and not text_shape.is_dynamic and len(text_shape) > 1:
+                self.combined_text_seq_len = int(text_shape[1])
+        elif image_model_path.exists() and text_model_path.exists():
             if not tokenizer_path.exists():
                 raise AiServiceError(
                     code="MODEL_NOT_AVAILABLE",
@@ -106,64 +141,6 @@ class ClipTagger:
             logger.info("CLIP loaded as dual-encoder (image_encoder.xml/text_encoder.xml)")
             self.image_model = core.compile_model(core.read_model(image_model_path), device)
             self.text_model = core.compile_model(core.read_model(text_model_path), device)
-        elif combined_model_path.exists():
-            if not tokenizer_path.exists():
-                raise AiServiceError(
-                    code="MODEL_NOT_AVAILABLE",
-                    message=(
-                        "CLIP tokenizer.json is missing for single-graph CLIP. "
-                        f"{model_fetch_hint()}"
-                    ),
-                    details={
-                        "model": "clip",
-                        "missing": [str(tokenizer_path)],
-                        "directory": str(clip_dir),
-                        "found_files": found_files,
-                        "hint": model_fetch_hint(),
-                    },
-                    http_status=503,
-                )
-            model = core.read_model(combined_model_path)
-            input_names = [tensor.get_any_name() for tensor in model.inputs]
-            logger.info(
-                "CLIP loaded as single-graph OpenVINO model (openvino_model.xml) inputs=%s",
-                input_names,
-            )
-            pixel_name = next(
-                (name for name in input_names if "pixel" in name.lower() or "image" in name.lower()),
-                None,
-            )
-            input_ids_name = next(
-                (name for name in input_names if "input_ids" in name.lower()), None
-            )
-            attention_mask_name = next(
-                (name for name in input_names if "attention_mask" in name.lower()), None
-            )
-            if not pixel_name or not input_ids_name or not attention_mask_name:
-                raise AiServiceError(
-                    code="MODEL_NOT_AVAILABLE",
-                    message="Single-graph CLIP model inputs are not compatible.",
-                    details={
-                        "model": "clip",
-                        "found_inputs": input_names,
-                        "hint": model_fetch_hint(),
-                    },
-                    http_status=503,
-                )
-            self.combined_inputs = {
-                "pixel_values": pixel_name,
-                "input_ids": input_ids_name,
-                "attention_mask": attention_mask_name,
-            }
-            pixel_shape = model.input(pixel_name).get_partial_shape()
-            if pixel_shape.is_dynamic:
-                self.combined_image_shape = (1, 3, 224, 224)
-            else:
-                self.combined_image_shape = tuple(int(dim) for dim in pixel_shape)
-            text_shape = model.input(input_ids_name).get_partial_shape()
-            if not text_shape.is_dynamic and len(text_shape) > 1:
-                self.combined_text_seq_len = int(text_shape[1])
-            self.combined_model = core.compile_model(model, device)
         else:
             raise AiServiceError(
                 code="MODEL_NOT_AVAILABLE",
@@ -190,6 +167,68 @@ class ClipTagger:
             )
         self.tokenizer = ov_genai.Tokenizer(str(tokenizer_path))
 
+    def _raise_model_unavailable(self, message: str) -> None:
+        raise AiServiceError(
+            code="MODEL_NOT_AVAILABLE",
+            message=message,
+            details={
+                "clip_dir": str(self.clip_dir),
+                "found_files": self.found_files,
+                "model_inputs": self.input_names,
+                "model_outputs": self.output_names,
+            },
+            http_status=503,
+        )
+
+    def _find_input_name(self, keywords: list[str]) -> str | None:
+        for name in self.input_names:
+            lowered = name.lower()
+            if any(keyword in lowered for keyword in keywords):
+                return name
+        return None
+
+    def _select_output(
+        self,
+        output: dict[object, np.ndarray],
+        keywords: list[str],
+        fallback_label: str,
+    ) -> np.ndarray:
+        name_map: dict[str, str] = {}
+        for key in output.keys():
+            if isinstance(key, str):
+                name_map[key] = key
+            elif hasattr(key, "get_any_name"):
+                name_map[key.get_any_name()] = key  # type: ignore[assignment]
+            else:
+                name_map[str(key)] = key  # type: ignore[assignment]
+        candidates = [
+            name
+            for name in name_map.keys()
+            if any(keyword in name.lower() for keyword in keywords)
+        ]
+        if len(candidates) > 1:
+            self._raise_model_unavailable(
+                f"CLIP output selection for {fallback_label} is ambiguous.",
+            )
+        if len(candidates) == 1:
+            return output[name_map[candidates[0]]]
+        shape_candidates = [
+            name
+            for name, key in name_map.items()
+            if output[key].ndim == 2 and output[key].shape[0] == 1
+        ]
+        if len(shape_candidates) != 1:
+            self._raise_model_unavailable(
+                f"CLIP output selection for {fallback_label} is not available.",
+            )
+        chosen = shape_candidates[0]
+        logger.info(
+            "CLIP output selection for %s used fallback output=%s",
+            fallback_label,
+            chosen,
+        )
+        return output[name_map[chosen]]
+
     def _prepare_text_inputs(self, texts: list[str]) -> tuple[np.ndarray, np.ndarray]:
         tokenized = self.tokenizer.encode_batch(texts)
         input_ids = np.array(tokenized.input_ids, dtype=np.int64)
@@ -208,21 +247,31 @@ class ClipTagger:
         padding = target_len - values.shape[1]
         return np.pad(values, ((0, 0), (0, padding)), mode="constant")
 
-    def _dummy_image(self) -> np.ndarray:
-        shape = self.combined_image_shape or (1, 3, 224, 224)
-        return np.zeros(shape, dtype=np.float32)
+    @staticmethod
+    def _dummy_image() -> np.ndarray:
+        return np.zeros((1, 3, 224, 224), dtype=np.float32)
+
+    @staticmethod
+    def _dummy_text_inputs() -> tuple[np.ndarray, np.ndarray]:
+        input_ids = np.zeros((1, 1), dtype=np.int64)
+        attention_mask = np.ones((1, 1), dtype=np.int64)
+        return input_ids, attention_mask
 
     def _encode_text(self, texts: list[str]) -> np.ndarray:
-        if self.combined_model:
+        if self.model:
             input_ids, attention_mask = self._prepare_text_inputs(texts)
-            inputs = {
-                self.combined_inputs["input_ids"]: input_ids,
-                self.combined_inputs["attention_mask"]: attention_mask,
-                self.combined_inputs["pixel_values"]: self._dummy_image(),
-            }
-            output = self.combined_model(inputs)
-            embedding = next(iter(output.values()))
-            return embedding
+            inputs: dict[str, np.ndarray] = {}
+            input_ids_name = self._find_input_name(["input_ids"])
+            attention_mask_name = self._find_input_name(["attention_mask"])
+            if not input_ids_name or not attention_mask_name:
+                self._raise_model_unavailable("CLIP text inputs are missing from model.")
+            inputs[input_ids_name] = input_ids
+            inputs[attention_mask_name] = attention_mask
+            pixel_values_name = self._find_input_name(["pixel", "image"])
+            if pixel_values_name:
+                inputs[pixel_values_name] = self._dummy_image()
+            output = self.model(inputs)
+            return self._select_output(output, ["text", "text_embeds"], "text")
         if not self.text_model:
             raise AiServiceError(
                 code="MODEL_NOT_AVAILABLE",
@@ -244,16 +293,24 @@ class ClipTagger:
 
     def _encode_image(self, image: Image.Image) -> np.ndarray:
         tensor = _preprocess_image(image)
-        if self.combined_model:
-            input_ids, attention_mask = self._prepare_text_inputs([""])
-            inputs = {
-                self.combined_inputs["pixel_values"]: tensor,
-                self.combined_inputs["input_ids"]: input_ids,
-                self.combined_inputs["attention_mask"]: attention_mask,
-            }
-            output = self.combined_model(inputs)
-            embedding = next(iter(output.values()))
-            return embedding
+        if self.model:
+            inputs: dict[str, np.ndarray] = {}
+            pixel_values_name = self._find_input_name(["pixel", "image"])
+            if not pixel_values_name:
+                self._raise_model_unavailable("CLIP image inputs are missing from model.")
+            inputs[pixel_values_name] = tensor
+            input_ids_name = self._find_input_name(["input_ids"])
+            attention_mask_name = self._find_input_name(["attention_mask"])
+            if input_ids_name or attention_mask_name:
+                input_ids, attention_mask = self._dummy_text_inputs()
+                if not input_ids_name or not attention_mask_name:
+                    self._raise_model_unavailable(
+                        "CLIP text inputs are incomplete for image encoding."
+                    )
+                inputs[input_ids_name] = input_ids
+                inputs[attention_mask_name] = attention_mask
+            output = self.model(inputs)
+            return self._select_output(output, ["image", "image_embeds"], "image")
         if not self.image_model:
             raise AiServiceError(
                 code="MODEL_NOT_AVAILABLE",
