@@ -1,5 +1,6 @@
 import logging
 from fastapi import Response, FastAPI, Request, status
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
 from .contracts_models import AnalyzeProductRequest, AnalyzeProductResponse
@@ -20,7 +21,10 @@ app = FastAPI(title="TvWallauShop AI Product Service", version="0.2.0")
 @app.exception_handler(AiServiceError)
 async def ai_service_error_handler(request: Request, exc: AiServiceError):
     logger.warning("AI service error at %s: %s", request.url.path, exc.message)
-    return JSONResponse(status_code=exc.http_status, content=exc.to_contract_dict())
+    payload = exc.to_contract_dict()
+    if exc.debug is not None:
+        payload["debug"] = jsonable_encoder(exc.debug, by_alias=True, exclude_none=True)
+    return JSONResponse(status_code=exc.http_status, content=payload)
 
 
 @app.exception_handler(Exception)
@@ -102,7 +106,12 @@ async def analyze_product(payload: AnalyzeProductRequest):
         return analyze(payload)
     except AiServiceError as exc:
         logger.warning("AI analyze failed: %s", exc.message)
-        return JSONResponse(status_code=exc.http_status, content=exc.to_contract_dict())
+        payload = exc.to_contract_dict()
+        if exc.debug is not None:
+            payload["debug"] = jsonable_encoder(
+                exc.debug, by_alias=True, exclude_none=True
+            )
+        return JSONResponse(status_code=exc.http_status, content=payload)
     except Exception as exc:
         logger.exception("Unexpected AI analyze failure")
         return JSONResponse(

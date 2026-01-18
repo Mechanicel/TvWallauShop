@@ -4,8 +4,12 @@ import time
 
 from ...config import get_settings
 from ...contracts_models import (
+    AiDebugInfo,
     AnalyzeProductRequest,
     AnalyzeProductResponse,
+    BlipDebug,
+    ClipDebug,
+    LlmDebug,
     PipelineMeta,
     PipelineModels,
     PipelineTimings,
@@ -32,63 +36,111 @@ def run_pipeline(payload: AnalyzeProductRequest) -> AnalyzeProductResponse:
 
     ensure_models(mode="never", offline=settings.OFFLINE, settings=settings)
     device = check_device_available(settings.AI_DEVICE)
+    debug_enabled = settings.DEBUG_AI or payload.debug
+    include_prompt = settings.DEBUG_AI_INCLUDE_PROMPT or payload.debug_include_prompt
+    debug_response = debug_enabled and settings.DEBUG_AI_RESPONSE
+    debug_info: AiDebugInfo | None = None
+    if debug_enabled:
+        debug_info = AiDebugInfo(
+            clip=ClipDebug(
+                device=device,
+                model_dir=settings.OV_CLIP_DIR,
+                num_images=len(payload.images),
+                candidate_prompts_count=0,
+                top_tags=[],
+            ),
+            blip=BlipDebug(
+                device=device,
+                model_dir=settings.OV_CAPTION_DIR,
+                expected_hw=[0, 0],
+                captions=[],
+            ),
+            llm=LlmDebug(
+                device=device,
+                model_dir=settings.OV_LLM_DIR,
+                raw_output="",
+            ),
+        )
+
     start = time.perf_counter()
+    try:
+        image_start = time.perf_counter()
+        image_assets = load_images(payload.images)
+        image_load_ms = (time.perf_counter() - image_start) * 1000
 
-    image_start = time.perf_counter()
-    image_assets = load_images(payload.images)
-    image_load_ms = (time.perf_counter() - image_start) * 1000
+        tagger_start = time.perf_counter()
+        tagger = ClipTagger(device)
+        max_tags = payload.max_tags or settings.MAX_TAGS
+        tags = tagger.predict(
+            [asset.image for asset in image_assets],
+            max_tags=max_tags,
+            debug=debug_info.clip if debug_info else None,
+            include_prompt=include_prompt,
+        )
+        tagger_ms = (time.perf_counter() - tagger_start) * 1000
 
-    tagger_start = time.perf_counter()
-    tagger = ClipTagger(device)
-    max_tags = payload.max_tags or settings.MAX_TAGS
-    tags = tagger.predict([asset.image for asset in image_assets], max_tags=max_tags)
-    tagger_ms = (time.perf_counter() - tagger_start) * 1000
+        caption_start = time.perf_counter()
+        captioner = Captioner(device)
+        max_captions = payload.max_captions or settings.MAX_CAPTIONS_PER_IMAGE
+        captions = captioner.generate(
+            [asset.image for asset in image_assets],
+            max_captions=max_captions,
+            debug=debug_info.blip if debug_info else None,
+        )
+        captioner_ms = (time.perf_counter() - caption_start) * 1000
 
-    caption_start = time.perf_counter()
-    captioner = Captioner(device)
-    max_captions = payload.max_captions or settings.MAX_CAPTIONS_PER_IMAGE
-    captions = captioner.generate(
-        [asset.image for asset in image_assets],
-        max_captions=max_captions,
-    )
-    captioner_ms = (time.perf_counter() - caption_start) * 1000
+        llm_start = time.perf_counter()
+        llm = LlmCopywriter(device)
+        tag_values = normalize_tags([tag.value for tag in tags])
+        caption_texts = [caption.text for caption in captions]
+        title, description = llm.generate(
+            payload.price.amount,
+            payload.price.currency or "USD",
+            tag_values,
+            caption_texts,
+            debug=debug_info.llm if debug_info else None,
+            include_prompt=include_prompt,
+        )
+        llm_ms = (time.perf_counter() - llm_start) * 1000
 
-    llm_start = time.perf_counter()
-    llm = LlmCopywriter(device)
-    tag_values = normalize_tags([tag.value for tag in tags])
-    caption_texts = [caption.text for caption in captions]
-    title, description = llm.generate(
-        payload.price.amount,
-        payload.price.currency or "USD",
-        tag_values,
-        caption_texts,
-    )
-    llm_ms = (time.perf_counter() - llm_start) * 1000
+        total_ms = (time.perf_counter() - start) * 1000
 
-    total_ms = (time.perf_counter() - start) * 1000
+        meta = PipelineMeta(
+            contract_version="1.0",
+            device=settings.AI_DEVICE,
+            models=PipelineModels(
+                tagger=f"openvino:clip:{settings.OV_CLIP_DIR}",
+                captioner=f"openvino:caption:{settings.OV_CAPTION_DIR}",
+                llm=f"openvino-genai:{settings.OV_LLM_DIR}",
+            ),
+            timings=PipelineTimings(
+                image_load_ms=image_load_ms,
+                tagger_ms=tagger_ms,
+                captioner_ms=captioner_ms,
+                llm_ms=llm_ms,
+                total_ms=total_ms,
+            ),
+        )
 
-    meta = PipelineMeta(
-        contract_version="1.0",
-        device=settings.AI_DEVICE,
-        models=PipelineModels(
-            tagger=f"openvino:clip:{settings.OV_CLIP_DIR}",
-            captioner=f"openvino:caption:{settings.OV_CAPTION_DIR}",
-            llm=f"openvino-genai:{settings.OV_LLM_DIR}",
-        ),
-        timings=PipelineTimings(
-            image_load_ms=image_load_ms,
-            tagger_ms=tagger_ms,
-            captioner_ms=captioner_ms,
-            llm_ms=llm_ms,
-            total_ms=total_ms,
-        ),
-    )
+        if debug_info:
+            debug_info.timings_ms = {
+                "image_load": int(image_load_ms),
+                "tagger": int(tagger_ms),
+                "captioner": int(captioner_ms),
+                "llm": int(llm_ms),
+                "total": int(total_ms),
+            }
 
-    return AnalyzeProductResponse(
-        job_id=payload.job_id,
-        title=title,
-        description=description,
-        tags=tags,
-        captions=captions,
-        meta=meta,
-    )
+        return AnalyzeProductResponse(
+            job_id=payload.job_id,
+            title=title,
+            description=description,
+            tags=tags,
+            captions=captions,
+            meta=meta,
+            debug=debug_info if debug_response else None,
+        )
+    except AiServiceError as exc:
+        if debug_response and debug_info:
+            exc.debug = debug_info
+        raise

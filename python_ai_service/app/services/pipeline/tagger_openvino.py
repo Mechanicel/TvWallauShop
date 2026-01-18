@@ -10,7 +10,7 @@ import openvino as ov
 from transformers import CLIPProcessor
 
 from ...config import get_settings
-from ...contracts_models import Tag
+from ...contracts_models import ClipDebug, ClipTagScore, Tag
 from ...model_manager import model_fetch_hint
 from ..errors import AiServiceError
 from .normalize import normalize_tags
@@ -268,9 +268,20 @@ class ClipTagger:
         output = self.image_model(inputs)
         return self._select_output(output, ["image", "image_embeds"], "image")
 
-    def predict(self, images: list[Image.Image], max_tags: int) -> list[Tag]:
+    def predict(
+        self,
+        images: list[Image.Image],
+        max_tags: int,
+        debug: ClipDebug | None = None,
+        include_prompt: bool = False,
+    ) -> list[Tag]:
         max_tags = max(1, max_tags)
         prompts = [f"a photo of {c.value}" for c in CANDIDATES_EN]
+        if debug:
+            debug.candidate_prompts_count = len(prompts)
+            debug.num_images = len(images)
+            if include_prompt:
+                debug.prompt_examples = prompts[:10]
         text_features = self._encode_text(prompts)
         text_features = text_features / np.linalg.norm(text_features, axis=-1, keepdims=True)
 
@@ -288,6 +299,30 @@ class ClipTagger:
                 scored_tags.append(
                     Tag(value=CANDIDATES_EN[idx].value.lower(), score=float(sims[idx]), source="clip")
                 )
+
+        if debug:
+            sorted_tags = sorted(
+                scored_tags, key=lambda tag: tag.score or 0.0, reverse=True
+            )
+            top_tags = sorted_tags[: settings.DEBUG_AI_MAX_TAGS_LOG]
+            debug.top_tags = [
+                ClipTagScore(tag=tag.value, score=float(tag.score or 0.0))
+                for tag in top_tags
+            ]
+            summary_top = top_tags[:10]
+            summary = ", ".join(
+                f"{tag.value}({tag.score:.3f})" if tag.score is not None else tag.value
+                for tag in summary_top
+            )
+            logger.info("CLIP tags top10: %s", summary)
+            logger.info(
+                "CLIP tags summary",
+                extra={
+                    "clip_top_tags": [
+                        {"tag": tag.value, "score": tag.score} for tag in summary_top
+                    ]
+                },
+            )
 
         normalized = normalize_tags(selected)
         normalized_set = set(normalized)

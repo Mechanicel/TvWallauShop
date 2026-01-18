@@ -52,6 +52,22 @@ class Settings:
     REQUEST_TIMEOUT_SEC: float = float(os.getenv("REQUEST_TIMEOUT_SEC", "8"))
     DEBUG: bool = os.getenv("DEBUG", "0").strip() in ("1", "true", "yes", "on")
 
+    DEBUG_AI: bool = os.getenv("DEBUG_AI", "0").strip() in ("1", "true", "yes", "on")
+    DEBUG_AI_INCLUDE_PROMPT: bool = os.getenv("DEBUG_AI_INCLUDE_PROMPT", "0").strip() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+    DEBUG_AI_MAX_TAGS_LOG: int = int(os.getenv("DEBUG_AI_MAX_TAGS_LOG", "50"))
+    DEBUG_AI_MAX_CHARS: int = int(os.getenv("DEBUG_AI_MAX_CHARS", "6000"))
+    DEBUG_AI_RESPONSE: bool = os.getenv("DEBUG_AI_RESPONSE", "1").strip() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
