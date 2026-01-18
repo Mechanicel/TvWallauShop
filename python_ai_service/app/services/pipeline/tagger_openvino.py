@@ -79,7 +79,8 @@ class ClipTagger:
         image_model_path = clip_dir / "image_encoder.xml"
         text_model_path = clip_dir / "text_encoder.xml"
         combined_model_path = clip_dir / "openvino_model.xml"
-        tokenizer_path = clip_dir / "tokenizer.json"
+        tokenizer_ir_path = clip_dir / "openvino_tokenizer.xml"
+        tokenizer_ir_bin_path = clip_dir / "openvino_tokenizer.bin"
         core = ov.Core()
         self.image_model: ov.CompiledModel | None = None
         self.text_model: ov.CompiledModel | None = None
@@ -91,16 +92,20 @@ class ClipTagger:
         self.clip_dir = clip_dir
         self.found_files = found_files
         if combined_model_path.exists():
-            if not tokenizer_path.exists():
+            if not tokenizer_ir_path.exists() or not tokenizer_ir_bin_path.exists():
                 raise AiServiceError(
                     code="MODEL_NOT_AVAILABLE",
                     message=(
-                        "CLIP tokenizer.json is missing for single-graph CLIP. "
+                        "CLIP OpenVINO tokenizer IR is missing for single-graph CLIP. "
                         f"{model_fetch_hint()}"
                     ),
                     details={
                         "model": "clip",
-                        "missing": [str(tokenizer_path)],
+                        "missing": [
+                            str(path)
+                            for path in (tokenizer_ir_path, tokenizer_ir_bin_path)
+                            if not path.exists()
+                        ],
                         "directory": str(clip_dir),
                         "found_files": found_files,
                         "hint": model_fetch_hint(),
@@ -123,16 +128,20 @@ class ClipTagger:
             if text_shape is not None and not text_shape.is_dynamic and len(text_shape) > 1:
                 self.combined_text_seq_len = int(text_shape[1])
         elif image_model_path.exists() and text_model_path.exists():
-            if not tokenizer_path.exists():
+            if not tokenizer_ir_path.exists() or not tokenizer_ir_bin_path.exists():
                 raise AiServiceError(
                     code="MODEL_NOT_AVAILABLE",
                     message=(
-                        "CLIP tokenizer.json is missing for dual-encoder CLIP. "
+                        "CLIP OpenVINO tokenizer IR is missing for dual-encoder CLIP. "
                         f"{model_fetch_hint()}"
                     ),
                     details={
                         "model": "clip",
-                        "missing": [str(tokenizer_path)],
+                        "missing": [
+                            str(path)
+                            for path in (tokenizer_ir_path, tokenizer_ir_bin_path)
+                            if not path.exists()
+                        ],
                         "directory": str(clip_dir),
                         "found_files": found_files,
                         "hint": model_fetch_hint(),
@@ -160,13 +169,37 @@ class ClipTagger:
                         "text_encoder.bin",
                         "openvino_model.xml",
                         "openvino_model.bin",
-                        "tokenizer.json",
+                        "openvino_tokenizer.xml",
+                        "openvino_tokenizer.bin",
                     ],
                     "hint": model_fetch_hint(),
                 },
                 http_status=503,
             )
-        self.tokenizer = ov_genai.Tokenizer(str(tokenizer_path))
+        self.tokenizer = ov_genai.Tokenizer(str(clip_dir))
+        try:
+            self.tokenizer.encode(["test"], add_special_tokens=True)
+        except Exception as exc:
+            raise AiServiceError(
+                code="MODEL_NOT_AVAILABLE",
+                message="OpenVINO tokenizer failed to load; encode() unavailable.",
+                details={
+                    "clip_dir": str(clip_dir),
+                    "found_files": sorted(
+                        [path.name for path in clip_dir.iterdir() if path.is_file()]
+                    ),
+                    "hint": (
+                        "Ensure openvino_tokenizer.xml/bin exist and package versions "
+                        "openvino/openvino-genai/openvino-tokenizers are compatible."
+                    ),
+                },
+                http_status=503,
+            ) from exc
+        logger.info(
+            "CLIP tokenizer loaded from %s, files_present=%s",
+            clip_dir,
+            found_files,
+        )
 
     def _raise_model_unavailable(self, message: str) -> None:
         raise AiServiceError(
@@ -233,24 +266,13 @@ class ClipTagger:
     def _prepare_text_inputs(
         self, texts: list[str]
     ) -> tuple[np.ndarray | ov.Tensor, np.ndarray | ov.Tensor]:
-        if hasattr(self.tokenizer, "encode"):
-            method = "encode"
-            tokenized = self.tokenizer.encode(texts)
-        elif hasattr(self.tokenizer, "encode_batch"):
-            method = "encode_batch"
-            tokenized = self.tokenizer.encode_batch(texts)
-        else:
-            raise AiServiceError(
-                code="MODEL_NOT_AVAILABLE",
-                message="Tokenizer does not support encode().",
-                details={"tokenizer_type": str(type(self.tokenizer))},
-            )
+        tokenized = self.tokenizer.encode(texts)
         if self._tokenizer_method is None:
-            self._tokenizer_method = method
+            self._tokenizer_method = "encode"
             logger.info(
                 "CLIP tokenizer type=%s using method=%s",
                 type(self.tokenizer),
-                method,
+                self._tokenizer_method,
             )
         input_ids = tokenized.input_ids
         attention_mask = tokenized.attention_mask
