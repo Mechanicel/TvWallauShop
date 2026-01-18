@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import logging
 from pathlib import Path
 
 import numpy as np
@@ -14,6 +15,7 @@ from ...model_manager import build_model_specs, check_assets, model_fetch_hint
 from ..errors import AiServiceError
 
 settings = get_settings()
+logger = logging.getLogger("tvwallau-ai")
 
 
 @dataclass(frozen=True)
@@ -65,6 +67,26 @@ class Captioner:
         self.bos_token_id = self.tokenizer.bos_token_id or self.tokenizer.cls_token_id or 0
         self.eos_token_id = self.tokenizer.eos_token_id
         self.max_length = min(getattr(self.tokenizer, "model_max_length", 30), 30)
+        self.expected_h = 224
+        self.expected_w = 224
+        vision_input = self.vision_encoder.inputs[0]
+        shape = list(vision_input.shape)
+        if len(shape) >= 4:
+            h_dim = shape[2]
+            w_dim = shape[3]
+            if hasattr(h_dim, "is_dynamic") and h_dim.is_dynamic:
+                self.expected_h = 224
+            else:
+                self.expected_h = int(h_dim)
+            if hasattr(w_dim, "is_dynamic") and w_dim.is_dynamic:
+                self.expected_w = 224
+            else:
+                self.expected_w = int(w_dim)
+        logger.info(
+            "BLIP vision encoder expects shape=[1,3,H,W] -> H=%s W=%s",
+            self.expected_h,
+            self.expected_w,
+        )
 
     def generate(self, images: list[Image.Image], max_captions: int) -> list[Caption]:
         captions: list[Caption] = []
@@ -83,8 +105,22 @@ class Captioner:
         return captions
 
     def _encode_image(self, image: Image.Image) -> np.ndarray:
-        inputs = self.processor(images=image, return_tensors="np")
-        pixel_values = inputs["pixel_values"]
+        resized = image.convert("RGB").resize(
+            (self.expected_w, self.expected_h), resample=Image.BILINEAR
+        )
+        inputs = self.processor(images=resized, return_tensors="np", do_resize=False)
+        pixel_values = inputs["pixel_values"].astype(np.float32)
+        expected_shape = (1, 3, self.expected_h, self.expected_w)
+        if pixel_values.shape != expected_shape:
+            raise AiServiceError(
+                code="INFERENCE_FAILED",
+                message="BLIP vision encoder input shape mismatch.",
+                details={
+                    "expected": list(expected_shape),
+                    "got": list(pixel_values.shape),
+                },
+                http_status=500,
+            )
         outputs = self.vision_encoder({self.vision_encoder.input(0): pixel_values})
         hidden_states = next(iter(outputs.values()))
         return hidden_states
