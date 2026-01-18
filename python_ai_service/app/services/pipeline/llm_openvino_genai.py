@@ -5,6 +5,7 @@ from pathlib import Path
 
 from ...config import get_settings
 from ...model_manager import build_model_specs, check_assets, model_fetch_hint
+from ...openvino_tokenizers_ext import ensure_openvino_tokenizers_extension_loaded
 from ..errors import AiServiceError
 from .prompts import COPYWRITER_SYSTEM, build_copy_prompt
 
@@ -55,7 +56,18 @@ class LlmCopywriter:
         import openvino_genai as ov_genai
 
         model_dir = _resolve_llm_dir()
-        self.pipeline = ov_genai.LLMPipeline(str(model_dir), device)
+        ensure_openvino_tokenizers_extension_loaded()
+        try:
+            self.pipeline = ov_genai.LLMPipeline(str(model_dir), device)
+        except Exception as exc:
+            raise AiServiceError(
+                code="MODEL_NOT_AVAILABLE",
+                message=(
+                    "Failed to initialize LLM pipeline (tokenizer extension likely missing or incompatible)."
+                ),
+                details={"model_dir": str(model_dir), "device": device, "error": str(exc)},
+                http_status=503,
+            ) from exc
 
     def generate(self, price_amount: float, currency: str, tags: list[str], captions: list[str]) -> tuple[str, str]:
         prompt = build_copy_prompt(price_amount, currency, tags, captions)
