@@ -20,8 +20,6 @@ from .services.errors import AiServiceError
 
 logger = logging.getLogger("tvwallau-ai")
 
-SUPPORTED_OPENVINO_DEVICES = {"CPU", "GPU", "NPU"}
-
 @dataclass
 class ModelSpec:
     name: str
@@ -171,80 +169,22 @@ def build_model_specs(settings: Settings) -> dict[str, ModelSpec]:
 
 
 def check_device_available(device: str) -> str:
-    normalized = device.strip()
-    if not normalized.startswith("openvino:"):
+    if device != "openvino:GPU":
         raise AiServiceError(
             code="INVALID_INPUT",
-            message="Unsupported device format. Use openvino:DEVICE.",
+            message="Only OpenVINO GPU is supported.",
             details={"device": device},
             http_status=400,
         )
-    spec = normalized.split("openvino:", 1)[1].strip()
-    if not spec:
-        raise AiServiceError(
-            code="INVALID_INPUT",
-            message="OpenVINO device must not be empty.",
-            details={"device": device},
-            http_status=400,
-        )
-    target_devices: list[str] = []
-    spec_upper = spec.upper()
-    if spec_upper == "AUTO":
-        mapped = "AUTO"
-    elif spec_upper.startswith("AUTO:"):
-        raw_devices = [
-            item.strip().upper() for item in spec_upper.split("AUTO:", 1)[1].split(",")
-        ]
-        target_devices = [item for item in raw_devices if item]
-        if not target_devices:
-            raise AiServiceError(
-                code="INVALID_INPUT",
-                message="AUTO device list must not be empty.",
-                details={"device": device},
-                http_status=400,
-            )
-        invalid = [item for item in target_devices if item not in SUPPORTED_OPENVINO_DEVICES]
-        if invalid:
-            raise AiServiceError(
-                code="INVALID_INPUT",
-                message="Unsupported OpenVINO AUTO device list.",
-                details={"device": device, "invalid": invalid},
-                http_status=400,
-            )
-        mapped = f"AUTO:{','.join(target_devices)}"
-    else:
-        if spec_upper not in SUPPORTED_OPENVINO_DEVICES:
-            raise AiServiceError(
-                code="INVALID_INPUT",
-                message="Unsupported OpenVINO device.",
-                details={"device": device},
-                http_status=400,
-            )
-        mapped = spec_upper
     core = ov.Core()
-    available = core.available_devices
-    if mapped in SUPPORTED_OPENVINO_DEVICES:
-        if mapped not in available:
-            raise AiServiceError(
-                code="DEVICE_NOT_AVAILABLE",
-                message="Requested OpenVINO device is not available.",
-                details={"device": mapped, "available": available},
-                http_status=503,
-            )
-    elif mapped.startswith("AUTO:"):
-        missing = [item for item in target_devices if item not in available]
-        if missing:
-            raise AiServiceError(
-                code="DEVICE_NOT_AVAILABLE",
-                message="Requested OpenVINO AUTO devices are not available.",
-                details={
-                    "device": mapped,
-                    "missing": missing,
-                    "available": available,
-                },
-                http_status=503,
-            )
-    return mapped
+    if "GPU" not in core.available_devices:
+        raise AiServiceError(
+            code="DEVICE_NOT_AVAILABLE",
+            message="Requested OpenVINO GPU device is not available.",
+            details={"device": device, "available": core.available_devices},
+            http_status=503,
+        )
+    return "GPU"
 
 
 def _list_files(directory: Path) -> list[str]:
@@ -571,9 +511,7 @@ def ensure_models(mode: str, offline: bool, settings: Settings | None = None) ->
             http_status=503,
         )
 
-    check_device_available(settings.AI_DEVICE_CLIP)
-    check_device_available(settings.AI_DEVICE_BLIP)
-    check_device_available(settings.AI_DEVICE_LLM)
+    check_device_available(settings.AI_DEVICE)
     specs = build_model_specs(settings)
     model_dir = Path(settings.MODEL_DIR)
 
