@@ -273,6 +273,8 @@ def _conversion_env(settings: Settings, offline: bool) -> dict[str, str]:
     model_dir = Path(settings.MODEL_DIR)
     env.setdefault("HF_HOME", str(model_dir / ".hf_home"))
     env.setdefault("HUGGINGFACE_HUB_CACHE", str(model_dir / ".hf_cache"))
+    env.setdefault("PYTHONUTF8", "1")
+    env.setdefault("PYTHONIOENCODING", "utf-8")
     if offline:
         env.setdefault("HF_HUB_OFFLINE", "1")
         env.setdefault("TRANSFORMERS_OFFLINE", "1")

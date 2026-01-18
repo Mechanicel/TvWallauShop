@@ -9,6 +9,12 @@ import openvino as ov
 import torch
 from transformers import BlipForConditionalGeneration, BlipProcessor
 
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
+
 
 class VisionEncoderWrapper(torch.nn.Module):
     def __init__(self, model: BlipForConditionalGeneration) -> None:
@@ -57,7 +63,7 @@ def _assert_ir_outputs(xml_path: Path) -> None:
 def _require_module(module_name: str) -> None:
     if importlib.util.find_spec(module_name) is None:
         print(
-            "Conversion failed: missing dependency 'onnxscript'. Install: pip install onnx onnxscript",
+            "[ERROR] Conversion failed: missing dependency 'onnxscript'. Install: pip install onnx onnxscript",
             file=sys.stderr,
         )
         raise SystemExit(1)
@@ -103,18 +109,18 @@ def convert(model_id: str, outdir: Path) -> None:
     _require_module("onnxscript")
     if importlib.util.find_spec("onnx") is None:
         print(
-            "Conversion failed: missing dependency 'onnx'. Install: pip install onnx onnxscript",
+            "[ERROR] Conversion failed: missing dependency 'onnx'. Install: pip install onnx onnxscript",
             file=sys.stderr,
         )
         raise SystemExit(1)
     outdir.mkdir(parents=True, exist_ok=True)
-    print(f"Loading BLIP model '{model_id}'...")
+    print(f"[INFO] Loading BLIP model '{model_id}'...")
     processor = BlipProcessor.from_pretrained(model_id)
     model = BlipForConditionalGeneration.from_pretrained(model_id)
     model.eval()
     model.config.use_cache = False
 
-    print("Saving processor configuration...")
+    print("[INFO] Saving processor configuration...")
     processor.save_pretrained(outdir)
 
     pixel_values = torch.zeros((1, 3, 224, 224), dtype=torch.float32)
@@ -130,13 +136,13 @@ def convert(model_id: str, outdir: Path) -> None:
     vision_onnx = outdir / "vision_encoder.onnx"
     text_onnx = outdir / "text_decoder.onnx"
 
-    print("Exporting vision encoder to ONNX...")
+    print("[INFO] Exporting vision encoder to ONNX...")
     _export_vision_encoder(model, pixel_values, vision_onnx)
 
-    print("Exporting text decoder to ONNX...")
+    print("[INFO] Exporting text decoder to ONNX...")
     _export_text_decoder(model, input_ids, attention_mask, encoder_hidden_states, text_onnx)
 
-    print("Converting ONNX to OpenVINO IR...")
+    print("[INFO] Converting ONNX to OpenVINO IR...")
     vision_ir = outdir / "vision_encoder.xml"
     text_ir = outdir / "text_decoder.xml"
 
@@ -149,10 +155,10 @@ def convert(model_id: str, outdir: Path) -> None:
     _assert_ir_outputs(vision_ir)
     _assert_ir_outputs(text_ir)
 
-    print("Conversion completed. Generated files:")
+    print("[OK] Conversion completed. Generated files:")
     for path in sorted(outdir.iterdir()):
         if path.is_file():
-            print(f"- {path.name}")
+            print(f"[INFO] - {path.name}")
 
 
 def parse_args() -> argparse.Namespace:
@@ -168,7 +174,7 @@ def main() -> int:
     try:
         convert(args.model_id, outdir)
     except Exception as exc:
-        print(f"Conversion failed: {exc}", file=sys.stderr)
+        print(f"[ERROR] Conversion failed: {exc}", file=sys.stderr)
         return 1
     return 0
 
