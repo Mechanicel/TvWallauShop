@@ -73,6 +73,8 @@ class ClipTagger:
         self.text_model: ov.CompiledModel | None = None
         self.clip_dir = clip_dir
         self.found_files = found_files
+        self.text_batch = 1
+        self.text_seq_len = 16
         if image_model_path.exists() and text_model_path.exists():
             logger.info("CLIP loaded as dual-encoder (image_encoder.xml/text_encoder.xml)")
             self.image_model = core.compile_model(core.read_model(image_model_path), device)
@@ -101,6 +103,24 @@ class ClipTagger:
                 http_status=503,
             )
         self.processor = CLIPProcessor.from_pretrained(clip_dir)
+        if self.text_model:
+            text_input = self.text_model.inputs[0]
+            expected = list(text_input.shape)
+            if len(expected) >= 2:
+                batch_dim, seq_dim = expected[0], expected[1]
+                if hasattr(batch_dim, "is_dynamic") and batch_dim.is_dynamic:
+                    self.text_batch = 1
+                else:
+                    self.text_batch = int(batch_dim)
+                if hasattr(seq_dim, "is_dynamic") and seq_dim.is_dynamic:
+                    self.text_seq_len = 16
+                else:
+                    self.text_seq_len = int(seq_dim)
+            logger.info(
+                "CLIP text encoder expects shape=[B,S] -> B=%s S=%s",
+                self.text_batch,
+                self.text_seq_len,
+            )
         logger.info(
             "CLIP processor loaded from %s, files_present=%s",
             clip_dir,
@@ -163,11 +183,15 @@ class ClipTagger:
     def _prepare_text_inputs(
         self, texts: list[str]
     ) -> tuple[np.ndarray, np.ndarray]:
-        tokenized = self.processor.tokenizer(
-            texts, padding=True, truncation=True, return_tensors="np"
+        encoded = self.processor.tokenizer(
+            texts,
+            padding="max_length",
+            truncation=True,
+            max_length=self.text_seq_len,
+            return_tensors="np",
         )
-        input_ids = tokenized["input_ids"].astype(np.int64)
-        attention_mask = tokenized["attention_mask"].astype(np.int64)
+        input_ids = encoded["input_ids"].astype(np.int64)
+        attention_mask = encoded["attention_mask"].astype(np.int64)
         return input_ids, attention_mask
 
     def _encode_text(self, texts: list[str]) -> np.ndarray:
@@ -179,15 +203,53 @@ class ClipTagger:
                 http_status=503,
             )
         input_ids, attention_mask = self._prepare_text_inputs(texts)
-        inputs = {}
-        for input_tensor in self.text_model.inputs:
-            name = input_tensor.get_any_name()
-            if "attention" in name:
-                inputs[name] = attention_mask
-            else:
-                inputs[name] = input_ids
-        output = self.text_model(inputs)
-        return self._select_output(output, ["text", "text_embeds"], "text")
+        expected_shape = (self.text_batch, self.text_seq_len)
+        features: list[np.ndarray] = []
+        if self.text_batch == 1:
+            for i in range(len(texts)):
+                ids_i = input_ids[i : i + 1, :]
+                mask_i = attention_mask[i : i + 1, :]
+                if ids_i.shape != expected_shape:
+                    raise AiServiceError(
+                        code="INFERENCE_FAILED",
+                        message="Tokenizer shape mismatch for CLIP text encoder",
+                        details={"expected": expected_shape, "got": ids_i.shape},
+                        http_status=500,
+                    )
+                inputs = {}
+                for input_tensor in self.text_model.inputs:
+                    name = input_tensor.get_any_name()
+                    if "attention" in name:
+                        inputs[name] = mask_i
+                    else:
+                        inputs[name] = ids_i
+                output = self.text_model(inputs)
+                features.append(
+                    self._select_output(output, ["text", "text_embeds"], "text")
+                )
+        else:
+            for i in range(0, len(texts), self.text_batch):
+                ids_i = input_ids[i : i + self.text_batch, :]
+                mask_i = attention_mask[i : i + self.text_batch, :]
+                if ids_i.shape != expected_shape:
+                    raise AiServiceError(
+                        code="INFERENCE_FAILED",
+                        message="Tokenizer shape mismatch for CLIP text encoder",
+                        details={"expected": expected_shape, "got": ids_i.shape},
+                        http_status=500,
+                    )
+                inputs = {}
+                for input_tensor in self.text_model.inputs:
+                    name = input_tensor.get_any_name()
+                    if "attention" in name:
+                        inputs[name] = mask_i
+                    else:
+                        inputs[name] = ids_i
+                output = self.text_model(inputs)
+                features.append(
+                    self._select_output(output, ["text", "text_embeds"], "text")
+                )
+        return np.vstack(features)
 
     def _prepare_image_inputs(self, images: list[Image.Image]) -> np.ndarray:
         processed = self.processor(images=images, return_tensors="np")
