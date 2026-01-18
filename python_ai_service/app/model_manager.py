@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import shutil
 import subprocess
@@ -17,6 +18,7 @@ from filelock import FileLock
 from .config import Settings, get_settings
 from .services.errors import AiServiceError
 
+logger = logging.getLogger("tvwallau-ai")
 
 @dataclass
 class ModelSpec:
@@ -79,13 +81,7 @@ def build_model_specs(settings: Settings) -> dict[str, ModelSpec]:
     clip_required_files = (
         ("model.xml", "model.bin")
         if settings.CLIP_SOURCE == "prebuilt_ir"
-        else (
-            "image_encoder.xml",
-            "image_encoder.bin",
-            "text_encoder.xml",
-            "text_encoder.bin",
-            "tokenizer.json",
-        )
+        else ("openvino_model.xml", "openvino_model.bin", "tokenizer.json")
     )
     clip_export_args = (
         []
@@ -204,6 +200,15 @@ def check_assets(spec: ModelSpec) -> AssetCheck:
             checked_path = checked_dir / filename
             if not checked_path.exists():
                 missing.append(str(checked_path))
+        optional_tokenizer_files = (
+            "openvino_tokenizer.xml",
+            "openvino_tokenizer.bin",
+        )
+        if any((checked_dir / name).exists() for name in optional_tokenizer_files):
+            logger.info(
+                "Optional OpenVINO tokenizer assets detected for CLIP: %s",
+                [name for name in optional_tokenizer_files if (checked_dir / name).exists()],
+            )
     elif spec.name == "caption":
         expected = list(spec.required_files)
         for filename in spec.required_files:
