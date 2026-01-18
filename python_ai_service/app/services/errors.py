@@ -11,6 +11,7 @@ class AiServiceError(Exception):
     details: Optional[Any] = None
     job_id: Optional[int] = None
     http_status: int = 500
+    debug: Optional[Any] = None
 
     def to_contract_dict(self) -> dict[str, Any]:
         payload: dict[str, Any] = {

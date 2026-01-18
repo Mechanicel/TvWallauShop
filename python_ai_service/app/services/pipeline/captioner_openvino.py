@@ -10,7 +10,7 @@ import openvino as ov
 from transformers import BlipProcessor
 
 from ...config import get_settings
-from ...contracts_models import Caption
+from ...contracts_models import BlipCaptionDebug, BlipDebug, Caption
 from ...model_manager import build_model_specs, check_assets, model_fetch_hint
 from ..errors import AiServiceError
 
@@ -108,7 +108,12 @@ class Captioner:
                 shapes["attention_mask"] = input_tensor.get_partial_shape()
         return shapes
 
-    def generate(self, images: list[Image.Image], max_captions: int) -> list[Caption]:
+    def generate(
+        self,
+        images: list[Image.Image],
+        max_captions: int,
+        debug: BlipDebug | None = None,
+    ) -> list[Caption]:
         captions: list[Caption] = []
         for index, image in enumerate(images):
             for _ in range(max(1, max_captions)):
@@ -121,6 +126,26 @@ class Captioner:
                         http_status=500,
                     )
                 captions.append(Caption(image_index=index, text=text, source="blip"))
+
+        if debug:
+            debug.expected_hw = [self.expected_h, self.expected_w]
+            debug.captions = [
+                BlipCaptionDebug(image_index=caption.image_index, caption=caption.text)
+                for caption in captions
+            ]
+            summary = ", ".join(
+                f"[{item.image_index}]={item.caption}" for item in debug.captions
+            )
+            logger.info("BLIP captions: %s", summary)
+            logger.info(
+                "BLIP captions summary",
+                extra={
+                    "blip_captions": [
+                        {"image_index": item.image_index, "caption": item.caption}
+                        for item in debug.captions
+                    ]
+                },
+            )
 
         return captions
 

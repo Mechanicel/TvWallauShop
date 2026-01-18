@@ -60,6 +60,59 @@ class PipelineMeta(BaseModel):
     timings: PipelineTimings
 
 
+class ClipTagScore(BaseModel):
+    tag: str
+    score: float
+
+
+class ClipDebug(BaseModel):
+    model_config = ConfigDict(validate_by_name=True)
+
+    device: str
+    model_dir: str = Field(..., alias="modelDir")
+    num_images: int = Field(..., alias="numImages")
+    candidate_prompts_count: int = Field(..., alias="candidatePromptsCount")
+    top_tags: List[ClipTagScore] = Field(..., alias="topTags")
+    prompt_examples: Optional[List[str]] = Field(default=None, alias="promptExamples")
+
+
+class BlipCaptionDebug(BaseModel):
+    model_config = ConfigDict(validate_by_name=True)
+
+    image_index: int = Field(..., alias="imageIndex")
+    caption: str
+
+
+class BlipDebug(BaseModel):
+    model_config = ConfigDict(validate_by_name=True)
+
+    device: str
+    model_dir: str = Field(..., alias="modelDir")
+    expected_hw: List[int] = Field(..., alias="expectedHw")
+    captions: List[BlipCaptionDebug]
+
+
+class LlmDebug(BaseModel):
+    model_config = ConfigDict(validate_by_name=True)
+
+    device: str
+    model_dir: str = Field(..., alias="modelDir")
+    prompt: Optional[str] = None
+    raw_output: str = Field(..., alias="rawOutput")
+    extracted_json: Optional[str] = Field(default=None, alias="extractedJson")
+    parse_error: Optional[str] = Field(default=None, alias="parseError")
+    schema_error: Optional[str] = Field(default=None, alias="schemaError")
+
+
+class AiDebugInfo(BaseModel):
+    model_config = ConfigDict(validate_by_name=True)
+
+    clip: ClipDebug
+    blip: BlipDebug
+    llm: LlmDebug
+    timings_ms: Optional[dict[str, int]] = Field(default=None, alias="timingsMs")
+
+
 class AnalyzeProductRequest(BaseModel):
     model_config = ConfigDict(validate_by_name=True)
 
@@ -69,7 +122,8 @@ class AnalyzeProductRequest(BaseModel):
     lang: Optional[LanguageCode] = None
     max_tags: Optional[int] = Field(default=None, alias="maxTags")
     max_captions: Optional[int] = Field(default=None, alias="maxCaptions")
-    debug: Optional[bool] = None
+    debug: bool = False
+    debug_include_prompt: bool = Field(default=False, alias="debugIncludePrompt")
 
 
 class AnalyzeProductResponse(BaseModel):
@@ -81,3 +135,4 @@ class AnalyzeProductResponse(BaseModel):
     tags: List[Tag]
     captions: List[Caption]
     meta: PipelineMeta
+    debug: Optional[AiDebugInfo] = None

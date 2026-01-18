@@ -40,7 +40,8 @@
     },
     "maxTags": { "type": "number" },
     "maxCaptions": { "type": "number" },
-    "debug": { "type": "boolean" }
+    "debug": { "type": "boolean" },
+    "debugIncludePrompt": { "type": "boolean" }
   },
   "required": ["price", "images"]
 }
