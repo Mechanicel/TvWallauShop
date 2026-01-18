@@ -35,7 +35,10 @@ class ModelSpec:
         return [str(self.target_dir / fname) for fname in self.required_files]
 
     def build_conversion_command(self) -> tuple[str, ...] | None:
-        if self.source_kind != "hf_export" or self.converter == "blip_openvino_script":
+        if self.source_kind != "hf_export" or self.converter in {
+            "blip_openvino_script",
+            "clip_openvino_script",
+        }:
             return None
         return (
             "optimum-cli",
@@ -79,29 +82,22 @@ def build_model_specs(settings: Settings) -> dict[str, ModelSpec]:
             http_status=400,
         )
     clip_required_files = (
-        ("model.xml", "model.bin")
-        if settings.CLIP_SOURCE == "prebuilt_ir"
-        else ("openvino_model.xml", "openvino_model.bin", "tokenizer.json")
+        "image_encoder.xml",
+        "image_encoder.bin",
+        "text_encoder.xml",
+        "text_encoder.bin",
+        "tokenizer.json",
+        "config.json",
     )
-    clip_export_args = (
-        []
-        if settings.CLIP_SOURCE == "prebuilt_ir"
-        else [
-            "--task",
-            "feature-extraction",
-            settings.OV_CLIP_DIR,
-        ]
-    )
-    if settings.CLIP_SOURCE == "hf_export":
-        Path(settings.OV_CLIP_DIR).mkdir(parents=True, exist_ok=True)
+    Path(settings.OV_CLIP_DIR).mkdir(parents=True, exist_ok=True)
     return {
         "clip": ModelSpec(
             name="clip",
-            source_kind=settings.CLIP_SOURCE,
+            source_kind="hf_export",
             hf_id="openai/clip-vit-base-patch32",
             target_dir=Path(settings.OV_CLIP_DIR),
             required_files=clip_required_files,
-            export_args=clip_export_args,
+            converter="clip_openvino_script",
         ),
         "caption": ModelSpec(
             name="caption",
@@ -194,21 +190,12 @@ def check_assets(spec: ModelSpec) -> AssetCheck:
     found_files = _list_files(checked_dir)
     missing: list[str] = []
     expected: list[str] | None = None
-    if spec.name == "clip" and spec.source_kind == "hf_export":
+    if spec.name == "clip":
         expected = list(spec.required_files)
         for filename in spec.required_files:
             checked_path = checked_dir / filename
             if not checked_path.exists():
                 missing.append(str(checked_path))
-        optional_tokenizer_files = (
-            "openvino_tokenizer.xml",
-            "openvino_tokenizer.bin",
-        )
-        if any((checked_dir / name).exists() for name in optional_tokenizer_files):
-            logger.info(
-                "Optional OpenVINO tokenizer assets detected for CLIP: %s",
-                [name for name in optional_tokenizer_files if (checked_dir / name).exists()],
-            )
     elif spec.name == "caption":
         expected = list(spec.required_files)
         for filename in spec.required_files:
@@ -326,6 +313,16 @@ def _run_conversion(
             settings.CAPTION_HF_ID,
             "--outdir",
             str(settings.OV_CAPTION_DIR),
+        ]
+    elif spec.converter == "clip_openvino_script":
+        command = [
+            sys.executable,
+            "-m",
+            "app.tools.convert_clip_to_openvino",
+            "--model-id",
+            "openai/clip-vit-base-patch32",
+            "--outdir",
+            str(settings.OV_CLIP_DIR),
         ]
     else:
         conversion_command = spec.build_conversion_command()
