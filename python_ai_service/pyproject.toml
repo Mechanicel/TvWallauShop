@@ -13,6 +13,8 @@ dependencies = [
   "filelock>=3.13.0",
   "openvino>=2024.0",
   "openvino-genai",
+  "torch",
+  "transformers",
   "datamodel-code-generator",
 ]
 
