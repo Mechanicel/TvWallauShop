@@ -1,0 +1,55 @@
+{
+  "name": "infra",
+  "projectType": "application",
+  "targets": {
+    "compose:up": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node ../scripts/env/init-env.js && docker compose up -d",
+        "cwd": "infra"
+      }
+    },
+    "compose:down": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "docker compose down",
+        "cwd": "infra"
+      }
+    },
+    "compose:logs": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "docker compose logs -f --tail=200",
+        "cwd": "infra"
+      }
+    },
+    "compose:ps": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "docker compose ps",
+        "cwd": "infra"
+      }
+    },
+    "compose:db": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node ../scripts/env/init-env.js && docker compose up -d mariadb",
+        "cwd": "infra"
+      }
+    },
+    "compose:db:stop": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "docker compose stop mariadb",
+        "cwd": "infra"
+      }
+    },
+    "compose:init": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node ../scripts/env/init-env.js && docker compose --profile init up --abort-on-container-exit db-init",
+        "cwd": "infra"
+      }
+    }
+  }
+}

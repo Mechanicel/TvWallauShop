@@ -4,12 +4,19 @@ TvWallauShop Backend
 Development commands
 --------------------
 
-Maven (module-scoped):
+Install dependencies from the repo root (npm workspaces) before running any commands:
 
-- Start: mvn -pl backend -Pdev-start validate
-- Stop: mvn -pl backend -Pdev-stop validate
-- Status: mvn -pl backend -Pdev-status validate
-- Build: mvn -pl backend -Pdev-build package
+- npm install (first-time setup / lockfile regeneration)
+- npm ci (CI / reproducible installs)
+
+Nx (workspace):
+
+- Start: npx nx run backend:serve
+- Stop: npx nx run backend:stop
+- Status: npx nx run backend:status
+- Build: npx nx run backend:build
+- Clear generated artifacts: npx nx run backend:clear
+- Reset dependencies (removes lockfile): npx nx run backend:deps:reset
 
 Direct npm scripts:
 
@@ -25,6 +32,8 @@ Behavior
 - Logs are written to backend/target/backend.log and backend/target/backend.err.log.
 - If a PID file exists and the process is still running, dev:start exits with code 1.
 - Stop is idempotent and cleans up stale PID files.
+- The clear target removes generated artifacts (node_modules, dist/build, caches, target) but keeps package-lock.json.
+- The deps:reset target also removes package-lock.json; rerun npm install/npm ci afterward.
 
 Troubleshooting
 ---------------

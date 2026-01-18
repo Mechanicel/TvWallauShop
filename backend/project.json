@@ -1,0 +1,72 @@
+{
+  "name": "backend",
+  "projectType": "application",
+  "sourceRoot": "backend/src",
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run build",
+        "cwd": "backend"
+      },
+      "outputs": ["{projectRoot}/dist"]
+    },
+    "docker:build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "docker build -t tvwallaushop/backend:local -f backend/Dockerfile .",
+        "cwd": "."
+      },
+      "dependsOn": ["build"]
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run test",
+        "cwd": "backend"
+      }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "echo \"No lint configured for backend\"",
+        "cwd": "backend"
+      }
+    },
+    "serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run dev:start",
+        "cwd": "backend"
+      }
+    },
+    "stop": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run dev:stop",
+        "cwd": "backend"
+      }
+    },
+    "status": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run dev:status",
+        "cwd": "backend"
+      }
+    },
+    "clear": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "rimraf node_modules dist build coverage .turbo .vite .next out target logs",
+        "cwd": "backend"
+      }
+    },
+    "deps:reset": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "rimraf node_modules package-lock.json",
+        "cwd": "backend"
+      }
+    }
+  }
+}

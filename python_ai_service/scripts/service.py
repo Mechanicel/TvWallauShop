@@ -318,9 +318,18 @@ def build_service() -> None:
     log("Build complete")
 
 
+def test_service() -> None:
+    run_uv_sync()
+    uv_command = resolve_uv_command()
+    log("Running pytest via uv")
+    result = subprocess.run([*uv_command, "run", "python", "-m", "pytest"], cwd=BASE_DIR, check=False)
+    if result.returncode != 0:
+        sys.exit(result.returncode)
+
+
 def main() -> None:
     if len(sys.argv) < 2:
-        log_error("Usage: service.py <start|stop|status|build>")
+        log_error("Usage: service.py <start|stop|status|build|test>")
         sys.exit(2)
     action = sys.argv[1]
     if action == "start":
@@ -331,6 +340,8 @@ def main() -> None:
         status_service()
     elif action == "build":
         build_service()
+    elif action == "test":
+        test_service()
     else:
         log_error(f"Unknown action: {action}")
         sys.exit(2)

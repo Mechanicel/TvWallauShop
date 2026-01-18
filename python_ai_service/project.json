@@ -1,0 +1,78 @@
+{
+  "name": "python-ai-service",
+  "projectType": "application",
+  "sourceRoot": "python_ai_service/app",
+  "targets": {
+    "install": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run install",
+        "cwd": "python_ai_service"
+      }
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run build",
+        "cwd": "python_ai_service"
+      }
+    },
+    "docker:build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "docker build -t tvwallaushop/python-ai-service:local -f python_ai_service/Dockerfile .",
+        "cwd": "."
+      },
+      "dependsOn": ["build"]
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run test",
+        "cwd": "python_ai_service"
+      }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "echo \"No lint configured for python_ai_service\"",
+        "cwd": "python_ai_service"
+      }
+    },
+    "serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run dev:start",
+        "cwd": "python_ai_service"
+      }
+    },
+    "stop": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run dev:stop",
+        "cwd": "python_ai_service"
+      }
+    },
+    "status": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run dev:status",
+        "cwd": "python_ai_service"
+      }
+    },
+    "clear": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "rimraf --glob .venv __pycache__ \"**/__pycache__\" .pytest_cache .mypy_cache .ruff_cache dist build \"*.egg-info\" target",
+        "cwd": "python_ai_service"
+      }
+    },
+    "deps:reset": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "rimraf --glob .venv uv.lock poetry.lock *.egg-info",
+        "cwd": "python_ai_service"
+      }
+    }
+  }
+}

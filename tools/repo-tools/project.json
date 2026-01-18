@@ -1,0 +1,20 @@
+{
+  "name": "repo-tools",
+  "projectType": "library",
+  "targets": {
+    "clear": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "rimraf dist build coverage tmp",
+        "cwd": "."
+      }
+    },
+    "deps:reset": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "rimraf node_modules package-lock.json",
+        "cwd": "."
+      }
+    }
+  }
+}

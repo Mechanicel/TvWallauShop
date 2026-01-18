@@ -1,0 +1,13 @@
+{
+  "name": "tvwallaushop-python-ai-service",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev:start": "uv run python scripts/service.py start",
+    "dev:stop": "python scripts/service.py stop",
+    "dev:status": "python scripts/service.py status",
+    "build": "uv run python scripts/service.py build",
+    "test": "python scripts/service.py test",
+    "install": "uv run python scripts/service.py build"
+  }
+}
