@@ -87,7 +87,6 @@ def build_model_specs(settings: Settings) -> dict[str, ModelSpec]:
         "text_encoder.xml",
         "text_encoder.bin",
         "tokenizer.json",
-        "config.json",
     )
     Path(settings.OV_CLIP_DIR).mkdir(parents=True, exist_ok=True)
     return {
