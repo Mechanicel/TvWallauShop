@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
+import sys
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -152,24 +154,79 @@ def _raise_model_missing(spec: ModelSpec, missing: list[str]) -> None:
     )
 
 
-def _conversion_env(settings: Settings) -> dict[str, str]:
+def _conversion_env(settings: Settings, offline: bool) -> dict[str, str]:
     env = os.environ.copy()
     cache_dir = settings.MODEL_CACHE_DIR
     env.setdefault("HF_HOME", cache_dir)
     env.setdefault("TRANSFORMERS_CACHE", cache_dir)
     env.setdefault("HUGGINGFACE_HUB_CACHE", cache_dir)
+    if offline:
+        env.setdefault("HF_HUB_OFFLINE", "1")
+        env.setdefault("TRANSFORMERS_OFFLINE", "1")
     return env
 
 
-def _run_conversion(spec: ModelSpec, settings: Settings) -> None:
+def _find_optimum_cli() -> str | None:
+    executable = shutil.which("optimum-cli") or shutil.which("optimum-cli.exe")
+    if executable:
+        return str(Path(executable).resolve())
+
+    python_dir = Path(sys.executable).resolve().parent
+    for candidate in ("optimum-cli", "optimum-cli.exe"):
+        path = python_dir / candidate
+        if path.exists():
+            return str(path.resolve())
+    return None
+
+
+def _tail_output(value: str | None, limit: int = 2000) -> str | None:
+    if not value:
+        return None
+    if len(value) <= limit:
+        return value
+    return value[-limit:]
+
+
+def _run_conversion(spec: ModelSpec, settings: Settings, offline: bool) -> None:
     spec.target_dir.mkdir(parents=True, exist_ok=True)
     if spec.conversion_command is None:
         return
-    subprocess.run(
-        list(spec.conversion_command),
-        check=True,
-        env=_conversion_env(settings),
-    )
+    command = list(spec.conversion_command)
+    if command and command[0] == "optimum-cli":
+        optimum_cli = _find_optimum_cli()
+        if not optimum_cli:
+            expected_path = Path(sys.executable).resolve().parent / "optimum-cli.exe"
+            raise AiServiceError(
+                code="MODEL_NOT_AVAILABLE",
+                message="optimum-cli is required to download/convert models.",
+                details={
+                    "install": "pip install -U optimum-intel[openvino] openvino",
+                    "python_executable": sys.executable,
+                    "expected_path": str(expected_path),
+                },
+                http_status=503,
+            )
+        command[0] = optimum_cli
+    try:
+        subprocess.run(
+            command,
+            check=True,
+            capture_output=True,
+            text=True,
+            env=_conversion_env(settings, offline),
+        )
+    except subprocess.CalledProcessError as exc:
+        raise AiServiceError(
+            code="MODEL_NOT_AVAILABLE",
+            message=f"Failed to convert/download {spec.name} model. {model_fetch_hint()}",
+            details={
+                "model": spec.name,
+                "command": " ".join(command),
+                "stdout_tail": _tail_output(exc.stdout),
+                "stderr_tail": _tail_output(exc.stderr),
+            },
+            http_status=503,
+        ) from exc
 
 
 def _write_manifest(model_dir: Path, specs: list[ModelSpec]) -> None:
@@ -199,6 +256,13 @@ def ensure_models(mode: str, offline: bool, settings: Settings | None = None) ->
             details={"mode": mode},
             http_status=400,
         )
+    if offline and mode in {"download", "force"}:
+        raise AiServiceError(
+            code="MODEL_NOT_AVAILABLE",
+            message="OFFLINE forbids downloading.",
+            details={"mode": mode},
+            http_status=503,
+        )
 
     check_device_available(settings.AI_DEVICE)
     specs = build_model_specs(settings)
@@ -212,28 +276,12 @@ def ensure_models(mode: str, offline: bool, settings: Settings | None = None) ->
             if offline:
                 _raise_model_missing(spec, missing or spec.missing_files())
             if mode in {"download", "force"}:
-                try:
-                    _run_conversion(spec, settings)
-                except subprocess.CalledProcessError as exc:
-                    raise AiServiceError(
-                        code="MODEL_NOT_AVAILABLE",
-                        message=(
-                            f"Failed to convert/download {spec.name} model. {model_fetch_hint()}"
-                        ),
-                        details={
-                            "model": spec.name,
-                            "error": str(exc),
-                            "command": " ".join(spec.conversion_command or ()),
-                            "directory": str(spec.target_dir),
-                            "missing": check_assets(spec),
-                            "hint": model_fetch_hint(),
-                        },
-                        http_status=503,
-                    ) from exc
+                _run_conversion(spec, settings, offline)
                 missing = check_assets(spec)
                 if missing:
                     _raise_model_missing(spec, missing)
             else:
                 _raise_model_missing(spec, missing)
 
-    _write_manifest(model_dir, list(specs.values()))
+    if not offline and mode == "download":
+        _write_manifest(model_dir, list(specs.values()))
