@@ -11,6 +11,8 @@ dependencies = [
   "requests",
   "Pillow",
   "filelock>=3.13.0",
+  "onnx>=1.16.0",
+  "onnxscript>=0.1.0",
   "openvino>=2024.0",
   "openvino-genai",
   "torch",

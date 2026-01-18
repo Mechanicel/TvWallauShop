@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import sys
 from pathlib import Path
 
@@ -53,6 +54,15 @@ def _assert_ir_outputs(xml_path: Path) -> None:
         )
 
 
+def _require_module(module_name: str) -> None:
+    if importlib.util.find_spec(module_name) is None:
+        print(
+            "Conversion failed: missing dependency 'onnxscript'. Install: pip install onnx onnxscript",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
+
+
 def _export_vision_encoder(
     model: BlipForConditionalGeneration,
     pixel_values: torch.Tensor,
@@ -90,6 +100,13 @@ def _export_text_decoder(
 
 
 def convert(model_id: str, outdir: Path) -> None:
+    _require_module("onnxscript")
+    if importlib.util.find_spec("onnx") is None:
+        print(
+            "Conversion failed: missing dependency 'onnx'. Install: pip install onnx onnxscript",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
     outdir.mkdir(parents=True, exist_ok=True)
     print(f"Loading BLIP model '{model_id}'...")
     processor = BlipProcessor.from_pretrained(model_id)
