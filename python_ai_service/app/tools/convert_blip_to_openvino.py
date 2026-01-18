@@ -98,10 +98,16 @@ def _export_text_decoder(
         wrapper,
         (input_ids, attention_mask, encoder_hidden_states),
         str(onnx_path),
-        opset_version=17,
+        opset_version=18,
         do_constant_folding=True,
         input_names=["input_ids", "attention_mask", "encoder_hidden_states"],
         output_names=["logits"],
+        dynamic_axes={
+            "input_ids": {0: "batch", 1: "seq"},
+            "attention_mask": {0: "batch", 1: "seq"},
+            "encoder_hidden_states": {0: "batch", 1: "enc_seq"},
+            "logits": {0: "batch", 1: "seq"},
+        },
     )
 
 
@@ -130,8 +136,8 @@ def convert(model_id: str, outdir: Path) -> None:
         ).last_hidden_state
 
     bos_token_id = _resolve_bos_token_id(processor)
-    input_ids = torch.tensor([[bos_token_id]], dtype=torch.long)
-    attention_mask = torch.ones_like(input_ids)
+    input_ids = torch.tensor([[bos_token_id, 0]], dtype=torch.long)
+    attention_mask = torch.tensor([[1, 1]], dtype=torch.long)
 
     vision_onnx = outdir / "vision_encoder.onnx"
     text_onnx = outdir / "text_decoder.onnx"
@@ -151,6 +157,13 @@ def convert(model_id: str, outdir: Path) -> None:
 
     text_ov = ov.convert_model(str(text_onnx))
     ov.save_model(text_ov, str(text_ir))
+
+    text_model = ov.Core().read_model(text_ir)
+    text_shape = text_model.input(0).get_partial_shape()
+    if len(text_shape) < 2 or not text_shape[1].is_dynamic:
+        raise RuntimeError(
+            "Text decoder sequence length is not dynamic; re-export with dynamic axes."
+        )
 
     _assert_ir_outputs(vision_ir)
     _assert_ir_outputs(text_ir)
