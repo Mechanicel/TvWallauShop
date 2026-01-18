@@ -45,6 +45,9 @@ Requirements
 - The service starts uvicorn with reload on http://localhost:8000.
 - Health endpoint: GET /health returns 200 with {"status": "ok"}.
 - OpenVINO GPU/NPU is required; there is no CPU fallback.
+- Keep `openvino`, `openvino-genai`, and `openvino-tokenizers` pinned to the same
+  release line. The `openvino-genai` wheel is built against specific OpenVINO
+  and tokenizer versions; updating one package alone can break tokenizer loading.
 
 Model setup
 -----------
@@ -69,7 +72,8 @@ models/
     image_encoder.bin
     text_encoder.xml
     text_encoder.bin
-    tokenizer.json
+    openvino_tokenizer.xml
+    openvino_tokenizer.bin
   caption/
     model.xml
     model.bin
