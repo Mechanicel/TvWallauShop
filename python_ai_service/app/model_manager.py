@@ -26,13 +26,14 @@ class ModelSpec:
     target_dir: Path
     required_files: tuple[str, ...]
     export_args: list[str] = field(default_factory=list)
+    converter: str | None = None
     actual_dir: Path | None = None
 
     def missing_files(self) -> list[str]:
         return [str(self.target_dir / fname) for fname in self.required_files]
 
     def build_conversion_command(self) -> tuple[str, ...] | None:
-        if self.source_kind != "hf_export":
+        if self.source_kind != "hf_export" or self.converter == "blip_openvino_script":
             return None
         return (
             "optimum-cli",
@@ -50,6 +51,9 @@ class AssetCheck:
     checked_dir: Path
     found_files: list[str]
     expected: list[str] | None = None
+
+    def __bool__(self) -> bool:
+        return bool(self.missing)
 
 
 @contextmanager
@@ -106,14 +110,17 @@ def build_model_specs(settings: Settings) -> dict[str, ModelSpec]:
         "caption": ModelSpec(
             name="caption",
             source_kind="hf_export",
-            hf_id="Salesforce/blip-image-captioning-base",
+            hf_id=settings.CAPTION_HF_ID,
             target_dir=Path(settings.OV_CAPTION_DIR),
-            required_files=("model.xml", "model.bin", "tokenizer.json"),
-            export_args=[
-                "--task",
-                "image-to-text",
-                settings.OV_CAPTION_DIR,
-            ],
+            required_files=(
+                "vision_encoder.xml",
+                "vision_encoder.bin",
+                "text_decoder.xml",
+                "text_decoder.bin",
+                "text_decoder_with_past.xml",
+                "text_decoder_with_past.bin",
+            ),
+            converter="blip_openvino_script",
         ),
         "llm": ModelSpec(
             name="llm",
@@ -192,21 +199,41 @@ def check_assets(spec: ModelSpec) -> AssetCheck:
     checked_dir = spec.actual_dir or spec.target_dir
     found_files = _list_files(checked_dir)
     missing: list[str] = []
-    expected_ir = ["*.xml", "*.bin"]
-    xml_found = any(checked_dir.glob("*.xml"))
-    bin_found = any(checked_dir.glob("*.bin"))
-    if not xml_found:
-        missing.append("*.xml")
-    if not bin_found:
-        missing.append("*.bin")
-    for filename in spec.required_files:
-        if filename.endswith((".xml", ".bin")):
-            continue
-        checked_path = checked_dir / filename
-        fallback_path = spec.target_dir / filename
-        if not checked_path.exists() and not fallback_path.exists():
-            missing.append(str(checked_path))
-    expected = expected_ir if any(entry in expected_ir for entry in missing) else None
+    expected: list[str] | None = None
+    if spec.name == "caption":
+        expected = list(spec.required_files)
+        for filename in spec.required_files:
+            checked_path = checked_dir / filename
+            fallback_path = spec.target_dir / filename
+            if not checked_path.exists() and not fallback_path.exists():
+                missing.append(str(checked_path))
+        processor_candidates = (
+            "preprocessor_config.json",
+            "tokenizer.json",
+            "tokenizer_config.json",
+            "special_tokens_map.json",
+            "vocab.txt",
+            "merges.txt",
+        )
+        if not any((checked_dir / name).exists() for name in processor_candidates):
+            missing.extend(str(checked_dir / name) for name in processor_candidates)
+            expected.extend(name for name in processor_candidates if name not in expected)
+    else:
+        expected_ir = ["*.xml", "*.bin"]
+        xml_found = any(checked_dir.glob("*.xml"))
+        bin_found = any(checked_dir.glob("*.bin"))
+        if not xml_found:
+            missing.append("*.xml")
+        if not bin_found:
+            missing.append("*.bin")
+        for filename in spec.required_files:
+            if filename.endswith((".xml", ".bin")):
+                continue
+            checked_path = checked_dir / filename
+            fallback_path = spec.target_dir / filename
+            if not checked_path.exists() and not fallback_path.exists():
+                missing.append(str(checked_path))
+        expected = expected_ir if any(entry in expected_ir for entry in missing) else None
     return AssetCheck(
         missing=missing,
         checked_dir=checked_dir,
@@ -215,7 +242,12 @@ def check_assets(spec: ModelSpec) -> AssetCheck:
     )
 
 
-def _raise_model_missing(spec: ModelSpec, status: AssetCheck) -> None:
+def _raise_model_missing(
+    spec: ModelSpec,
+    status: AssetCheck,
+    stdout_tail: str | None = None,
+    stderr_tail: str | None = None,
+) -> None:
     raise AiServiceError(
         code="MODEL_NOT_AVAILABLE",
         message=(
@@ -224,12 +256,15 @@ def _raise_model_missing(spec: ModelSpec, status: AssetCheck) -> None:
         ),
         details={
             "model": spec.name,
+            "hf_id": spec.hf_id,
             "missing": status.missing,
             "directory": str(spec.target_dir),
             "dir": str(status.checked_dir),
             "found_files": status.found_files,
-            "expected": status.expected,
+            "expected_files": status.expected,
             "hint": model_fetch_hint(),
+            "stdout_tail": stdout_tail,
+            "stderr_tail": stderr_tail,
         },
         http_status=503,
     )
@@ -237,10 +272,10 @@ def _raise_model_missing(spec: ModelSpec, status: AssetCheck) -> None:
 
 def _conversion_env(settings: Settings, offline: bool) -> dict[str, str]:
     env = os.environ.copy()
-    cache_dir = settings.MODEL_CACHE_DIR
-    env.setdefault("HF_HOME", cache_dir)
-    env.setdefault("TRANSFORMERS_CACHE", cache_dir)
-    env.setdefault("HUGGINGFACE_HUB_CACHE", cache_dir)
+    model_dir = Path(settings.MODEL_DIR)
+    env.setdefault("HF_HOME", str(model_dir / ".hf_home"))
+    env.setdefault("HUGGINGFACE_HUB_CACHE", str(model_dir / ".hf_cache"))
+    env.setdefault("TRANSFORMERS_CACHE", str(model_dir / ".hf_cache"))
     if offline:
         env.setdefault("HF_HUB_OFFLINE", "1")
         env.setdefault("TRANSFORMERS_OFFLINE", "1")
@@ -268,12 +303,25 @@ def _tail_output(value: str | None, limit: int = 4000) -> str | None:
     return value[-limit:]
 
 
-def _run_conversion(spec: ModelSpec, settings: Settings, offline: bool) -> None:
+def _run_conversion(
+    spec: ModelSpec, settings: Settings, offline: bool
+) -> tuple[str | None, str | None]:
     spec.target_dir.mkdir(parents=True, exist_ok=True)
-    conversion_command = spec.build_conversion_command()
-    if conversion_command is None:
-        return
-    command = list(conversion_command)
+    if spec.converter == "blip_openvino_script":
+        command = [
+            sys.executable,
+            "-m",
+            "app.tools.convert_blip_to_openvino",
+            "--model-id",
+            settings.CAPTION_HF_ID,
+            "--outdir",
+            str(settings.OV_CAPTION_DIR),
+        ]
+    else:
+        conversion_command = spec.build_conversion_command()
+        if conversion_command is None:
+            return None, None
+        command = list(conversion_command)
     if command and command[0] == "optimum-cli":
         optimum_cli = _find_optimum_cli()
         if not optimum_cli:
@@ -290,13 +338,14 @@ def _run_conversion(spec: ModelSpec, settings: Settings, offline: bool) -> None:
             )
         command[0] = optimum_cli
     try:
-        subprocess.run(
+        result = subprocess.run(
             command,
             check=True,
             capture_output=True,
             text=True,
             env=_conversion_env(settings, offline),
         )
+        return result.stdout, result.stderr
     except subprocess.CalledProcessError as exc:
         raise AiServiceError(
             code="MODEL_NOT_AVAILABLE",
@@ -365,6 +414,8 @@ def ensure_models(mode: str, offline: bool, settings: Settings | None = None) ->
                     )
                 _raise_model_missing(spec, status)
             if mode in {"download", "force"}:
+                conversion_stdout = None
+                conversion_stderr = None
                 if spec.target_dir.exists():
                     if mode == "force":
                         shutil.rmtree(spec.target_dir)
@@ -377,10 +428,17 @@ def ensure_models(mode: str, offline: bool, settings: Settings | None = None) ->
                         )
                         shutil.rmtree(spec.target_dir)
                         spec.actual_dir = None
-                _run_conversion(spec, settings, offline)
+                conversion_stdout, conversion_stderr = _run_conversion(
+                    spec, settings, offline
+                )
                 status = check_assets(spec)
                 if status.missing:
-                    _raise_model_missing(spec, status)
+                    _raise_model_missing(
+                        spec,
+                        status,
+                        stdout_tail=_tail_output(conversion_stdout),
+                        stderr_tail=_tail_output(conversion_stderr),
+                    )
             else:
                 _raise_model_missing(spec, status)
 

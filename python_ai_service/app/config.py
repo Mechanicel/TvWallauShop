@@ -30,6 +30,9 @@ class Settings:
     OV_CAPTION_DIR: str = os.getenv("OV_CAPTION_DIR", f"{MODEL_DIR}/caption").strip()
     OV_LLM_DIR: str = os.getenv("OV_LLM_DIR", f"{MODEL_DIR}/llm").strip()
     CLIP_SOURCE: str = os.getenv("CLIP_SOURCE", "hf_export").strip()
+    CAPTION_HF_ID: str = os.getenv(
+        "CAPTION_HF_ID", "Salesforce/blip-image-captioning-base"
+    ).strip()
 
     MAX_TAGS: int = int(os.getenv("MAX_TAGS", "10"))
     MAX_CAPTIONS_PER_IMAGE: int = int(os.getenv("MAX_CAPTIONS_PER_IMAGE", "1"))
