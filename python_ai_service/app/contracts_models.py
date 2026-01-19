@@ -60,57 +60,43 @@ class PipelineMeta(BaseModel):
     timings: PipelineTimings
 
 
+class DeviceRouting(BaseModel):
+    model_config = ConfigDict(validate_by_name=True)
+
+    clip: AiDevice
+    blip: AiDevice
+    llm: AiDevice
+    strict: bool = True
+
+
 class ClipTagScore(BaseModel):
     tag: str
     score: float
 
 
-class ClipDebug(BaseModel):
-    model_config = ConfigDict(validate_by_name=True)
-
-    device: str
-    model_dir: str = Field(..., alias="modelDir")
-    num_images: int = Field(..., alias="numImages")
-    candidate_prompts_count: int = Field(..., alias="candidatePromptsCount")
-    top_tags: List[ClipTagScore] = Field(..., alias="topTags")
-    prompt_examples: Optional[List[str]] = Field(default=None, alias="promptExamples")
-
-
-class BlipCaptionDebug(BaseModel):
-    model_config = ConfigDict(validate_by_name=True)
-
-    image_index: int = Field(..., alias="imageIndex")
-    caption: str
-
-
-class BlipDebug(BaseModel):
-    model_config = ConfigDict(validate_by_name=True)
-
-    device: str
-    model_dir: str = Field(..., alias="modelDir")
-    expected_hw: List[int] = Field(..., alias="expectedHw")
-    captions: List[BlipCaptionDebug]
-
-
 class LlmDebug(BaseModel):
     model_config = ConfigDict(validate_by_name=True)
 
-    device: str
-    model_dir: str = Field(..., alias="modelDir")
-    prompt: Optional[str] = None
-    raw_output: str = Field(..., alias="rawOutput")
-    extracted_json: Optional[str] = Field(default=None, alias="extractedJson")
-    parse_error: Optional[str] = Field(default=None, alias="parseError")
+    raw_text_truncated: Optional[str] = Field(default=None, alias="rawTextTruncated")
+    raw_text_chars: int = Field(0, alias="rawTextChars")
+    extracted_json_truncated: Optional[str] = Field(
+        default=None, alias="extractedJsonTruncated"
+    )
+    extracted_json_chars: Optional[int] = Field(
+        default=None, alias="extractedJsonChars"
+    )
+    json_parse_error: Optional[str] = Field(default=None, alias="jsonParseError")
     schema_error: Optional[str] = Field(default=None, alias="schemaError")
 
 
-class AiDebugInfo(BaseModel):
+class AnalyzeDebug(BaseModel):
     model_config = ConfigDict(validate_by_name=True)
 
-    clip: ClipDebug
-    blip: BlipDebug
+    clip_tags_top: List[ClipTagScore] = Field(
+        default_factory=list, alias="clipTagsTop"
+    )
+    blip_caption: Optional[str] = Field(default=None, alias="blipCaption")
     llm: LlmDebug
-    timings_ms: Optional[dict[str, int]] = Field(default=None, alias="timingsMs")
 
 
 class AnalyzeProductRequest(BaseModel):
@@ -135,4 +121,4 @@ class AnalyzeProductResponse(BaseModel):
     tags: List[Tag]
     captions: List[Caption]
     meta: PipelineMeta
-    debug: Optional[AiDebugInfo] = None
+    debug: Optional[AnalyzeDebug] = None

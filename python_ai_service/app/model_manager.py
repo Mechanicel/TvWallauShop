@@ -168,25 +168,6 @@ def build_model_specs(settings: Settings) -> dict[str, ModelSpec]:
     }
 
 
-def check_device_available(device: str) -> str:
-    if device != "openvino:GPU":
-        raise AiServiceError(
-            code="INVALID_INPUT",
-            message="Only OpenVINO GPU is supported.",
-            details={"device": device},
-            http_status=400,
-        )
-    core = ov.Core()
-    if "GPU" not in core.available_devices:
-        raise AiServiceError(
-            code="DEVICE_NOT_AVAILABLE",
-            message="Requested OpenVINO GPU device is not available.",
-            details={"device": device, "available": core.available_devices},
-            http_status=503,
-        )
-    return "GPU"
-
-
 def _list_files(directory: Path) -> list[str]:
     if not directory.exists() or not directory.is_dir():
         return []
@@ -511,7 +492,6 @@ def ensure_models(mode: str, offline: bool, settings: Settings | None = None) ->
             http_status=503,
         )
 
-    check_device_available(settings.AI_DEVICE)
     specs = build_model_specs(settings)
     model_dir = Path(settings.MODEL_DIR)
 

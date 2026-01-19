@@ -79,86 +79,34 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "clip": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "device": { "type": "string" },
-            "modelDir": { "type": "string" },
-            "numImages": { "type": "number" },
-            "candidatePromptsCount": { "type": "number" },
-            "topTags": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "additionalProperties": false,
-                "properties": {
-                  "tag": { "type": "string" },
-                  "score": { "type": "number" }
-                },
-                "required": ["tag", "score"]
-              }
-            },
-            "promptExamples": {
-              "type": "array",
-              "items": { "type": "string" }
-            }
-          },
-          "required": [
-            "device",
-            "modelDir",
-            "numImages",
-            "candidatePromptsCount",
-            "topTags"
-          ]
-        },
-        "blip": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "device": { "type": "string" },
-            "modelDir": { "type": "string" },
-            "expectedHw": {
-              "type": "array",
-              "items": { "type": "number" },
-              "minItems": 2,
-              "maxItems": 2
-            },
-            "captions": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "additionalProperties": false,
-                "properties": {
-                  "imageIndex": { "type": "number" },
-                  "caption": { "type": "string" }
-                },
-                "required": ["imageIndex", "caption"]
-              }
-            }
-          },
-          "required": ["device", "modelDir", "expectedHw", "captions"]
-        },
         "llm": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "device": { "type": "string" },
-            "modelDir": { "type": "string" },
-            "prompt": { "type": "string" },
-            "rawOutput": { "type": "string" },
-            "extractedJson": { "type": "string" },
-            "parseError": { "type": "string" },
+            "rawTextTruncated": { "type": "string" },
+            "rawTextChars": { "type": "number" },
+            "extractedJsonTruncated": { "type": "string" },
+            "extractedJsonChars": { "type": "number" },
+            "jsonParseError": { "type": "string" },
             "schemaError": { "type": "string" }
           },
-          "required": ["device", "modelDir", "rawOutput"]
+          "required": ["rawTextChars"]
         },
-        "timingsMs": {
-          "type": "object",
-          "additionalProperties": { "type": "number" }
-        }
+        "clipTagsTop": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "tag": { "type": "string" },
+              "score": { "type": "number" }
+            },
+            "required": ["tag", "score"]
+          }
+        },
+        "blipCaption": { "type": "string" }
       },
-      "required": ["clip", "blip", "llm"]
+      "required": ["clipTagsTop", "llm"]
     }
   },
   "required": ["title", "description", "tags", "captions", "meta"]

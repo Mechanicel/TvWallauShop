@@ -42,6 +42,13 @@ export interface PipelineModels {
 
 export type AiDevice = 'openvino:GPU' | 'openvino:NPU';
 
+export interface DeviceRouting {
+  clip: AiDevice;
+  blip: AiDevice;
+  llm: AiDevice;
+  strict: boolean;
+}
+
 export interface PipelineMeta {
   contractVersion: string;
   device: AiDevice;
@@ -76,20 +83,18 @@ export interface BlipDebug {
 }
 
 export interface LlmDebug {
-  device: string;
-  modelDir: string;
-  prompt?: string;
-  rawOutput: string;
-  extractedJson?: string;
-  parseError?: string;
+  rawTextTruncated?: string;
+  rawTextChars: number;
+  extractedJsonTruncated?: string;
+  extractedJsonChars?: number;
+  jsonParseError?: string;
   schemaError?: string;
 }
 
-export interface AiDebugInfo {
-  clip: ClipDebug;
-  blip: BlipDebug;
+export interface AnalyzeDebug {
+  clipTagsTop: ClipTagScore[];
+  blipCaption?: string;
   llm: LlmDebug;
-  timingsMs?: Record<string, number>;
 }
 
 export interface AnalyzeProductRequest {
@@ -110,5 +115,5 @@ export interface AnalyzeProductResponse {
   tags: Tag[];
   captions: Caption[];
   meta: PipelineMeta;
-  debug?: AiDebugInfo;
+  debug?: AnalyzeDebug;
 }

@@ -10,8 +10,9 @@ import openvino as ov
 from transformers import CLIPProcessor
 
 from ...config import get_settings
-from ...contracts_models import ClipDebug, ClipTagScore, Tag
+from ...contracts_models import AnalyzeDebug, ClipTagScore, Tag
 from ...model_manager import model_fetch_hint
+from ...ov_runtime import compile_strict
 from ..errors import AiServiceError
 from .normalize import normalize_tags
 
@@ -77,8 +78,12 @@ class ClipTagger:
         self.text_seq_len = 16
         if image_model_path.exists() and text_model_path.exists():
             logger.info("CLIP loaded as dual-encoder (image_encoder.xml/text_encoder.xml)")
-            self.image_model = core.compile_model(core.read_model(image_model_path), device)
-            self.text_model = core.compile_model(core.read_model(text_model_path), device)
+            self.image_model = compile_strict(
+                core, core.read_model(image_model_path), device
+            )
+            self.text_model = compile_strict(
+                core, core.read_model(text_model_path), device
+            )
         else:
             raise AiServiceError(
                 code="MODEL_NOT_AVAILABLE",
@@ -272,16 +277,11 @@ class ClipTagger:
         self,
         images: list[Image.Image],
         max_tags: int,
-        debug: ClipDebug | None = None,
+        debug: AnalyzeDebug | None = None,
         include_prompt: bool = False,
     ) -> list[Tag]:
         max_tags = max(1, max_tags)
         prompts = [f"a photo of {c.value}" for c in CANDIDATES_EN]
-        if debug:
-            debug.candidate_prompts_count = len(prompts)
-            debug.num_images = len(images)
-            if include_prompt:
-                debug.prompt_examples = prompts[:10]
         text_features = self._encode_text(prompts)
         text_features = text_features / np.linalg.norm(text_features, axis=-1, keepdims=True)
 
@@ -305,7 +305,7 @@ class ClipTagger:
                 scored_tags, key=lambda tag: tag.score or 0.0, reverse=True
             )
             top_tags = sorted_tags[: settings.DEBUG_AI_MAX_TAGS_LOG]
-            debug.top_tags = [
+            debug.clip_tags_top = [
                 ClipTagScore(tag=tag.value, score=float(tag.score or 0.0))
                 for tag in top_tags
             ]

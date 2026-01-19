@@ -1,6 +1,7 @@
 import pytest
 
-from app.services.pipeline.llm_openvino_genai import parse_llm_json
+from app.contracts_models import LlmDebug
+from app.services.pipeline.llm_openvino_genai import parse_llm_json, parse_llm_output
 
 
 def test_parse_llm_json_valid():
@@ -23,3 +24,26 @@ def test_parse_llm_json_invalid_length():
     result = '{"title":"Too short","description":"One sentence."}'
     with pytest.raises(ValueError):
         parse_llm_json(result)
+
+
+def test_parse_llm_output_debug_fallback_on_invalid_json():
+    debug = LlmDebug()
+    title, description = parse_llm_output("not-json", debug, allow_debug_failure=True)
+    assert title == ""
+    assert description == ""
+    assert debug.raw_text_chars == len("not-json")
+    assert debug.json_parse_error == "No JSON object found."
+
+
+def test_parse_llm_output_handles_extra_data_in_fenced_block():
+    debug = LlmDebug()
+    raw = (
+        "```json\n"
+        '{"title":"Premium Athletic Crew Socks with Cushioned Comfort Fit Everyday",'
+        '"description":"Soft knit crew socks with a sporty look. '
+        'Designed for daily wear and easy styling."}'
+        " trailing\n```"
+    )
+    title, description = parse_llm_output(raw, debug, allow_debug_failure=False)
+    assert "Socks" in title
+    assert description.endswith(".")

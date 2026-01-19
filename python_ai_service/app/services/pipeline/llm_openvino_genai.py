@@ -3,17 +3,22 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 from pathlib import Path
+
+import openvino as ov
 
 from ...config import get_settings
 from ...contracts_models import LlmDebug
 from ...model_manager import build_model_specs, check_assets, model_fetch_hint
+from ...ov_runtime import require_device
 from ...openvino_tokenizers_ext import ensure_openvino_tokenizers_extension_loaded
 from ..errors import AiServiceError
 from .prompts import COPYWRITER_SYSTEM, build_copy_prompt
 
 settings = get_settings()
 logger = logging.getLogger("tvwallau-ai")
+LLM_DEBUG_MAX_CHARS = 2000
 
 
 def _resolve_llm_dir() -> Path:
@@ -52,6 +57,8 @@ def _validate_copy_output(title: str, description: str) -> None:
 
 def parse_llm_json(result: str) -> tuple[str, str]:
     parsed = json.loads(result)
+    if not isinstance(parsed, dict):
+        raise ValueError("Parsed JSON must be an object.")
     title = parsed.get("title")
     description = parsed.get("description")
     _validate_copy_output(title, description)
@@ -62,6 +69,13 @@ def _truncate_text(text: str, max_chars: int) -> str:
     if len(text) <= max_chars:
         return text
     return text[:max_chars]
+
+
+def _extract_json_fenced_block(text: str) -> str | None:
+    match = re.search(r"```json\\s*(.*?)```", text, flags=re.DOTALL | re.IGNORECASE)
+    if not match:
+        return None
+    return match.group(1).strip()
 
 
 def _extract_first_json_block(text: str) -> str | None:
@@ -103,14 +117,102 @@ def _extract_first_json_block(text: str) -> str | None:
     return None
 
 
+def _extract_json_candidate(text: str) -> str | None:
+    fenced = _extract_json_fenced_block(text)
+    if fenced:
+        return fenced
+    return _extract_first_json_block(text)
+
+
+def _parse_json_best_effort(text: str) -> tuple[dict | None, str | None]:
+    try:
+        parsed = json.loads(text)
+        if isinstance(parsed, dict):
+            return parsed, None
+        return None, "Parsed JSON must be an object."
+    except json.JSONDecodeError as exc:
+        if "Extra data" in str(exc) and exc.pos:
+            trimmed = text[: exc.pos].rstrip()
+            try:
+                parsed = json.loads(trimmed)
+                if isinstance(parsed, dict):
+                    return parsed, None
+                return None, "Parsed JSON must be an object."
+            except json.JSONDecodeError as exc_retry:
+                return None, str(exc_retry)
+        return None, str(exc)
+
+
+def parse_llm_output(
+    raw: str,
+    debug: LlmDebug | None,
+    allow_debug_failure: bool,
+) -> tuple[str, str]:
+    candidate = _extract_json_candidate(raw)
+    if debug:
+        debug.raw_text_chars = len(raw)
+        debug.raw_text_truncated = _truncate_text(raw, LLM_DEBUG_MAX_CHARS)
+    if candidate is None:
+        if debug:
+            debug.json_parse_error = "No JSON object found."
+        if allow_debug_failure:
+            return "", ""
+        raise AiServiceError(
+            code="LLM_OUTPUT_INVALID",
+            message="LLM output did not contain JSON.",
+            details={"error": "No JSON object found."},
+            http_status=502,
+        )
+    parsed, parse_error = _parse_json_best_effort(candidate)
+    if debug:
+        debug.extracted_json_truncated = _truncate_text(candidate, LLM_DEBUG_MAX_CHARS)
+        debug.extracted_json_chars = len(candidate)
+        if parse_error:
+            debug.json_parse_error = parse_error
+    if parse_error or parsed is None:
+        if allow_debug_failure:
+            return "", ""
+        raise AiServiceError(
+            code="LLM_OUTPUT_INVALID",
+            message="LLM output did not match the required JSON schema.",
+            details={"error": parse_error or "JSON parse failed."},
+            http_status=502,
+        )
+    title = parsed.get("title")
+    description = parsed.get("description")
+    try:
+        _validate_copy_output(title, description)
+    except ValueError as exc:
+        if debug:
+            debug.schema_error = str(exc)
+        if allow_debug_failure:
+            return "", ""
+        raise AiServiceError(
+            code="LLM_OUTPUT_INVALID",
+            message="LLM output did not match the required JSON schema.",
+            details={"error": str(exc)},
+            http_status=502,
+        ) from exc
+    return title, description
+
+
 class LlmCopywriter:
     def __init__(self, device: str) -> None:
         import openvino_genai as ov_genai
 
         model_dir = _resolve_llm_dir()
         ensure_openvino_tokenizers_extension_loaded()
+        core = ov.Core()
+        ov_device = require_device(core, device)
+        if ov_device != "NPU":
+            raise AiServiceError(
+                code="INVALID_INPUT",
+                message="LLM must be initialized on OpenVINO NPU.",
+                details={"device": ov_device},
+                http_status=400,
+            )
         try:
-            self.pipeline = ov_genai.LLMPipeline(str(model_dir), device)
+            self.pipeline = ov_genai.LLMPipeline(str(model_dir), ov_device)
             self._ov_genai = ov_genai
         except Exception as exc:
             try:
@@ -181,26 +283,18 @@ class LlmCopywriter:
                 ) from exc
             raise
         raw = result
-        max_chars = settings.DEBUG_AI_MAX_CHARS
-        raw_trunc = _truncate_text(raw, max_chars)
-        if settings.DEBUG_AI:
+        raw_trunc = _truncate_text(raw, LLM_DEBUG_MAX_CHARS)
+        if settings.DEBUG or settings.DEBUG_AI:
             logger.info("LLM raw output (truncated): %s", raw_trunc)
-            if settings.DEBUG_AI_INCLUDE_PROMPT:
-                logger.info(
-                    "LLM prompt (truncated): %s",
-                    _truncate_text(full_prompt, max_chars),
-                )
-        if debug:
-            debug.raw_output = raw_trunc
-            if include_prompt:
-                debug.prompt = _truncate_text(full_prompt, max_chars)
-            extracted = _extract_first_json_block(raw)
-            if extracted:
-                debug.extracted_json = _truncate_text(extracted, max_chars)
-
+        if settings.DEBUG_AI and settings.DEBUG_AI_INCLUDE_PROMPT:
+            logger.info(
+                "LLM prompt (truncated): %s",
+                _truncate_text(full_prompt, LLM_DEBUG_MAX_CHARS),
+            )
+        allow_debug_failure = settings.DEBUG
         try:
-            return parse_llm_json(raw)
-        except json.JSONDecodeError as exc:
+            return parse_llm_output(raw, debug, allow_debug_failure)
+        except AiServiceError as exc:
             if retry:
                 retry_prompt = (
                     "Your previous output was invalid JSON or did not match the schema. "
@@ -212,44 +306,4 @@ class LlmCopywriter:
                     debug=debug,
                     include_prompt=include_prompt,
                 )
-            if debug:
-                extracted = _extract_first_json_block(raw)
-                if extracted:
-                    debug.extracted_json = _truncate_text(extracted, max_chars)
-                debug.parse_error = str(exc)
-            logger.warning("LLM output JSON parse failed: %s", exc)
-            if settings.DEBUG_AI:
-                extracted = _extract_first_json_block(raw)
-                if extracted:
-                    logger.warning(
-                        "LLM extracted JSON (truncated): %s",
-                        _truncate_text(extracted, max_chars),
-                    )
-                logger.warning("LLM raw output (truncated): %s", raw_trunc)
-            raise AiServiceError(
-                code="LLM_OUTPUT_INVALID",
-                message="LLM output did not match the required JSON schema.",
-                details={"error": str(exc)},
-                http_status=502,
-            ) from exc
-        except ValueError as exc:
-            if retry:
-                retry_prompt = (
-                    "Your previous output was invalid JSON or did not match the schema. "
-                    "Return ONLY valid JSON with keys title and description."
-                )
-                return self._generate_with_retry(
-                    f"{prompt}\n\n{retry_prompt}",
-                    retry=False,
-                    debug=debug,
-                    include_prompt=include_prompt,
-                )
-            if debug:
-                debug.schema_error = str(exc)
-            logger.warning("LLM output schema validation failed: %s", exc)
-            raise AiServiceError(
-                code="LLM_OUTPUT_INVALID",
-                message="LLM output did not match the required JSON schema.",
-                details={"error": str(exc)},
-                http_status=502,
-            ) from exc
+            raise exc

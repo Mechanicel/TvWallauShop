@@ -4,6 +4,8 @@ from functools import lru_cache
 
 from dotenv import load_dotenv
 
+from .contracts_models import DeviceRouting
+
 # .env-Datei aus Projektroot laden (wenn vorhanden)
 load_dotenv()
 
@@ -67,6 +69,24 @@ class Settings:
         "yes",
         "on",
     )
+
+    DEVICES_CLIP: str = os.getenv("DEVICES_CLIP", "openvino:GPU").strip()
+    DEVICES_BLIP: str = os.getenv("DEVICES_BLIP", "openvino:GPU").strip()
+    DEVICES_LLM: str = os.getenv("DEVICES_LLM", "openvino:NPU").strip()
+    DEVICES_STRICT: bool = os.getenv("DEVICES_STRICT", "true").strip() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+
+    def device_routing(self) -> DeviceRouting:
+        return DeviceRouting(
+            clip=self.DEVICES_CLIP,
+            blip=self.DEVICES_BLIP,
+            llm=self.DEVICES_LLM,
+            strict=self.DEVICES_STRICT,
+        )
 
 
 @lru_cache(maxsize=1)

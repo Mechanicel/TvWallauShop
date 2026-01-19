@@ -10,8 +10,9 @@ import openvino as ov
 from transformers import BlipProcessor
 
 from ...config import get_settings
-from ...contracts_models import BlipCaptionDebug, BlipDebug, Caption
+from ...contracts_models import AnalyzeDebug, Caption
 from ...model_manager import build_model_specs, check_assets, model_fetch_hint
+from ...ov_runtime import compile_strict
 from ..errors import AiServiceError
 
 settings = get_settings()
@@ -58,11 +59,11 @@ class Captioner:
     def __init__(self, device: str) -> None:
         paths = _resolve_caption_paths()
         core = ov.Core()
-        self.vision_encoder = core.compile_model(
-            core.read_model(paths.vision_encoder), device
+        self.vision_encoder = compile_strict(
+            core, core.read_model(paths.vision_encoder), device
         )
         text_decoder_model = core.read_model(paths.text_decoder)
-        self.text_decoder = core.compile_model(text_decoder_model, device)
+        self.text_decoder = compile_strict(core, text_decoder_model, device)
         self.processor = BlipProcessor.from_pretrained(paths.base)
         self.tokenizer = self.processor.tokenizer
         self.bos_token_id = self.tokenizer.bos_token_id or self.tokenizer.cls_token_id or 0
@@ -112,7 +113,7 @@ class Captioner:
         self,
         images: list[Image.Image],
         max_captions: int,
-        debug: BlipDebug | None = None,
+        debug: AnalyzeDebug | None = None,
     ) -> list[Caption]:
         captions: list[Caption] = []
         for index, image in enumerate(images):
@@ -127,25 +128,9 @@ class Captioner:
                     )
                 captions.append(Caption(image_index=index, text=text, source="blip"))
 
-        if debug:
-            debug.expected_hw = [self.expected_h, self.expected_w]
-            debug.captions = [
-                BlipCaptionDebug(image_index=caption.image_index, caption=caption.text)
-                for caption in captions
-            ]
-            summary = ", ".join(
-                f"[{item.image_index}]={item.caption}" for item in debug.captions
-            )
-            logger.info("BLIP captions: %s", summary)
-            logger.info(
-                "BLIP captions summary",
-                extra={
-                    "blip_captions": [
-                        {"image_index": item.image_index, "caption": item.caption}
-                        for item in debug.captions
-                    ]
-                },
-            )
+        if debug and captions:
+            debug.blip_caption = captions[0].text
+            logger.info("BLIP first caption: %s", captions[0].text)
 
         return captions
 
