@@ -11,7 +11,7 @@ from pathlib import Path
 from ...config import get_settings
 from ...contracts_models import LlmDebug
 from ...model_manager import build_model_specs, check_assets, model_fetch_hint
-from ...ov_runtime import create_core, require_device
+from ...ov_runtime import create_core, normalize_device, require_device
 from ...openvino_tokenizers_ext import ensure_openvino_tokenizers_extension_loaded
 from ..errors import AiServiceError
 from .prompts import COPYWRITER_SYSTEM, build_copy_prompt
@@ -210,15 +210,30 @@ class LlmCopywriter:
             device,
         )
         core = create_core(settings.OV_CACHE_DIR)
+        normalized_requested = normalize_device(device)
+        allowed_devices = {"GPU", "NPU"}
+        if normalized_requested == "CPU":
+            allowed_devices.add("CPU")
         ov_device = require_device(core, device, model_name="llm", log=logger)
         if debug:
             debug.llm_device_requested = device
             debug.llm_device_resolved = ov_device
-        if ov_device != "NPU":
+        if ov_device not in allowed_devices:
+            allowed_devices_for_llm = sorted(allowed_devices)
+            logger.warning(
+                "LLM device rejected device_requested=%s device_resolved=%s allowed_devices_for_llm=%s",
+                device,
+                ov_device,
+                allowed_devices_for_llm,
+            )
             raise AiServiceError(
                 code="INVALID_INPUT",
-                message="LLM must be initialized on OpenVINO NPU.",
-                details={"device": ov_device},
+                message="LLM device is not allowed.",
+                details={
+                    "device_requested": device,
+                    "device_resolved": ov_device,
+                    "allowed_devices_for_llm": allowed_devices_for_llm,
+                },
                 http_status=400,
             )
         try:
