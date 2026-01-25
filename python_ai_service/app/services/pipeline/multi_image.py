@@ -53,24 +53,43 @@ def _average_tag_score(tags: list[Tag]) -> float:
     return sum(scores) / len(scores)
 
 
-def merge_tags_for_two_images(
-    tags_image_1: list[Tag],
-    tags_image_2: list[Tag],
+def merge_tags_for_images(
+    tags_per_image: list[list[Tag]],
     max_tags: int,
 ) -> TagMergeResult:
-    normalized_1 = normalize_scored_tags(tags_image_1)
-    normalized_2 = normalize_scored_tags(tags_image_2)
-    values_1 = [tag.value for tag in normalized_1]
-    values_2 = [tag.value for tag in normalized_2]
-    intersection_set = set(values_1) & set(values_2)
-    intersection_ordered = [value for value in values_1 if value in intersection_set]
+    if not tags_per_image:
+        return TagMergeResult(
+            tags_for_llm=[],
+            merged_tags=[],
+            intersection=[],
+            strategy="intersection_all",
+            fallback=None,
+        )
+
+    normalized_per_image = [
+        normalize_scored_tags(tags) for tags in tags_per_image
+    ]
+    values_per_image = [
+        [tag.value for tag in normalized_tags]
+        for normalized_tags in normalized_per_image
+    ]
+    intersection_set = set(values_per_image[0])
+    for values in values_per_image[1:]:
+        intersection_set &= set(values)
+    intersection_ordered = [
+        value for value in values_per_image[0] if value in intersection_set
+    ]
     if intersection_ordered:
-        score_map_1 = {tag.value: tag.score or 0.0 for tag in normalized_1}
-        score_map_2 = {tag.value: tag.score or 0.0 for tag in normalized_2}
+        score_map: dict[str, float] = {}
+        for normalized_tags in normalized_per_image:
+            for tag in normalized_tags:
+                score = tag.score or 0.0
+                if score > score_map.get(tag.value, 0.0):
+                    score_map[tag.value] = score
         merged_tags = [
             Tag(
                 value=value,
-                score=max(score_map_1.get(value, 0.0), score_map_2.get(value, 0.0)),
+                score=score_map.get(value, 0.0),
                 source="clip",
             )
             for value in intersection_ordered
@@ -80,24 +99,22 @@ def merge_tags_for_two_images(
             tags_for_llm=tags_for_llm,
             merged_tags=merged_tags[:max_tags],
             intersection=intersection_ordered,
-            strategy="intersection",
+            strategy="intersection_all",
             fallback=None,
         )
 
-    avg_score_1 = _average_tag_score(normalized_1)
-    avg_score_2 = _average_tag_score(normalized_2)
-    if avg_score_2 > avg_score_1:
-        selected = normalized_2
-        fallback = "image_2_higher_avg_score"
-    else:
-        selected = normalized_1
-        fallback = "image_1_higher_avg_score"
+    avg_scores = [
+        _average_tag_score(tags) for tags in normalized_per_image
+    ]
+    selected_index = max(range(len(avg_scores)), key=lambda idx: avg_scores[idx])
+    selected = normalized_per_image[selected_index]
+    fallback = f"highest_avg_score_image_{selected_index + 1}"
     tags_for_llm = normalize_tags([tag.value for tag in selected])[:max_tags]
     return TagMergeResult(
         tags_for_llm=tags_for_llm,
         merged_tags=selected[:max_tags],
         intersection=[],
-        strategy="intersection",
+        strategy="intersection_all",
         fallback=fallback,
     )
 

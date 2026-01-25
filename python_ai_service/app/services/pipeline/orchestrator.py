@@ -13,13 +13,14 @@ from ...contracts_models import (
     PipelineMeta,
     PipelineModels,
     PipelineTimings,
+    Tag,
 )
 from ..errors import AiServiceError
 from ...model_manager import ensure_models
 from .captioner_openvino import Captioner
 from .image_loader import load_images
 from .llm_openvino_genai import LlmCopywriter
-from .multi_image import captions_per_image, merge_tags_for_two_images
+from .multi_image import captions_per_image, merge_tags_for_images
 from .normalize import normalize_tags
 from .tagger_openvino import ClipTagger
 
@@ -60,57 +61,57 @@ def run_pipeline(payload: AnalyzeProductRequest) -> AnalyzeProductResponse:
         tagger = ClipTagger(routing.clip)
         max_tags = payload.max_tags or settings.MAX_TAGS
         images = [asset.image for asset in image_assets]
-        if len(images) >= 2:
-            tags_image_1 = tagger.predict(
-                [images[0]],
-                max_tags=max_tags,
-                debug=None,
-                include_prompt=include_prompt,
+        tags_per_image: list[list[Tag]] = []
+        for image in images:
+            tags_per_image.append(
+                tagger.predict(
+                    [image],
+                    max_tags=max_tags,
+                    debug=None,
+                    include_prompt=include_prompt,
+                )
             )
-            tags_image_2 = tagger.predict(
-                [images[1]],
-                max_tags=max_tags,
-                debug=None,
-                include_prompt=include_prompt,
-            )
-            merged = merge_tags_for_two_images(
-                tags_image_1,
-                tags_image_2,
-                max_tags=max_tags,
-            )
-            tags = merged.merged_tags
-            if debug_info:
+        merged = merge_tags_for_images(
+            tags_per_image,
+            max_tags=max_tags,
+        )
+        tags = merged.merged_tags
+        if debug_info:
+            debug_info.clip_tags_per_image = [
+                [
+                    ClipTagScore(tag=tag.value, score=float(tag.score or 0.0))
+                    for tag in tags_for_image[: settings.DEBUG_AI_MAX_TAGS_LOG]
+                ]
+                for tags_for_image in tags_per_image
+            ]
+            if tags_per_image:
                 debug_info.clip_tags_image_1 = [
                     ClipTagScore(tag=tag.value, score=float(tag.score or 0.0))
-                    for tag in tags_image_1
+                    for tag in tags_per_image[0]
                 ]
+            if len(tags_per_image) > 1:
                 debug_info.clip_tags_image_2 = [
                     ClipTagScore(tag=tag.value, score=float(tag.score or 0.0))
-                    for tag in tags_image_2
+                    for tag in tags_per_image[1]
                 ]
-                debug_info.clip_tags_intersection = merged.intersection
-                debug_info.tag_merge_strategy = merged.strategy
-                debug_info.tag_merge_fallback = merged.fallback
-                sorted_tags = sorted(
-                    tags, key=lambda tag: tag.score or 0.0, reverse=True
-                )
-                debug_info.clip_tags_top = [
-                    ClipTagScore(tag=tag.value, score=float(tag.score or 0.0))
-                    for tag in sorted_tags[: settings.DEBUG_AI_MAX_TAGS_LOG]
-                ]
-            logger.info("CLIP tags image 1: %s", [tag.value for tag in tags_image_1])
-            logger.info("CLIP tags image 2: %s", [tag.value for tag in tags_image_2])
-            logger.info("CLIP tags intersection: %s", merged.intersection)
-            logger.info("CLIP tag merge strategy: %s", merged.strategy)
-            if merged.fallback:
-                logger.info("CLIP tag merge fallback: %s", merged.fallback)
-        else:
-            tags = tagger.predict(
-                images,
-                max_tags=max_tags,
-                debug=debug_info if debug_info else None,
-                include_prompt=include_prompt,
-            )
+            debug_info.clip_tags_intersection = merged.intersection
+            debug_info.tag_merge_strategy = merged.strategy
+            debug_info.tag_merge_fallback = merged.fallback
+            sorted_tags = sorted(tags, key=lambda tag: tag.score or 0.0, reverse=True)
+            debug_info.clip_tags_top = [
+                ClipTagScore(tag=tag.value, score=float(tag.score or 0.0))
+                for tag in sorted_tags[: settings.DEBUG_AI_MAX_TAGS_LOG]
+            ]
+        for idx, tags_for_image in enumerate(tags_per_image, start=1):
+            logged_tags = [tag.value for tag in tags_for_image][
+                : settings.DEBUG_AI_MAX_TAGS_LOG
+            ]
+            logger.info("CLIP tags image %s: %s", idx, logged_tags)
+        logger.info("CLIP tags intersection: %s", merged.intersection)
+        logger.info("CLIP tag merge strategy: %s", merged.strategy)
+        if merged.fallback:
+            logger.info("CLIP tag merge fallback: %s", merged.fallback)
+        logger.info("CLIP tags sent to LLM: %s", merged.tags_for_llm)
         tagger_ms = (time.perf_counter() - tagger_start) * 1000
 
         caption_start = time.perf_counter()
@@ -125,25 +126,33 @@ def run_pipeline(payload: AnalyzeProductRequest) -> AnalyzeProductResponse:
 
         llm_start = time.perf_counter()
         llm = LlmCopywriter(routing.llm, debug=debug_info.llm if debug_info else None)
-        if len(images) >= 2:
-            tag_values = merged.tags_for_llm
-        else:
-            tag_values = normalize_tags([tag.value for tag in tags])
-        if len(images) >= 2:
-            caption_texts = captions_per_image(captions, 2)
-            if debug_info:
-                debug_info.blip_caption_image_1 = (
-                    caption_texts[0] if len(caption_texts) > 0 else None
-                )
-                debug_info.blip_caption_image_2 = (
-                    caption_texts[1] if len(caption_texts) > 1 else None
-                )
-                debug_info.captions_sent_to_llm = caption_texts
-            logger.info("BLIP caption image 1: %s", caption_texts[0])
-            logger.info("BLIP caption image 2: %s", caption_texts[1])
-            logger.info("Captions sent to LLM: %s", caption_texts)
-        else:
-            caption_texts = [caption.text for caption in captions]
+        tag_values = merged.tags_for_llm or normalize_tags(
+            [tag.value for tag in tags]
+        )
+        caption_texts = captions_per_image(captions, len(images))
+        if debug_info:
+            debug_info.blip_captions_per_image = caption_texts
+            debug_info.blip_caption = caption_texts[0] if caption_texts else None
+            debug_info.blip_caption_image_1 = (
+                caption_texts[0] if len(caption_texts) > 0 else None
+            )
+            debug_info.blip_caption_image_2 = (
+                caption_texts[1] if len(caption_texts) > 1 else None
+            )
+            debug_info.captions_sent_to_llm = caption_texts
+        for idx, caption_text in enumerate(caption_texts, start=1):
+            logger.info(
+                "BLIP caption image %s: %s",
+                idx,
+                caption_text[: settings.DEBUG_AI_MAX_CHARS],
+            )
+        logger.info(
+            "Captions sent to LLM: %s",
+            [
+                caption[: settings.DEBUG_AI_MAX_CHARS]
+                for caption in caption_texts
+            ],
+        )
         title, description = llm.generate(
             payload.price.amount,
             payload.price.currency or "USD",
