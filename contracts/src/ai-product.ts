@@ -105,12 +105,14 @@ export interface LlmDebug {
 
 export interface AnalyzeDebug {
   clipTagsTop: ClipTagScore[];
+  clipTagsPerImage?: ClipTagScore[][];
   clipTagsImage1?: ClipTagScore[];
   clipTagsImage2?: ClipTagScore[];
   clipTagsIntersection?: string[];
   tagMergeStrategy?: string;
   tagMergeFallback?: string;
   blipCaption?: string;
+  blipCaptionsPerImage?: string[];
   blipCaptionImage1?: string;
   blipCaptionImage2?: string;
   captionsSentToLlm?: string[];

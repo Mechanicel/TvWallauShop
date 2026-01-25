@@ -119,7 +119,26 @@
             "required": ["tag", "score"]
           }
         },
-        "blipCaption": { "type": "string" }
+        "clipTagsPerImage": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "tag": { "type": "string" },
+                "score": { "type": "number" }
+              },
+              "required": ["tag", "score"]
+            }
+          }
+        },
+        "blipCaption": { "type": "string" },
+        "blipCaptionsPerImage": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
       },
       "required": ["clipTagsTop", "llm"]
     }

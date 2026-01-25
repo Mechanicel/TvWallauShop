@@ -121,6 +121,9 @@ class AnalyzeDebug(BaseModel):
     clip_tags_top: List[ClipTagScore] = Field(
         default_factory=list, alias="clipTagsTop"
     )
+    clip_tags_per_image: Optional[List[List[ClipTagScore]]] = Field(
+        default=None, alias="clipTagsPerImage"
+    )
     clip_tags_image_1: List[ClipTagScore] = Field(
         default_factory=list, alias="clipTagsImage1"
     )
@@ -137,6 +140,9 @@ class AnalyzeDebug(BaseModel):
         default=None, alias="tagMergeFallback"
     )
     blip_caption: Optional[str] = Field(default=None, alias="blipCaption")
+    blip_captions_per_image: Optional[List[str]] = Field(
+        default=None, alias="blipCaptionsPerImage"
+    )
     blip_caption_image_1: Optional[str] = Field(
         default=None, alias="blipCaptionImage1"
     )
