@@ -61,7 +61,9 @@ def test_run_pipeline_multi_image_intersection_and_captions(monkeypatch):
     monkeypatch.setattr(orchestrator, "ensure_models", lambda **_: None)
     monkeypatch.setattr(orchestrator, "ClipTagger", DummyTagger)
     monkeypatch.setattr(orchestrator, "Captioner", DummyCaptioner)
-    monkeypatch.setattr(orchestrator, "LlmCopywriter", lambda *args, **kwargs: dummy_llm)
+    monkeypatch.setattr(
+        orchestrator, "get_llm_copywriter", lambda *args, **kwargs: dummy_llm
+    )
 
     payload = AnalyzeProductRequest(
         price=Money(amount=10.0, currency="USD"),

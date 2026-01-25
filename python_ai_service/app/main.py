@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse
 from .contracts_models import AnalyzeProductRequest, AnalyzeProductResponse
 from .services.jobs import analyze
 from .services.errors import AiServiceError
+from .services.pipeline.llm_openvino_genai import preload_llm_copywriter
 from .config import get_settings
 from .model_manager import ensure_models
 from .openvino_tokenizers_ext import ensure_openvino_tokenizers_extension_loaded
@@ -83,6 +84,10 @@ async def startup_check_models() -> None:
         except Exception as exc:
             logger.error("Model startup check failed unexpectedly: %s", exc)
             raise RuntimeError("Model startup check failed unexpectedly.") from exc
+    if settings.LLM_PRELOAD_ON_STARTUP:
+        routing = settings.device_routing()
+        logger.info("Preloading LLM pipeline for device=%s", routing.llm)
+        preload_llm_copywriter(routing.llm)
 
 
 @app.head("/health", status_code=200)
