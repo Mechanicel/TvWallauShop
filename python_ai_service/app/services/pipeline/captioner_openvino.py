@@ -12,7 +12,7 @@ from transformers import BlipProcessor
 from ...config import get_settings
 from ...contracts_models import AnalyzeDebug, Caption
 from ...model_manager import build_model_specs, check_assets, model_fetch_hint
-from ...ov_runtime import compile_strict
+from ...ov_runtime import compile_strict, create_core
 from ..errors import AiServiceError
 
 settings = get_settings()
@@ -58,12 +58,18 @@ def _resolve_caption_paths() -> CaptionPaths:
 class Captioner:
     def __init__(self, device: str) -> None:
         paths = _resolve_caption_paths()
-        core = ov.Core()
+        core = create_core(settings.OV_CACHE_DIR)
         self.vision_encoder = compile_strict(
-            core, core.read_model(paths.vision_encoder), device
+            core,
+            core.read_model(paths.vision_encoder),
+            device,
+            model_name="blip-vision",
+            log=logger,
         )
         text_decoder_model = core.read_model(paths.text_decoder)
-        self.text_decoder = compile_strict(core, text_decoder_model, device)
+        self.text_decoder = compile_strict(
+            core, text_decoder_model, device, model_name="blip-text", log=logger
+        )
         self.processor = BlipProcessor.from_pretrained(paths.base)
         self.tokenizer = self.processor.tokenizer
         self.bos_token_id = self.tokenizer.bos_token_id or self.tokenizer.cls_token_id or 0

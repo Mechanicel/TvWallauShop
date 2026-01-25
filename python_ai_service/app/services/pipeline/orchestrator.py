@@ -69,7 +69,7 @@ def run_pipeline(payload: AnalyzeProductRequest) -> AnalyzeProductResponse:
         captioner_ms = (time.perf_counter() - caption_start) * 1000
 
         llm_start = time.perf_counter()
-        llm = LlmCopywriter(routing.llm)
+        llm = LlmCopywriter(routing.llm, debug=debug_info.llm if debug_info else None)
         tag_values = normalize_tags([tag.value for tag in tags])
         caption_texts = [caption.text for caption in captions]
         title, description = llm.generate(
@@ -79,6 +79,7 @@ def run_pipeline(payload: AnalyzeProductRequest) -> AnalyzeProductResponse:
             caption_texts,
             debug=debug_info.llm if debug_info else None,
             include_prompt=include_prompt,
+            allow_debug_failure=debug_response,
         )
         llm_ms = (time.perf_counter() - llm_start) * 1000
 

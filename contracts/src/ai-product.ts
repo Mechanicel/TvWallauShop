@@ -40,7 +40,13 @@ export interface PipelineModels {
   llm: string;
 }
 
-export type AiDevice = 'openvino:GPU' | 'openvino:NPU';
+export type AiDevice =
+  | 'CPU'
+  | 'GPU'
+  | 'NPU'
+  | 'openvino:CPU'
+  | 'openvino:GPU'
+  | 'openvino:NPU';
 
 export interface DeviceRouting {
   clip: AiDevice;
@@ -89,6 +95,11 @@ export interface LlmDebug {
   extractedJsonChars?: number;
   jsonParseError?: string;
   schemaError?: string;
+  llmInitMs?: number;
+  llmGenerateMs?: number;
+  llmDeviceRequested?: string;
+  llmDeviceResolved?: string;
+  llmTimeoutHit?: boolean;
 }
 
 export interface AnalyzeDebug {

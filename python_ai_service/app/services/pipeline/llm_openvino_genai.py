@@ -4,21 +4,20 @@ import json
 import logging
 import os
 import re
+import time
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from pathlib import Path
-
-import openvino as ov
 
 from ...config import get_settings
 from ...contracts_models import LlmDebug
 from ...model_manager import build_model_specs, check_assets, model_fetch_hint
-from ...ov_runtime import require_device
+from ...ov_runtime import create_core, require_device
 from ...openvino_tokenizers_ext import ensure_openvino_tokenizers_extension_loaded
 from ..errors import AiServiceError
 from .prompts import COPYWRITER_SYSTEM, build_copy_prompt
 
 settings = get_settings()
 logger = logging.getLogger("tvwallau-ai")
-LLM_DEBUG_MAX_CHARS = 2000
 
 
 def _resolve_llm_dir() -> Path:
@@ -151,7 +150,7 @@ def parse_llm_output(
     candidate = _extract_json_candidate(raw)
     if debug:
         debug.raw_text_chars = len(raw)
-        debug.raw_text_truncated = _truncate_text(raw, LLM_DEBUG_MAX_CHARS)
+        debug.raw_text_truncated = _truncate_text(raw, settings.DEBUG_AI_MAX_CHARS)
     if candidate is None:
         if debug:
             debug.json_parse_error = "No JSON object found."
@@ -165,7 +164,9 @@ def parse_llm_output(
         )
     parsed, parse_error = _parse_json_best_effort(candidate)
     if debug:
-        debug.extracted_json_truncated = _truncate_text(candidate, LLM_DEBUG_MAX_CHARS)
+        debug.extracted_json_truncated = _truncate_text(
+            candidate, settings.DEBUG_AI_MAX_CHARS
+        )
         debug.extracted_json_chars = len(candidate)
         if parse_error:
             debug.json_parse_error = parse_error
@@ -197,13 +198,22 @@ def parse_llm_output(
 
 
 class LlmCopywriter:
-    def __init__(self, device: str) -> None:
+    def __init__(self, device: str, debug: LlmDebug | None = None) -> None:
         import openvino_genai as ov_genai
 
         model_dir = _resolve_llm_dir()
         ensure_openvino_tokenizers_extension_loaded()
-        core = ov.Core()
-        ov_device = require_device(core, device)
+        init_start = time.monotonic()
+        logger.info(
+            "LLM init start ts=%.6f device_requested=%s",
+            init_start,
+            device,
+        )
+        core = create_core(settings.OV_CACHE_DIR)
+        ov_device = require_device(core, device, model_name="llm", log=logger)
+        if debug:
+            debug.llm_device_requested = device
+            debug.llm_device_resolved = ov_device
         if ov_device != "NPU":
             raise AiServiceError(
                 code="INVALID_INPUT",
@@ -214,6 +224,7 @@ class LlmCopywriter:
         try:
             self.pipeline = ov_genai.LLMPipeline(str(model_dir), ov_device)
             self._ov_genai = ov_genai
+            self._device_resolved = ov_device
         except Exception as exc:
             try:
                 files = sorted(os.listdir(model_dir))
@@ -232,6 +243,17 @@ class LlmCopywriter:
                 },
                 http_status=503,
             ) from exc
+        finally:
+            init_end = time.monotonic()
+            init_ms = (init_end - init_start) * 1000
+            if debug:
+                debug.llm_init_ms = init_ms
+            logger.info(
+                "LLM init end ts=%.6f duration_ms=%.2f device_resolved=%s",
+                init_end,
+                init_ms,
+                ov_device,
+            )
 
     def generate(
         self,
@@ -241,6 +263,7 @@ class LlmCopywriter:
         captions: list[str],
         debug: LlmDebug | None = None,
         include_prompt: bool = False,
+        allow_debug_failure: bool = False,
     ) -> tuple[str, str]:
         prompt = build_copy_prompt(price_amount, currency, tags, captions)
         return self._generate_with_retry(
@@ -248,6 +271,7 @@ class LlmCopywriter:
             retry=True,
             debug=debug,
             include_prompt=include_prompt,
+            allow_debug_failure=allow_debug_failure,
         )
 
     def _build_full_prompt(self, user_prompt: str) -> str:
@@ -265,14 +289,29 @@ class LlmCopywriter:
         retry: bool,
         debug: LlmDebug | None = None,
         include_prompt: bool = False,
+        allow_debug_failure: bool = False,
     ) -> tuple[str, str]:
         full_prompt = self._build_full_prompt(prompt)
         config = self._ov_genai.GenerationConfig(
-            max_new_tokens=settings.LLM_MAX_NEW_TOKENS,
+            max_new_tokens=max(1, settings.LLM_MAX_NEW_TOKENS),
             temperature=settings.LLM_TEMPERATURE,
         )
+        generate_start = time.monotonic()
+        logger.info(
+            "LLM generate start ts=%.6f device_resolved=%s",
+            generate_start,
+            self._device_resolved,
+        )
         try:
-            result = self.pipeline.generate(full_prompt, config)
+            result = self._generate_with_timeout(full_prompt, config, debug)
+            if debug is not None:
+                debug.llm_timeout_hit = False
+        except AiServiceError as exc:
+            if exc.code == "LLM_TIMEOUT":
+                if allow_debug_failure:
+                    return "", ""
+                raise
+            raise
         except ValueError as exc:
             if "incorrect GenerationConfig parameter" in str(exc):
                 raise AiServiceError(
@@ -282,16 +321,25 @@ class LlmCopywriter:
                     http_status=500,
                 ) from exc
             raise
+        finally:
+            generate_end = time.monotonic()
+            generate_ms = (generate_end - generate_start) * 1000
+            if debug is not None:
+                debug.llm_generate_ms = generate_ms
+            logger.info(
+                "LLM generate end ts=%.6f duration_ms=%.2f",
+                generate_end,
+                generate_ms,
+            )
         raw = result
-        raw_trunc = _truncate_text(raw, LLM_DEBUG_MAX_CHARS)
+        raw_trunc = _truncate_text(raw, settings.DEBUG_AI_MAX_CHARS)
         if settings.DEBUG or settings.DEBUG_AI:
             logger.info("LLM raw output (truncated): %s", raw_trunc)
         if settings.DEBUG_AI and settings.DEBUG_AI_INCLUDE_PROMPT:
             logger.info(
                 "LLM prompt (truncated): %s",
-                _truncate_text(full_prompt, LLM_DEBUG_MAX_CHARS),
+                _truncate_text(full_prompt, settings.DEBUG_AI_MAX_CHARS),
             )
-        allow_debug_failure = settings.DEBUG
         try:
             return parse_llm_output(raw, debug, allow_debug_failure)
         except AiServiceError as exc:
@@ -305,5 +353,29 @@ class LlmCopywriter:
                     retry=False,
                     debug=debug,
                     include_prompt=include_prompt,
+                    allow_debug_failure=allow_debug_failure,
                 )
             raise exc
+
+    def _generate_with_timeout(
+        self,
+        full_prompt: str,
+        config: object,
+        debug: LlmDebug | None,
+    ) -> str:
+        timeout_seconds = settings.LLM_TIMEOUT_SECONDS
+        if timeout_seconds <= 0:
+            return self.pipeline.generate(full_prompt, config)
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(self.pipeline.generate, full_prompt, config)
+            try:
+                return future.result(timeout=timeout_seconds)
+            except FuturesTimeoutError as exc:
+                if debug is not None:
+                    debug.llm_timeout_hit = True
+                raise AiServiceError(
+                    code="LLM_TIMEOUT",
+                    message="LLM inference timed out.",
+                    details={"timeoutSeconds": timeout_seconds},
+                    http_status=502,
+                ) from exc
