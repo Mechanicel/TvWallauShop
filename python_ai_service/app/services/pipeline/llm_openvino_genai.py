@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import time
+from threading import Lock
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from inspect import signature
 from pathlib import Path
@@ -18,6 +19,8 @@ from .prompts import COPYWRITER_SYSTEM, build_copy_prompt
 
 settings = get_settings()
 logger = logging.getLogger("tvwallau-ai")
+_LLM_CACHE_LOCK = Lock()
+_LLM_CACHE: dict[str, "LlmCopywriter"] = {}
 
 
 def _resolve_llm_dir() -> Path:
@@ -88,7 +91,9 @@ def _log_llm_schema_trace(
     )
 
 
-def _extract_first_json_object(text: str) -> str | None:
+def _extract_first_json_object_with_span(
+    text: str,
+) -> tuple[str | None, int | None, int | None]:
     in_string = False
     escape = False
     start_idx: int | None = None
@@ -107,7 +112,7 @@ def _extract_first_json_object(text: str) -> str | None:
             depth = 1
             break
     if start_idx is None:
-        return None
+        return None, None, None
     for idx in range(start_idx + 1, len(text)):
         char = text[idx]
         if char == "\\" and in_string:
@@ -123,8 +128,13 @@ def _extract_first_json_object(text: str) -> str | None:
         elif char == "}":
             depth -= 1
             if depth == 0:
-                return text[start_idx : idx + 1]
-    return None
+                return text[start_idx : idx + 1], start_idx, idx + 1
+    return None, None, None
+
+
+def _extract_first_json_object(text: str) -> str | None:
+    candidate, _, _ = _extract_first_json_object_with_span(text)
+    return candidate
 
 
 def _parse_json_strict(text: str) -> tuple[dict | None, str | None]:
@@ -294,6 +304,7 @@ class LlmCopywriter:
                 ov_device,
             )
 
+
     def generate(
         self,
         price_amount: float,
@@ -397,7 +408,10 @@ class LlmCopywriter:
                 generate_ms,
             )
         raw = result
-        raw_trunc = _truncate_text(raw, settings.DEBUG_AI_MAX_CHARS)
+        extracted, _, extracted_end = _extract_first_json_object_with_span(raw)
+        extracted_trunc = _truncate_text(
+            extracted or "", settings.DEBUG_AI_MAX_CHARS
+        )
         stop_triggered = None
         if stop_strings_used:
             stop_triggered = any(stop_string in raw for stop_string in stop_strings_used)
@@ -414,12 +428,24 @@ class LlmCopywriter:
                 stop_triggered,
             )
         if settings.DEBUG or settings.DEBUG_AI:
-            logger.info("LLM raw output (truncated): %s", raw_trunc)
+            if extracted:
+                logger.info(
+                    "LLM extracted JSON (truncated): %s",
+                    extracted_trunc,
+                )
+            else:
+                logger.info("LLM extracted JSON not found in output.")
         if settings.DEBUG_AI and settings.DEBUG_AI_INCLUDE_PROMPT:
             logger.info(
                 "LLM prompt (truncated): %s",
                 _truncate_text(full_prompt, settings.DEBUG_AI_MAX_CHARS),
             )
+            if settings.DEBUG_AI_LOG_RAW_TAIL and extracted_end is not None:
+                raw_tail = raw[extracted_end:]
+                logger.info(
+                    "LLM raw tail (truncated): %s",
+                    _truncate_text(raw_tail, settings.DEBUG_AI_MAX_CHARS),
+                )
         try:
             return parse_llm_output(
                 raw,
@@ -479,3 +505,42 @@ class LlmCopywriter:
                     details={"timeoutSeconds": timeout_seconds},
                     http_status=502,
                 ) from exc
+
+
+def get_llm_copywriter(device: str, debug: LlmDebug | None = None) -> LlmCopywriter:
+    cache_key = normalize_device(device)
+    cached = _LLM_CACHE.get(cache_key)
+    if cached is not None:
+        if debug:
+            debug.llm_device_requested = device
+            debug.llm_device_resolved = cached._device_resolved
+        logger.info(
+            "LLM cache result llm_cache_hit=true llm_init_reason=reused device_requested=%s device_resolved=%s",
+            device,
+            cached._device_resolved,
+        )
+        return cached
+    with _LLM_CACHE_LOCK:
+        cached = _LLM_CACHE.get(cache_key)
+        if cached is not None:
+            if debug:
+                debug.llm_device_requested = device
+                debug.llm_device_resolved = cached._device_resolved
+            logger.info(
+                "LLM cache result llm_cache_hit=true llm_init_reason=reused device_requested=%s device_resolved=%s",
+                device,
+                cached._device_resolved,
+            )
+            return cached
+        new_instance = LlmCopywriter(device, debug=debug)
+        _LLM_CACHE[cache_key] = new_instance
+        logger.info(
+            "LLM cache result llm_cache_hit=false llm_init_reason=first_init device_requested=%s device_resolved=%s",
+            device,
+            new_instance._device_resolved,
+        )
+        return new_instance
+
+
+def preload_llm_copywriter(device: str) -> None:
+    get_llm_copywriter(device, debug=None)

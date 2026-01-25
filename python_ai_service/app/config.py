@@ -81,6 +81,9 @@ class Settings:
     LLM_STOP_STRINGS: tuple[str, ...] = _parse_stop_strings(
         LLM_STOP_STRINGS_RAW or ""
     )
+    LLM_PRELOAD_ON_STARTUP: bool = os.getenv(
+        "LLM_PRELOAD_ON_STARTUP", "0"
+    ).strip() in ("1", "true", "yes", "on")
 
     REQUEST_TIMEOUT_SEC: float = float(os.getenv("REQUEST_TIMEOUT_SEC", "30"))
     LLM_TIMEOUT_SECONDS: float = float(os.getenv("LLM_TIMEOUT_SECONDS", "20"))
@@ -88,6 +91,12 @@ class Settings:
 
     DEBUG_AI: bool = os.getenv("DEBUG_AI", "0").strip() in ("1", "true", "yes", "on")
     DEBUG_AI_INCLUDE_PROMPT: bool = os.getenv("DEBUG_AI_INCLUDE_PROMPT", "0").strip() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+    DEBUG_AI_LOG_RAW_TAIL: bool = os.getenv("DEBUG_AI_LOG_RAW_TAIL", "0").strip() in (
         "1",
         "true",
         "yes",

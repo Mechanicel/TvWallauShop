@@ -19,7 +19,7 @@ from ..errors import AiServiceError
 from ...model_manager import ensure_models
 from .captioner_openvino import Captioner
 from .image_loader import load_images
-from .llm_openvino_genai import LlmCopywriter
+from .llm_openvino_genai import get_llm_copywriter
 from .multi_image import captions_per_image, merge_tags_for_images
 from .normalize import normalize_tags
 from .tagger_openvino import ClipTagger
@@ -125,7 +125,9 @@ def run_pipeline(payload: AnalyzeProductRequest) -> AnalyzeProductResponse:
         captioner_ms = (time.perf_counter() - caption_start) * 1000
 
         llm_start = time.perf_counter()
-        llm = LlmCopywriter(routing.llm, debug=debug_info.llm if debug_info else None)
+        llm = get_llm_copywriter(
+            routing.llm, debug=debug_info.llm if debug_info else None
+        )
         tag_values = merged.tags_for_llm or normalize_tags(
             [tag.value for tag in tags]
         )
