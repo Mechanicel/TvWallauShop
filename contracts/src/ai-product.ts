@@ -67,6 +67,14 @@ export interface ClipTagScore {
   score: number;
 }
 
+export interface TagStat {
+  tag: string;
+  count: number;
+  meanScore: number;
+  maxScore: number;
+  frequency: number;
+}
+
 export interface ClipDebug {
   device: string;
   modelDir: string;
@@ -111,11 +119,20 @@ export interface AnalyzeDebug {
   clipTagsIntersection?: string[];
   tagMergeStrategy?: string;
   tagMergeFallback?: string;
+  tagsStrict?: string[];
+  tagsSoft?: string[];
+  tagStats?: TagStat[];
+  tagsPerImage?: ClipTagScore[][];
+  brandCandidate?: string;
+  brandConfidence?: number;
   blipCaption?: string;
   blipCaptionsPerImage?: string[];
   blipCaptionImage1?: string;
   blipCaptionImage2?: string;
   captionsSentToLlm?: string[];
+  captionConsensus?: string[];
+  captionsPerImage?: string[];
+  productFacts?: Record<string, unknown>;
   llm: LlmDebug;
 }
 

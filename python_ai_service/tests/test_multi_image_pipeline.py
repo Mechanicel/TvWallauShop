@@ -1,5 +1,10 @@
 from app.contracts_models import Caption, Tag
-from app.services.pipeline.multi_image import captions_per_image, merge_tags_for_images
+from app.services.pipeline.multi_image import (
+    build_tag_stat_models,
+    build_tag_stats,
+    captions_per_image,
+    merge_tags_for_images,
+)
 
 
 def test_merge_tags_for_images_uses_intersection():
@@ -44,3 +49,21 @@ def test_captions_per_image_returns_ordered_list():
         "First image caption",
         "Second image caption",
     ]
+
+
+def test_build_tag_stats_single_image_has_mean_and_max_scores():
+    tags_per_image = [
+        [
+            Tag(value="Blue Shirt", score=0.8, source="clip"),
+            Tag(value="Cotton", score=0.6, source="clip"),
+        ]
+    ]
+
+    tag_stats = build_tag_stats(tags_per_image)
+    stats_models = build_tag_stat_models(tag_stats)
+    stats_lookup = {stat.tag: stat for stat in stats_models}
+
+    assert stats_lookup["blue shirt"].mean_score == 0.8
+    assert stats_lookup["blue shirt"].max_score == 0.8
+    assert stats_lookup["cotton"].mean_score == 0.6
+    assert stats_lookup["cotton"].max_score == 0.6
