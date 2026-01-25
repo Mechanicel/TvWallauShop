@@ -37,6 +37,8 @@ export type ProductAiJobStatus = 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'FAILED'
 export interface ProductAiJob {
   id: number;
   product_id: number | null;
+  price: number | null;
+  image_urls: string[];
   status: ProductAiJobStatus;
   result_display_name: string | null;
   result_description: string | null;

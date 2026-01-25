@@ -36,7 +36,6 @@ import './ManageProducts.css';
 // Lokaler Typ für die KI-Queue
 type QueuedAiItem = {
    job: ProductAiJob;
-   price: number;
    files: File[];
 };
 
@@ -98,7 +97,7 @@ export const ManageProducts: React.FC = () => {
                merged.push({ ...existing, job: { ...existing.job, ...job } });
                prevById.delete(job.id);
             } else {
-               merged.push({ job, price: 0, files: [] });
+               merged.push({ job, files: [] });
             }
          }
 
@@ -140,7 +139,7 @@ export const ManageProducts: React.FC = () => {
          setQueuedAiItems((prev) => {
             const idx = prev.findIndex((item) => item.job.id === job.id);
             if (idx === -1) {
-               return [...prev, { job, price: 0, files: [] }];
+               return [...prev, { job, files: [] }];
             }
             const next = [...prev];
             next[idx] = { ...next[idx], job: { ...next[idx].job, ...job } };
@@ -190,13 +189,12 @@ export const ManageProducts: React.FC = () => {
          // ✅ Upsert, damit kein Duplicate entsteht, falls ein Socket-Update bereits vorher ankam
          setQueuedAiItems((prev) => {
             const idx = prev.findIndex((q) => q.job.id === createdJob.id);
-            if (idx === -1) return [...prev, { job: createdJob, price, files }];
+            if (idx === -1) return [...prev, { job: createdJob, files }];
 
             const next = [...prev];
             next[idx] = {
                ...next[idx],
                job: { ...next[idx].job, ...createdJob },
-               price,
                files,
             };
             return next;
@@ -207,12 +205,17 @@ export const ManageProducts: React.FC = () => {
    };
 
    const handleCompleteFromAi = (item: QueuedAiItem) => {
+      if (item.job.price == null) {
+         window.alert('Preis konnte nicht geladen werden. Bitte Job neu laden oder erneut versuchen.');
+         return;
+      }
+
       setCompletingJobId(item.job.id);
 
       setEditingProduct({
          name: item.job.result_display_name ?? '',
          description: item.job.result_description ?? '',
-         price: item.price,
+         price: item.job.price,
          imageUrl: '',
          sizes: [],
          images: [],
@@ -385,11 +388,16 @@ export const ManageProducts: React.FC = () => {
             <h3>Offene KI-Produkte</h3>
 
             {queuedAiItems.map((item) => {
-               const { job, price } = item;
+               const { job } = item;
                const success = job.status === 'SUCCESS';
                const failed = job.status === 'FAILED';
 
                const retrying = isRetrying(job.id);
+               const hasImages = (job.image_urls ?? []).length > 0;
+               const formattedPrice =
+                  typeof job.price === 'number' && Number.isFinite(job.price)
+                     ? `Preis: ${job.price.toFixed(2)} €`
+                     : 'Preis: –';
 
                return (
                   <div key={job.id} className={`products-ai-item products-ai-item--${job.status.toLowerCase()}`}>
@@ -401,7 +409,21 @@ export const ManageProducts: React.FC = () => {
                         </div>
 
                         {job.result_display_name && <div>{job.result_display_name}</div>}
-                        <div>Preis: {price.toFixed(2)} €</div>
+                        <div>{formattedPrice}</div>
+                        {hasImages ? (
+                           <div className="products-ai-item-images">
+                              {job.image_urls.map((url, index) => (
+                                 <img
+                                    key={`${job.id}-img-${index}`}
+                                    src={resolveImageUrl(url)}
+                                    alt={`KI-Bild ${index + 1}`}
+                                    className="products-ai-item-image"
+                                 />
+                              ))}
+                           </div>
+                        ) : (
+                           <div className="products-ai-item-images products-ai-item-images--empty">Bilder: –</div>
+                        )}
                         {job.error_message && <div className="products-ai-item-error">{job.error_message}</div>}
                      </div>
 

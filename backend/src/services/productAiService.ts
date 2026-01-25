@@ -34,10 +34,42 @@ export interface ProductAiServiceDependencies {
     getIO: typeof getIO;
 }
 
+function getPublicBaseUrl(): string {
+    return (process.env.APP_URL || 'http://localhost:3000').replace(/\/$/, '');
+}
+
+function parseImagePaths(rawPaths: string | null | undefined): string[] {
+    if (!rawPaths) return [];
+    try {
+        const parsed = JSON.parse(rawPaths);
+        if (!Array.isArray(parsed)) return [];
+        return parsed.map((value) => String(value)).filter(Boolean);
+    } catch (err) {
+        console.warn('[AI] Failed to parse image_paths', err);
+        return [];
+    }
+}
+
+function buildImageUrlsFromPaths(imagePaths: string[]): string[] {
+    const publicBase = getPublicBaseUrl();
+    return imagePaths.map((p) => {
+        const normalized = String(p).replace(/\\/g, '/').replace(/^\.\?\//, '').replace(/^\.\//, '');
+        return `${publicBase}/${normalized}`;
+    });
+}
+
+function parsePrice(value: number | string): number | null {
+    const parsed = typeof value === 'number' ? value : Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+}
+
 function mapRowToResponse(row: ProductAiJobRow): ProductAiJob {
+    const imagePaths = parseImagePaths(row.image_paths);
     return {
         id: row.id,
         product_id: row.product_id,
+        price: parsePrice(row.price),
+        image_urls: buildImageUrlsFromPaths(imagePaths),
         status: row.status,
         result_display_name: row.result_display_name,
         result_description: row.result_description,
@@ -292,15 +324,9 @@ export function createProductAiService(dependencies: ProductAiServiceDependencie
         safeEmit('aiJob:updated', mapRowToResponse(processingUpdate.row));
 
         try {
-            const imagePaths: string[] = row.image_paths ? JSON.parse(row.image_paths) : [];
+            const imagePaths = parseImagePaths(row.image_paths);
             const price = Number(row.price);
-
-            const publicBase = (process.env.APP_URL || 'http://localhost:3000').replace(/\/$/, '');
-
-            const imageUrls = imagePaths.map((p) => {
-                const normalized = String(p).replace(/\\/g, '/').replace(/^\.\?\//, '').replace(/^\.\//, '');
-                return `${publicBase}/${normalized}`;
-            });
+            const imageUrls = buildImageUrlsFromPaths(imagePaths);
 
             const aiRes = await analyzeProductViaPython({ jobId, price, imageUrls });
             const validation = validateAiCopyOutput(aiRes.title, aiRes.description);
