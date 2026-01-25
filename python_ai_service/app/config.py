@@ -55,6 +55,11 @@ class Settings:
 
     LLM_MAX_NEW_TOKENS: int = int(os.getenv("LLM_MAX_NEW_TOKENS", "220"))
     LLM_TEMPERATURE: float = float(os.getenv("LLM_TEMPERATURE", "0.4"))
+    LLM_STOP_STRINGS: tuple[str, ...] = tuple(
+        s.strip()
+        for s in os.getenv("LLM_STOP_STRINGS", "").split("|")
+        if s.strip()
+    )
 
     REQUEST_TIMEOUT_SEC: float = float(os.getenv("REQUEST_TIMEOUT_SEC", "30"))
     LLM_TIMEOUT_SECONDS: float = float(os.getenv("LLM_TIMEOUT_SECONDS", "20"))

@@ -103,6 +103,10 @@ class LlmDebug(BaseModel):
         default=None, alias="llmDeviceResolved"
     )
     llm_timeout_hit: Optional[bool] = Field(default=None, alias="llmTimeoutHit")
+    stop_strings_used: Optional[List[str]] = Field(
+        default=None, alias="stopStringsUsed"
+    )
+    stop_triggered: Optional[bool] = Field(default=None, alias="stopTriggered")
 
 
 class AnalyzeDebug(BaseModel):
