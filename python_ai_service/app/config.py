@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
@@ -34,6 +35,15 @@ def _parse_stop_strings(value: str) -> tuple[str, ...]:
             continue
         stop_strings.append(cleaned.replace("\\n", "\n"))
     return tuple(stop_strings)
+
+
+def _parse_list(value: str) -> tuple[str, ...]:
+    if not value:
+        return ()
+    value = _strip_optional_quotes(value)
+    items = re.split(r"[|,]", value)
+    cleaned = [_strip_optional_quotes(item).strip() for item in items]
+    return tuple([item for item in cleaned if item])
 
 
 class Settings:
@@ -74,6 +84,14 @@ class Settings:
 
     MAX_TAGS: int = int(os.getenv("MAX_TAGS", "10"))
     MAX_CAPTIONS_PER_IMAGE: int = int(os.getenv("MAX_CAPTIONS_PER_IMAGE", "1"))
+    TAG_SHARED_MIN_RATIO: float = float(os.getenv("TAG_SHARED_MIN_RATIO", "0.6"))
+    MAX_SOFT_TAGS: int = int(os.getenv("MAX_SOFT_TAGS", "12"))
+    BRAND_LIST_RAW: str = os.getenv("BRAND_LIST", "").strip()
+    BRAND_LIST: tuple[str, ...] = _parse_list(BRAND_LIST_RAW)
+    CAPTION_MAX_CHARS: int = int(os.getenv("CAPTION_MAX_CHARS", "280"))
+    CAPTION_DEDUP_REPETITION_THRESHOLD: int = int(
+        os.getenv("CAPTION_DEDUP_REPETITION_THRESHOLD", "3")
+    )
 
     LLM_MAX_NEW_TOKENS: int = int(os.getenv("LLM_MAX_NEW_TOKENS", "220"))
     LLM_TEMPERATURE: float = float(os.getenv("LLM_TEMPERATURE", "0.4"))

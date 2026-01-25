@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+from collections import Counter, defaultdict
 from dataclasses import dataclass
 
 from ...contracts_models import Caption, Tag
@@ -13,6 +15,21 @@ class TagMergeResult:
     intersection: list[str]
     strategy: str
     fallback: str | None
+
+
+@dataclass(frozen=True)
+class TagStats:
+    count: int
+    mean_score: float
+    max_score: float
+    frequency: float
+
+
+@dataclass(frozen=True)
+class TagSetResult:
+    tags_strict: list[str]
+    tags_soft: list[str]
+    tag_stats: dict[str, TagStats]
 
 
 def normalize_tag_value(value: str) -> str:
@@ -117,6 +134,129 @@ def merge_tags_for_images(
         strategy="intersection_all",
         fallback=fallback,
     )
+
+
+def build_tag_sets(
+    tags_per_image: list[list[Tag]],
+    min_shared_ratio: float,
+    max_soft_tags: int,
+) -> TagSetResult:
+    image_count = len(tags_per_image)
+    if image_count == 0:
+        return TagSetResult(tags_strict=[], tags_soft=[], tag_stats={})
+
+    min_shared_ratio = min(max(min_shared_ratio, 0.0), 1.0)
+    normalized_per_image = [
+        normalize_scored_tags(tags) for tags in tags_per_image
+    ]
+    values_per_image = [
+        [tag.value for tag in normalized_tags]
+        for normalized_tags in normalized_per_image
+    ]
+    intersection_set = set(values_per_image[0])
+    for values in values_per_image[1:]:
+        intersection_set &= set(values)
+    tags_strict = [
+        value for value in values_per_image[0] if value in intersection_set
+    ]
+
+    score_totals: dict[str, float] = defaultdict(float)
+    max_scores: dict[str, float] = defaultdict(float)
+    counts: dict[str, int] = defaultdict(int)
+    for normalized_tags in normalized_per_image:
+        for tag in normalized_tags:
+            counts[tag.value] += 1
+            score = tag.score or 0.0
+            score_totals[tag.value] += score
+            if score > max_scores[tag.value]:
+                max_scores[tag.value] = score
+
+    tag_stats: dict[str, TagStats] = {}
+    for tag, count in counts.items():
+        mean_score = score_totals[tag] / count if count else 0.0
+        frequency = count / image_count if image_count else 0.0
+        tag_stats[tag] = TagStats(
+            count=count,
+            mean_score=mean_score,
+            max_score=max_scores.get(tag, 0.0),
+            frequency=frequency,
+        )
+
+    shared_tags = [
+        tag
+        for tag, stats in tag_stats.items()
+        if stats.frequency >= min_shared_ratio
+    ]
+    sorted_shared = sorted(
+        shared_tags,
+        key=lambda tag: (
+            -tag_stats[tag].frequency,
+            -tag_stats[tag].mean_score,
+            tag,
+        ),
+    )
+    max_soft_tags = max(0, max_soft_tags)
+    tags_soft = sorted_shared[:max_soft_tags] if max_soft_tags else []
+
+    return TagSetResult(
+        tags_strict=normalize_tags(tags_strict),
+        tags_soft=normalize_tags(tags_soft),
+        tag_stats=tag_stats,
+    )
+
+
+def clean_caption_text(
+    text: str,
+    max_chars: int,
+    repetition_threshold: int,
+) -> str:
+    if not text:
+        return ""
+    cleaned = re.sub(r"[\\/|]{4,}", " ", text)
+    tokens = cleaned.split()
+    deduped: list[str] = []
+    last_token = ""
+    repeat_count = 0
+    for token in tokens:
+        if token == last_token:
+            repeat_count += 1
+        else:
+            repeat_count = 1
+            last_token = token
+        if repeat_count > repetition_threshold:
+            continue
+        deduped.append(token)
+    cleaned = " ".join(deduped).strip()
+    if len(cleaned) > max_chars:
+        cleaned = cleaned[:max_chars].rstrip()
+    return cleaned
+
+
+def build_caption_consensus(
+    captions: list[str],
+    max_items: int = 8,
+) -> list[str]:
+    unigram_counts = Counter()
+    bigram_counts = Counter()
+    for caption in captions:
+        tokens = re.findall(r"[a-z0-9]+", caption.lower())
+        if not tokens:
+            continue
+        unigram_counts.update(tokens)
+        bigram_counts.update(
+            f"{tokens[idx]} {tokens[idx + 1]}"
+            for idx in range(len(tokens) - 1)
+        )
+    if not unigram_counts and not bigram_counts:
+        return []
+    combined = Counter()
+    combined.update(unigram_counts)
+    combined.update(bigram_counts)
+    ranked = sorted(
+        combined.items(),
+        key=lambda item: (-item[1], item[0]),
+    )
+    return [item[0] for item in ranked[:max_items]]
 
 
 def captions_per_image(

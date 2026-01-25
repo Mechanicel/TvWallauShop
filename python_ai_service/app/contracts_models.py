@@ -81,6 +81,14 @@ class ClipTagScore(BaseModel):
     score: float
 
 
+class TagStat(BaseModel):
+    tag: str
+    count: int
+    mean_score: float = Field(..., alias="meanScore")
+    max_score: float = Field(..., alias="maxScore")
+    frequency: float
+
+
 class LlmDebug(BaseModel):
     model_config = ConfigDict(validate_by_name=True)
 
@@ -139,6 +147,15 @@ class AnalyzeDebug(BaseModel):
     tag_merge_fallback: Optional[str] = Field(
         default=None, alias="tagMergeFallback"
     )
+    tags_strict: List[str] = Field(default_factory=list, alias="tagsStrict")
+    tags_soft: List[str] = Field(default_factory=list, alias="tagsSoft")
+    tag_stats: List[TagStat] = Field(default_factory=list, alias="tagStats")
+    brand_candidate: Optional[str] = Field(
+        default=None, alias="brandCandidate"
+    )
+    brand_confidence: Optional[float] = Field(
+        default=None, alias="brandConfidence"
+    )
     blip_caption: Optional[str] = Field(default=None, alias="blipCaption")
     blip_captions_per_image: Optional[List[str]] = Field(
         default=None, alias="blipCaptionsPerImage"
@@ -151,6 +168,9 @@ class AnalyzeDebug(BaseModel):
     )
     captions_sent_to_llm: List[str] = Field(
         default_factory=list, alias="captionsSentToLlm"
+    )
+    caption_consensus: List[str] = Field(
+        default_factory=list, alias="captionConsensus"
     )
     llm: LlmDebug
 

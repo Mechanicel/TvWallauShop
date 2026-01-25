@@ -311,11 +311,12 @@ class LlmCopywriter:
         currency: str,
         tags: list[str],
         captions: list[str],
+        product_facts: dict[str, object],
         debug: LlmDebug | None = None,
         include_prompt: bool = False,
         allow_debug_failure: bool = False,
     ) -> tuple[str, str]:
-        prompt = build_copy_prompt(price_amount, currency, tags, captions)
+        prompt = build_copy_prompt(price_amount, currency, product_facts)
         return self._generate_with_retry(
             prompt,
             retry=True,
