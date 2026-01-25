@@ -79,7 +79,7 @@ def run_pipeline(payload: AnalyzeProductRequest) -> AnalyzeProductResponse:
             caption_texts,
             debug=debug_info.llm if debug_info else None,
             include_prompt=include_prompt,
-            allow_debug_failure=debug_response,
+            allow_debug_failure=False,
         )
         llm_ms = (time.perf_counter() - llm_start) * 1000
 

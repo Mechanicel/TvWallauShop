@@ -67,6 +67,31 @@ function extractTagValues(tags: Tag[] | null | undefined): string[] {
     return tags.map((tag) => tag.value);
 }
 
+function truncateLogText(value: string, maxChars: number): string {
+    if (value.length <= maxChars) return value;
+    return value.slice(0, maxChars);
+}
+
+function validateAiCopyOutput(
+    title: string | null | undefined,
+    description: string | null | undefined
+): { valid: boolean; error?: string } {
+    if (typeof title !== 'string' || typeof description !== 'string') {
+        return { valid: false, error: 'Title and description must be strings.' };
+    }
+    if (title.length < 55 || title.length > 90) {
+        return { valid: false, error: 'Title length out of range.' };
+    }
+    const sentenceCount = description.split('.').filter((s) => s.trim()).length;
+    if (sentenceCount < 2 || sentenceCount > 4) {
+        return { valid: false, error: 'Description must be 2-4 sentences.' };
+    }
+    if (!description.trim()) {
+        return { valid: false, error: 'Description must not be empty.' };
+    }
+    return { valid: true };
+}
+
 export async function getProductAiJobById(jobId: number): Promise<ProductAiJob | null> {
     const row = await knex<ProductAiJobRow>('product_ai_jobs').where({ id: jobId }).first();
     return row ? mapRowToResponse(row) : null;
@@ -200,14 +225,36 @@ async function processProductAiJobImpl(jobId: number, allowIfAlreadyProcessing: 
         });
 
         const aiRes = await analyzeProductViaPython({ jobId, price, imageUrls });
+        const validation = validateAiCopyOutput(aiRes.title, aiRes.description);
+        const parsedTitle = typeof aiRes.title === 'string' ? aiRes.title : '';
+        const parsedDescription = typeof aiRes.description === 'string' ? aiRes.description : '';
+        console.info(
+            `[AI] LLM parsed output jobId=${jobId} schema_valid=${validation.valid} schema_error=${
+                validation.error || ''
+            } parsed_title=${JSON.stringify(truncateLogText(parsedTitle, 200))} parsed_description=${JSON.stringify(
+                truncateLogText(parsedDescription, 400)
+            )}`
+        );
+        if (!validation.valid) {
+            throw new ProductAiError('AI_INVALID_OUTPUT', validation.error || 'Invalid AI output.', 502, {
+                jobId,
+                title: parsedTitle,
+                description: parsedDescription,
+            });
+        }
         const tags = normalizeTags(extractTagValues(aiRes.tags));
 
+        console.info(
+            `[AI] Persisting AI results jobId=${jobId} result_display_name=${JSON.stringify(
+                truncateLogText(parsedTitle, 200)
+            )} result_description=${JSON.stringify(truncateLogText(parsedDescription, 400))}`
+        );
         await knex('product_ai_jobs')
             .where({ id: jobId })
             .update({
                 status: 'SUCCESS',
-                result_display_name: aiRes.title,
-                result_description: aiRes.description,
+                result_display_name: parsedTitle,
+                result_description: parsedDescription,
                 result_tags: JSON.stringify(tags),
                 error_message: null,
                 updated_at: knex.fn.now(),
