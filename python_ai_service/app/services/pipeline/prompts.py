@@ -19,7 +19,7 @@ Create an English product title and a product description for an online shop.
 Constraints:
 - Output MUST be valid JSON.
 - JSON keys: "title", "description".
-- Title: 55-90 characters, product-focused, no quotes.
+- Title: product-focused, concise, no quotes.
 - Description: 2-4 sentences, concrete, based on tags/captions, no "AI generated", no disclaimers.
 - Do NOT mention that you are an AI.
 - Do NOT include bullet lists.

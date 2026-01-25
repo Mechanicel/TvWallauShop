@@ -193,13 +193,6 @@ def parse_llm_output(
     if debug:
         debug.parsed_title = title if isinstance(title, str) else None
         debug.parsed_description = description if isinstance(description, str) else None
-        if isinstance(title, str) and not (55 <= len(title) <= 90):
-            debug.title_length_warning = (
-                f"Title length out of range: {len(title)}"
-            )
-            logger.debug(
-                "LLM title length warning length=%s", len(title)
-            )
     try:
         _validate_copy_output(title, description)
     except ValueError as exc:

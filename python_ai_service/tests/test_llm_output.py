@@ -67,4 +67,4 @@ def test_parse_llm_output_keeps_short_title():
     title, description = parse_llm_output(raw, debug, allow_debug_failure=False)
     assert title == "Short title"
     assert description.endswith(".")
-    assert debug.title_length_warning is not None
+    assert debug.title_length_warning is None
