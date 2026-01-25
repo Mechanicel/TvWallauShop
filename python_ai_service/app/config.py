@@ -14,6 +14,18 @@ load_dotenv()
 logger = logging.getLogger("tvwallau-ai")
 
 
+def _parse_stop_strings(value: str) -> tuple[str, ...]:
+    if not value:
+        return ()
+    stop_strings: list[str] = []
+    for item in value.split("|"):
+        cleaned = item.strip()
+        if not cleaned:
+            continue
+        stop_strings.append(cleaned.replace("\\n", "\n"))
+    return tuple(stop_strings)
+
+
 class Settings:
     # Server
     AI_SERVICE_HOST: str = os.getenv("AI_SERVICE_HOST", "0.0.0.0")
@@ -55,10 +67,8 @@ class Settings:
 
     LLM_MAX_NEW_TOKENS: int = int(os.getenv("LLM_MAX_NEW_TOKENS", "220"))
     LLM_TEMPERATURE: float = float(os.getenv("LLM_TEMPERATURE", "0.4"))
-    LLM_STOP_STRINGS: tuple[str, ...] = tuple(
-        s.strip()
-        for s in os.getenv("LLM_STOP_STRINGS", "").split("|")
-        if s.strip()
+    LLM_STOP_STRINGS: tuple[str, ...] = _parse_stop_strings(
+        os.getenv("LLM_STOP_STRINGS", "")
     )
 
     REQUEST_TIMEOUT_SEC: float = float(os.getenv("REQUEST_TIMEOUT_SEC", "30"))

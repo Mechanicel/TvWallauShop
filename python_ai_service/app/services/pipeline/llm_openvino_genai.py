@@ -55,9 +55,12 @@ def _validate_copy_output(title: str, description: str) -> None:
 
 
 def parse_llm_json(result: str) -> tuple[str, str]:
-    parsed = json.loads(result)
-    if not isinstance(parsed, dict):
-        raise ValueError("Parsed JSON must be an object.")
+    candidate = _extract_first_json_object(result)
+    if candidate is None:
+        raise ValueError("No JSON object found.")
+    parsed, parse_error = _parse_json_strict(candidate)
+    if parse_error or parsed is None:
+        raise ValueError(parse_error or "JSON parse failed.")
     title = parsed.get("title")
     description = parsed.get("description")
     _validate_copy_output(title, description)
@@ -347,8 +350,8 @@ class LlmCopywriter:
         if debug is not None:
             debug.stop_strings_used = stop_strings_used
             debug.stop_triggered = stop_triggered
-        if settings.DEBUG_AI and stop_strings_used:
-            logger.info(
+        if settings.DEBUG or settings.DEBUG_AI:
+            logger.debug(
                 "LLM stop strings used=%s stop_triggered=%s",
                 stop_strings_used,
                 stop_triggered,
@@ -380,7 +383,13 @@ class LlmCopywriter:
     def _resolve_stop_strings(self) -> tuple[str, ...]:
         if settings.LLM_STOP_STRINGS:
             return settings.LLM_STOP_STRINGS
-        return ("\n### User", "\nYou are an AI assistant", "\n### System")
+        return (
+            "You are an AI assistant",
+            "Yes_or_No",
+            "### User",
+            "### System",
+            "### Assistant",
+        )
 
     def _generate_with_timeout(
         self,
