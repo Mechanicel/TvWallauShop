@@ -1,7 +1,8 @@
 import logging
 import os
-from typing import Literal
 from functools import lru_cache
+from pathlib import Path
+from typing import Literal
 
 from dotenv import load_dotenv
 
@@ -9,17 +10,26 @@ from .contracts_models import DeviceRouting
 from .ov_runtime import normalize_device
 
 # .env-Datei aus Projektroot laden (wenn vorhanden)
-load_dotenv()
+_ENV_PATH = Path(__file__).resolve().parents[1] / ".env"
+load_dotenv(dotenv_path=_ENV_PATH, override=False)
 
 logger = logging.getLogger("tvwallau-ai")
+
+
+def _strip_optional_quotes(value: str) -> str:
+    value = value.strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
+        return value[1:-1].strip()
+    return value
 
 
 def _parse_stop_strings(value: str) -> tuple[str, ...]:
     if not value:
         return ()
+    value = _strip_optional_quotes(value)
     stop_strings: list[str] = []
     for item in value.split("|"):
-        cleaned = item.strip()
+        cleaned = _strip_optional_quotes(item)
         if not cleaned:
             continue
         stop_strings.append(cleaned.replace("\\n", "\n"))
@@ -67,8 +77,9 @@ class Settings:
 
     LLM_MAX_NEW_TOKENS: int = int(os.getenv("LLM_MAX_NEW_TOKENS", "220"))
     LLM_TEMPERATURE: float = float(os.getenv("LLM_TEMPERATURE", "0.4"))
+    LLM_STOP_STRINGS_RAW: str | None = os.getenv("LLM_STOP_STRINGS")
     LLM_STOP_STRINGS: tuple[str, ...] = _parse_stop_strings(
-        os.getenv("LLM_STOP_STRINGS", "")
+        LLM_STOP_STRINGS_RAW or ""
     )
 
     REQUEST_TIMEOUT_SEC: float = float(os.getenv("REQUEST_TIMEOUT_SEC", "30"))

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import itertools
 import json
 import logging
 import os
@@ -139,10 +140,45 @@ def _parse_json_strict(text: str) -> tuple[dict | None, str | None]:
         return None, str(exc)
 
 
+def _is_title_length_error(exc: AiServiceError) -> bool:
+    if exc.code != "LLM_OUTPUT_INVALID":
+        return False
+    details = exc.details or {}
+    if isinstance(details, dict):
+        return details.get("error") == "Title length out of range."
+    return False
+
+
+def _adjust_title_length(title: str, tags: list[str]) -> str:
+    cleaned_title = title.strip()
+    if len(cleaned_title) > 90:
+        return cleaned_title[:90].rstrip()
+    if len(cleaned_title) >= 55:
+        return cleaned_title
+    cleaned_tags = [tag.strip() for tag in tags if tag and tag.strip()]
+    if not cleaned_tags:
+        return cleaned_title
+    candidate = cleaned_title
+    separator = " | "
+    for tag in itertools.cycle(cleaned_tags):
+        if len(candidate) >= 55:
+            break
+        addition = f"{separator}{tag}"
+        if len(candidate) + len(addition) > 90:
+            break
+        candidate += addition
+        if len(candidate) >= 55:
+            break
+        if len(candidate) >= 90:
+            break
+    return candidate
+
+
 def parse_llm_output(
     raw: str,
     debug: LlmDebug | None,
     allow_debug_failure: bool,
+    tags: list[str] | None = None,
 ) -> tuple[str, str]:
     candidate = _extract_first_json_object(raw)
     if debug:
@@ -170,6 +206,7 @@ def parse_llm_output(
         debug.extracted_json_truncated = _truncate_text(
             candidate, settings.DEBUG_AI_MAX_CHARS
         )
+        debug.extracted_json = candidate
         debug.extracted_json_chars = len(candidate)
         if parse_error:
             debug.json_parse_error = parse_error
@@ -190,9 +227,24 @@ def parse_llm_output(
         )
     title = parsed.get("title")
     description = parsed.get("description")
+    if debug:
+        debug.parsed_title = title if isinstance(title, str) else None
+        debug.parsed_description = description if isinstance(description, str) else None
     try:
         _validate_copy_output(title, description)
     except ValueError as exc:
+        if str(exc) == "Title length out of range." and isinstance(title, str):
+            adjusted_title = _adjust_title_length(title, tags or [])
+            if 55 <= len(adjusted_title) <= 90:
+                if debug:
+                    debug.parsed_title = adjusted_title
+                _log_llm_schema_trace(
+                    title=adjusted_title,
+                    description=description if isinstance(description, str) else None,
+                    schema_valid=True,
+                    schema_error=None,
+                )
+                return adjusted_title, description
         if debug:
             debug.schema_error = str(exc)
         _log_llm_schema_trace(
@@ -305,6 +357,7 @@ class LlmCopywriter:
         return self._generate_with_retry(
             prompt,
             retry=True,
+            tags=tags,
             debug=debug,
             include_prompt=include_prompt,
             allow_debug_failure=allow_debug_failure,
@@ -323,31 +376,38 @@ class LlmCopywriter:
         self,
         prompt: str,
         retry: bool,
+        tags: list[str],
         debug: LlmDebug | None = None,
         include_prompt: bool = False,
         allow_debug_failure: bool = False,
     ) -> tuple[str, str]:
         full_prompt = self._build_full_prompt(prompt)
-        stop_strings = self._resolve_stop_strings()
+        stop_strings, stop_strings_from_env = self._resolve_stop_strings()
         config_kwargs = {
             "max_new_tokens": max(1, settings.LLM_MAX_NEW_TOKENS),
             "temperature": settings.LLM_TEMPERATURE,
         }
         stop_strings_used: list[str] | None = None
         if stop_strings:
+            stop_strings_used = list(stop_strings)
             try:
                 if "stop_strings" in signature(self._ov_genai.GenerationConfig).parameters:
                     config_kwargs["stop_strings"] = stop_strings
-                    stop_strings_used = list(stop_strings)
             except (TypeError, ValueError):
                 pass
         config = self._ov_genai.GenerationConfig(**config_kwargs)
-        if stop_strings and stop_strings_used is None and hasattr(config, "stop_strings"):
+        if stop_strings and hasattr(config, "stop_strings"):
             try:
                 config.stop_strings = stop_strings
-                stop_strings_used = list(stop_strings)
             except Exception:
-                stop_strings_used = None
+                pass
+        generate_kwargs: dict[str, object] = {}
+        if stop_strings:
+            try:
+                if "stop_strings" in signature(self.pipeline.generate).parameters:
+                    generate_kwargs["stop_strings"] = stop_strings
+            except (TypeError, ValueError):
+                pass
         generate_start = time.monotonic()
         logger.info(
             "LLM generate start ts=%.6f device_resolved=%s",
@@ -355,7 +415,9 @@ class LlmCopywriter:
             self._device_resolved,
         )
         try:
-            result = self._generate_with_timeout(full_prompt, config, debug)
+            result = self._generate_with_timeout(
+                full_prompt, config, debug, generate_kwargs
+            )
             if debug is not None:
                 debug.llm_timeout_hit = False
         except AiServiceError as exc:
@@ -389,7 +451,10 @@ class LlmCopywriter:
         if stop_strings_used:
             stop_triggered = any(stop_string in raw for stop_string in stop_strings_used)
         if debug is not None:
-            debug.stop_strings_used = stop_strings_used
+            if stop_strings_used is None and stop_strings_from_env:
+                debug.stop_strings_used = None
+            else:
+                debug.stop_strings_used = stop_strings_used or []
             debug.stop_triggered = stop_triggered
         if settings.DEBUG or settings.DEBUG_AI:
             logger.debug(
@@ -405,31 +470,37 @@ class LlmCopywriter:
                 _truncate_text(full_prompt, settings.DEBUG_AI_MAX_CHARS),
             )
         try:
-            return parse_llm_output(raw, debug, allow_debug_failure)
+            return parse_llm_output(
+                raw,
+                debug,
+                allow_debug_failure,
+                tags=tags,
+            )
         except AiServiceError as exc:
-            if retry:
-                retry_prompt = (
-                    "Your previous output was invalid JSON or did not match the schema. "
-                    "Return ONLY valid JSON with keys title and description."
-                )
+            if retry and not _is_title_length_error(exc):
+                retry_prompt = "Return ONLY JSON with keys title and description. Make title 55-90 chars."
                 return self._generate_with_retry(
                     f"{prompt}\n\n{retry_prompt}",
                     retry=False,
+                    tags=tags,
                     debug=debug,
                     include_prompt=include_prompt,
                     allow_debug_failure=allow_debug_failure,
                 )
             raise exc
 
-    def _resolve_stop_strings(self) -> tuple[str, ...]:
+    def _resolve_stop_strings(self) -> tuple[tuple[str, ...], bool]:
         if settings.LLM_STOP_STRINGS:
-            return settings.LLM_STOP_STRINGS
+            return settings.LLM_STOP_STRINGS, True
         return (
-            "You are an AI assistant",
-            "Yes_or_No",
-            "### User",
-            "### System",
-            "### Assistant",
+            (
+                "You are an AI assistant",
+                "Yes_or_No",
+                "### User",
+                "### System",
+                "### Assistant",
+            ),
+            settings.LLM_STOP_STRINGS_RAW is not None,
         )
 
     def _generate_with_timeout(
@@ -437,12 +508,15 @@ class LlmCopywriter:
         full_prompt: str,
         config: object,
         debug: LlmDebug | None,
+        generate_kwargs: dict[str, object],
     ) -> str:
         timeout_seconds = settings.LLM_TIMEOUT_SECONDS
         if timeout_seconds <= 0:
-            return self.pipeline.generate(full_prompt, config)
+            return self.pipeline.generate(full_prompt, config, **generate_kwargs)
         with ThreadPoolExecutor(max_workers=1) as executor:
-            future = executor.submit(self.pipeline.generate, full_prompt, config)
+            future = executor.submit(
+                self.pipeline.generate, full_prompt, config, **generate_kwargs
+            )
             try:
                 return future.result(timeout=timeout_seconds)
             except FuturesTimeoutError as exc:

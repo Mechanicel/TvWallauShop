@@ -34,7 +34,12 @@ def run_pipeline(payload: AnalyzeProductRequest) -> AnalyzeProductResponse:
 
     ensure_models(mode="never", offline=settings.OFFLINE, settings=settings)
     routing = settings.device_routing()
-    debug_enabled = settings.DEBUG or settings.DEBUG_AI or payload.debug
+    debug_enabled = (
+        settings.DEBUG
+        or settings.DEBUG_AI
+        or payload.debug
+        or settings.DEBUG_AI_RESPONSE
+    )
     include_prompt = settings.DEBUG_AI_INCLUDE_PROMPT or payload.debug_include_prompt
     debug_response = settings.DEBUG or (debug_enabled and settings.DEBUG_AI_RESPONSE)
     debug_info: AnalyzeDebug | None = None
@@ -79,7 +84,7 @@ def run_pipeline(payload: AnalyzeProductRequest) -> AnalyzeProductResponse:
             caption_texts,
             debug=debug_info.llm if debug_info else None,
             include_prompt=include_prompt,
-            allow_debug_failure=False,
+            allow_debug_failure=debug_response,
         )
         llm_ms = (time.perf_counter() - llm_start) * 1000
 
