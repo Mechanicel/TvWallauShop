@@ -86,9 +86,12 @@ class LlmDebug(BaseModel):
 
     raw_text_truncated: Optional[str] = Field(default=None, alias="rawTextTruncated")
     raw_text_chars: int = Field(0, alias="rawTextChars")
+    parsed_title: Optional[str] = Field(default=None, alias="parsedTitle")
+    parsed_description: Optional[str] = Field(default=None, alias="parsedDescription")
     extracted_json_truncated: Optional[str] = Field(
         default=None, alias="extractedJsonTruncated"
     )
+    extracted_json: Optional[str] = Field(default=None, alias="extractedJson")
     extracted_json_chars: Optional[int] = Field(
         default=None, alias="extractedJsonChars"
     )
