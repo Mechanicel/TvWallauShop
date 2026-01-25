@@ -18,6 +18,7 @@ interface ProductDialogProps {
    title?: string;
    product: EditableProduct | null;
    uploadFiles: File[];
+   existingImageUrls?: string[];
    onProductChange: (product: EditableProduct | null) => void;
    onUploadFilesChange: (files: File[]) => void;
    onHide: () => void;
@@ -66,6 +67,7 @@ const ProductDialog: React.FC<ProductDialogProps> = ({
    title = 'Produkt',
    product,
    uploadFiles,
+   existingImageUrls = [],
    onProductChange,
    onUploadFilesChange,
    onHide,
@@ -218,6 +220,45 @@ const ProductDialog: React.FC<ProductDialogProps> = ({
                   />
                   {uploadFiles.length > 0 && <small>{uploadFiles.length} neue Datei(en)</small>}
                </div>
+
+               {/* Bestehende Bilder (aus KI-Job/Draft) */}
+               {existingImageUrls.length > 0 && (
+                  <div className="p-field">
+                     <label>Bestehende Bilder</label>
+                     <div
+                        style={{
+                           display: 'flex',
+                           flexWrap: 'wrap',
+                           gap: '0.75rem',
+                           marginTop: '0.5rem',
+                        }}
+                     >
+                        {existingImageUrls.map((url, index) => (
+                           <div
+                              key={`${url}-${index}`}
+                              style={{
+                                 position: 'relative',
+                                 width: 90,
+                                 height: 90,
+                                 borderRadius: 6,
+                                 overflow: 'hidden',
+                                 border: '1px solid #ccc',
+                              }}
+                           >
+                              <img
+                                 src={resolveImageUrl(url)}
+                                 alt=""
+                                 style={{
+                                    width: '100%',
+                                    height: '100%',
+                                    objectFit: 'cover',
+                                 }}
+                              />
+                           </div>
+                        ))}
+                     </div>
+                  </div>
+               )}
 
                {/* Neue Bilder */}
                {uploadFiles.length > 0 && (
