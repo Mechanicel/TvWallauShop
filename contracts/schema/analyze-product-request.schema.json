@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AnalyzeProductRequest",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "jobId": {
+      "anyOf": [
+        { "type": "number" },
+        { "type": "null" }
+      ]
+    },
+    "price": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "amount": { "type": "number", "exclusiveMinimum": 0 },
+        "currency": { "type": "string" }
+      },
+      "required": ["amount"]
+    },
+    "images": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": { "type": "string", "enum": ["path", "url", "base64"] },
+          "value": { "type": "string" },
+          "mime": { "type": "string" },
+          "filename": { "type": "string" }
+        },
+        "required": ["kind", "value"]
+      }
+    },
+    "lang": {
+      "type": "string",
+      "enum": ["en"]
+    },
+    "maxTags": { "type": "number" },
+    "maxCaptions": { "type": "number" },
+    "debug": { "type": "boolean" },
+    "debugIncludePrompt": { "type": "boolean" }
+  },
+  "required": ["price", "images"]
+}

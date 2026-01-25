@@ -1,0 +1,147 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AnalyzeProductResponse",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "jobId": {
+      "anyOf": [
+        { "type": "number" },
+        { "type": "null" }
+      ]
+    },
+    "title": { "type": "string" },
+    "description": { "type": "string" },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "value": { "type": "string" },
+          "score": { "type": "number" },
+          "source": { "type": "string" }
+        },
+        "required": ["value"]
+      }
+    },
+    "captions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "imageIndex": { "type": "number" },
+          "text": { "type": "string" },
+          "source": { "type": "string" }
+        },
+        "required": ["imageIndex", "text"]
+      }
+    },
+    "meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "contractVersion": { "type": "string" },
+        "device": {
+          "type": "string",
+          "enum": [
+            "CPU",
+            "GPU",
+            "NPU",
+            "openvino:CPU",
+            "openvino:GPU",
+            "openvino:NPU"
+          ]
+        },
+        "models": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "tagger": { "type": "string" },
+            "captioner": { "type": "string" },
+            "llm": { "type": "string" }
+          },
+          "required": ["tagger", "captioner", "llm"]
+        },
+        "timings": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "imageLoadMs": { "type": "number" },
+            "taggerMs": { "type": "number" },
+            "captionerMs": { "type": "number" },
+            "llmMs": { "type": "number" },
+            "totalMs": { "type": "number" }
+          },
+          "required": [
+            "imageLoadMs",
+            "taggerMs",
+            "captionerMs",
+            "llmMs",
+            "totalMs"
+          ]
+        }
+      },
+      "required": ["contractVersion", "device", "models", "timings"]
+    },
+    "debug": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "llm": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "rawTextTruncated": { "type": "string" },
+            "rawTextChars": { "type": "number" },
+            "extractedJsonTruncated": { "type": "string" },
+            "extractedJsonChars": { "type": "number" },
+            "jsonParseError": { "type": "string" },
+            "schemaError": { "type": "string" },
+            "llmInitMs": { "type": "number" },
+            "llmGenerateMs": { "type": "number" },
+            "llmDeviceRequested": { "type": "string" },
+            "llmDeviceResolved": { "type": "string" },
+            "llmTimeoutHit": { "type": "boolean" }
+          },
+          "required": ["rawTextChars"]
+        },
+        "clipTagsTop": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "tag": { "type": "string" },
+              "score": { "type": "number" }
+            },
+            "required": ["tag", "score"]
+          }
+        },
+        "clipTagsPerImage": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "tag": { "type": "string" },
+                "score": { "type": "number" }
+              },
+              "required": ["tag", "score"]
+            }
+          }
+        },
+        "blipCaption": { "type": "string" },
+        "blipCaptionsPerImage": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "required": ["clipTagsTop", "llm"]
+    }
+  },
+  "required": ["title", "description", "tags", "captions", "meta"]
+}

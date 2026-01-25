@@ -1,8 +1,15 @@
 import logging
-from fastapi import Response, FastAPI, HTTPException, status
-from .schemas import AnalyzeProductRequest, AnalyzeProductResponse
+from fastapi import Response, FastAPI, Request, status
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
+
+from .contracts_models import AnalyzeProductRequest, AnalyzeProductResponse
 from .services.jobs import analyze
+from .services.errors import AiServiceError
+from .services.pipeline.llm_openvino_genai import preload_llm_copywriter
 from .config import get_settings
+from .model_manager import ensure_models
+from .openvino_tokenizers_ext import ensure_openvino_tokenizers_extension_loaded
 
 settings = get_settings()
 
@@ -12,12 +19,80 @@ logging.basicConfig(level=getattr(logging, settings.LOG_LEVEL.upper(), logging.I
 app = FastAPI(title="TvWallauShop AI Product Service", version="0.2.0")
 
 
+@app.exception_handler(AiServiceError)
+async def ai_service_error_handler(request: Request, exc: AiServiceError):
+    logger.warning("AI service error at %s: %s", request.url.path, exc.message)
+    payload = exc.to_contract_dict()
+    if exc.debug is not None:
+        payload["debug"] = jsonable_encoder(exc.debug, by_alias=True, exclude_none=True)
+    return JSONResponse(status_code=exc.http_status, content=payload)
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    logger.exception("Unhandled exception at %s", request.url.path)
+    return JSONResponse(
+        status_code=500,
+        content={
+            "code": "INTERNAL_ERROR",
+            "message": "Unexpected server error.",
+            "details": {"error": str(exc), "path": request.url.path},
+        },
+    )
+
+
+@app.get("/health", status_code=200)
+async def health_get():
+    return {"status": "ok"}
+
+
+@app.on_event("startup")
+async def startup_check_models() -> None:
+    try:
+        info = ensure_openvino_tokenizers_extension_loaded()
+        logger.info(
+            "Loaded OpenVINO tokenizers extension: %s",
+            info["dll_path"],
+        )
+    except AiServiceError as exc:
+        logger.error(
+            "OpenVINO tokenizers extension unavailable: %s",
+            exc.message,
+        )
+    if settings.MODEL_FETCH_MODE != "never":
+        logger.info(
+            "Ensuring model assets MODE=%s OFFLINE=%s",
+            settings.MODEL_FETCH_MODE,
+            settings.OFFLINE,
+        )
+        try:
+            ensure_models(
+                mode=settings.MODEL_FETCH_MODE,
+                offline=settings.OFFLINE,
+                settings=settings,
+            )
+        except AiServiceError as exc:
+            details = exc.details or {}
+            logger.error(
+                "Model startup check failed: code=%s message=%s stdout_tail=%s stderr_tail=%s",
+                exc.code,
+                exc.message,
+                details.get("stdout_tail"),
+                details.get("stderr_tail"),
+            )
+            raise RuntimeError("Model startup check failed.") from exc
+        except Exception as exc:
+            logger.error("Model startup check failed unexpectedly: %s", exc)
+            raise RuntimeError("Model startup check failed unexpectedly.") from exc
+    if settings.LLM_PRELOAD_ON_STARTUP:
+        routing = settings.device_routing()
+        logger.info("Preloading LLM pipeline for device=%s", routing.llm)
+        preload_llm_copywriter(routing.llm)
 
 
 @app.head("/health", status_code=200)
 async def health_head():
     return Response(status_code=200)
-
 
 
 @app.post(
@@ -29,9 +104,27 @@ async def analyze_product(payload: AnalyzeProductRequest):
     try:
         logger.info(
             "analyze-product job_id=%s price=%s images=%s",
-            payload.job_id, payload.price, len(payload.image_paths)
+            payload.job_id,
+            payload.price.amount,
+            len(payload.images),
         )
         return analyze(payload)
-    except Exception as e:
-        logger.exception("AI analyze failed")
-        raise HTTPException(status_code=500, detail=str(e))
+    except AiServiceError as exc:
+        logger.warning("AI analyze failed: %s", exc.message)
+        payload = exc.to_contract_dict()
+        if exc.debug is not None:
+            payload["debug"] = jsonable_encoder(
+                exc.debug, by_alias=True, exclude_none=True
+            )
+        return JSONResponse(status_code=exc.http_status, content=payload)
+    except Exception as exc:
+        logger.exception("Unexpected AI analyze failure")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "code": "INFERENCE_FAILED",
+                "message": "Unexpected inference error.",
+                "details": {"error": str(exc)},
+                "jobId": payload.job_id,
+            },
+        )

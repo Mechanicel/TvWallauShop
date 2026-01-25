@@ -9,10 +9,21 @@ dependencies = [
   "python-dotenv",
   "numpy",
   "requests",
-  "torch==2.3.1+cpu",
   "Pillow",
-  # fehlte bei dir (CLIPModel / CLIPProcessor)
-  "transformers>=4.40,<5",
+  "filelock>=3.13.0",
+  "onnx>=1.16.0",
+  "onnxscript>=0.1.0",
+  "openvino==2024.4.0",
+  "openvino-genai==2024.4.0",
+  "openvino-tokenizers==2024.4.0",
+  "torch",
+  "datamodel-code-generator",
+  # FEHLT für MODEL_FETCH_MODE=download:
+  "optimum-intel[openvino]",
+  "transformers",
+  "huggingface-hub",
+  # optional, aber häufig nötig:
+  "sentencepiece",
 ]
 
 [build-system]
@@ -28,6 +39,5 @@ where = ["."]
 include = ["app*"]
 exclude = ["target*", ".venv*", "scripts*", "tests*"]
 
-[tool.uv]
-extra-index-url = ["https://download.pytorch.org/whl/cpu"]
-dev-dependencies = ["pytest"]
+[dependency-groups]
+dev = ["pytest"]

@@ -26,6 +26,8 @@ Lege die Datei `backend/.env` an und uebernimm die folgenden Variablen:
 # ------------------------------------------------------------------
 DEBUG_ERRORS=false
 SECURITY_ERRORS=false
+ENABLE_ROUTE_LOGS=false
+DEBUG_ROUTES=false
 EMAIL_SEND=false
 AI_PRODUCT_AI_USE_REAL_SERVICE=true
 
@@ -42,10 +44,15 @@ PORT=3000
 DB_HOST=localhost
 # Port on which MariaDB is listening
 DB_PORT=3306
+# Retry behavior for DB connection
+DB_CONNECT_RETRIES=20
+DB_RETRY_DELAY_MS=1000
 # Username for connecting to MariaDB
 DB_USER=
 # Password for your DB user
 DB_PASS=
+# Optional alternative password variable (knexfile fallback)
+DB_PASSWORD=
 # Name of the database to use
 DB_NAME=tvwallau
 
@@ -74,12 +81,15 @@ SMTP_PORT=587
 SMTP_USER=
 # SMTP password
 SMTP_PASS=
+# Optional: explicit sender address (falls back to SMTP_USER)
+SMTP_FROM=
 
 
 APP_URL=http://localhost:3000
+APP_ORIGIN=http://localhost:3001
 
 AI_PY_SERVICE_URL=http://localhost:8000
-AI_PY_TIMEOUT_MS=150000
+AI_PY_TIMEOUT_MS=8000
 ```
 
 ### Monorepo Workflow (Nx)
