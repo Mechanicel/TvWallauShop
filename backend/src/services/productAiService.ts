@@ -28,6 +28,12 @@ export interface CreateProductAiJobInput {
     useRealService: boolean;
 }
 
+export interface ProductAiServiceDependencies {
+    knex: typeof knex;
+    analyzeProductViaPython: typeof analyzeProductViaPython;
+    getIO: typeof getIO;
+}
+
 function mapRowToResponse(row: ProductAiJobRow): ProductAiJob {
     return {
         id: row.id,
@@ -40,15 +46,6 @@ function mapRowToResponse(row: ProductAiJobRow): ProductAiJob {
         created_at: row.created_at.toISOString(),
         updated_at: row.updated_at.toISOString(),
     };
-}
-
-function safeEmit(event: 'aiJob:updated' | 'aiJob:completed', payload: ProductAiJob) {
-    try {
-        const io = getIO();
-        io.emit(event, payload);
-    } catch (err) {
-        console.warn(`[AI] WebSocket emit failed (${event})`, err);
-    }
 }
 
 function normalizeTags(tags: string[] | null | undefined): string[] {
@@ -79,9 +76,6 @@ function validateAiCopyOutput(
     if (typeof title !== 'string' || typeof description !== 'string') {
         return { valid: false, error: 'Title and description must be strings.' };
     }
-    if (title.length < 55 || title.length > 90) {
-        return { valid: false, error: 'Title length out of range.' };
-    }
     const sentenceCount = description.split('.').filter((s) => s.trim()).length;
     if (sentenceCount < 2 || sentenceCount > 4) {
         return { valid: false, error: 'Description must be 2-4 sentences.' };
@@ -92,38 +86,140 @@ function validateAiCopyOutput(
     return { valid: true };
 }
 
-export async function getProductAiJobById(jobId: number): Promise<ProductAiJob | null> {
-    const row = await knex<ProductAiJobRow>('product_ai_jobs').where({ id: jobId }).first();
-    return row ? mapRowToResponse(row) : null;
-}
+export function createProductAiService(dependencies: ProductAiServiceDependencies) {
+    const { knex, analyzeProductViaPython, getIO } = dependencies;
 
-export async function createProductAiJob(input: CreateProductAiJobInput) {
-    const { price, files, useRealService } = input;
-
-    if (!files.length) {
-        throw new ProductAiError('AI_INVALID_INPUT', 'Keine Dateien übermittelt.', 400, {
-            filesCount: files.length,
-        });
-    }
-    if (!price || price <= 0) {
-        throw new ProductAiError('AI_INVALID_INPUT', 'Ungültiger Preis.', 400, {
-            price,
-        });
+    function safeEmit(event: 'aiJob:updated' | 'aiJob:completed', payload: ProductAiJob) {
+        try {
+            const io = getIO();
+            io.emit(event, payload);
+        } catch (err) {
+            console.warn(`[AI] WebSocket emit failed (${event})`, err);
+        }
     }
 
-    const imagePaths = files.map((f) => path.relative(process.cwd(), f.path).replace(/\\/g, '/'));
+    function logJobUpdate({
+        jobId,
+        incomingStatus,
+        storedStatusBefore,
+        storedStatusAfter,
+        errorMessage,
+        updateSkipped,
+    }: {
+        jobId: number;
+        incomingStatus: ProductAiJobStatus;
+        storedStatusBefore: ProductAiJobStatus | 'MISSING';
+        storedStatusAfter: ProductAiJobStatus | 'MISSING';
+        errorMessage: string | null;
+        updateSkipped: boolean;
+    }) {
+        console.info(
+            `[AI] Job update jobId=${jobId} incoming_status=${incomingStatus} stored_status_before=${storedStatusBefore} stored_status_after=${storedStatusAfter} error_message=${errorMessage || ''} update_skipped=${updateSkipped}`
+        );
+    }
 
-    if (useRealService) {
-        const status: ProductAiJobStatus = 'PENDING';
+    async function applyJobUpdate(
+        jobId: number,
+        incomingStatus: ProductAiJobStatus,
+        update: Partial<ProductAiJobRow>,
+        options: { skipIfSuccess?: boolean } = {}
+    ): Promise<{ row: ProductAiJobRow | null; skipped: boolean }> {
+        const before = await knex<ProductAiJobRow>('product_ai_jobs').where({ id: jobId }).first();
+        if (!before) {
+            logJobUpdate({
+                jobId,
+                incomingStatus,
+                storedStatusBefore: 'MISSING',
+                storedStatusAfter: 'MISSING',
+                errorMessage: update.error_message ?? null,
+                updateSkipped: true,
+            });
+            return { row: null, skipped: true };
+        }
+
+        let query = knex('product_ai_jobs').where({ id: jobId });
+        if (options.skipIfSuccess) {
+            query = query.whereNot('status', 'SUCCESS');
+        }
+
+        const updatedCount = await query.update({
+            ...update,
+            updated_at: knex.fn.now(),
+        });
+        const after = await knex<ProductAiJobRow>('product_ai_jobs').where({ id: jobId }).first();
+        const storedAfter = after?.status ?? before.status;
+        const skipped = updatedCount === 0;
+
+        logJobUpdate({
+            jobId,
+            incomingStatus,
+            storedStatusBefore: before.status,
+            storedStatusAfter: storedAfter,
+            errorMessage: update.error_message ?? null,
+            updateSkipped: skipped,
+        });
+
+        return { row: after ?? before, skipped };
+    }
+
+    async function getProductAiJobById(jobId: number): Promise<ProductAiJob | null> {
+        const row = await knex<ProductAiJobRow>('product_ai_jobs').where({ id: jobId }).first();
+        return row ? mapRowToResponse(row) : null;
+    }
+
+    async function createProductAiJob(input: CreateProductAiJobInput) {
+        const { price, files, useRealService } = input;
+
+        if (!files.length) {
+            throw new ProductAiError('AI_INVALID_INPUT', 'Keine Dateien übermittelt.', 400, {
+                filesCount: files.length,
+            });
+        }
+        if (!price || price <= 0) {
+            throw new ProductAiError('AI_INVALID_INPUT', 'Ungültiger Preis.', 400, {
+                price,
+            });
+        }
+
+        const imagePaths = files.map((f) => path.relative(process.cwd(), f.path).replace(/\\/g, '/'));
+
+        if (useRealService) {
+            const status: ProductAiJobStatus = 'PENDING';
+
+            const [insertId] = await knex('product_ai_jobs').insert({
+                product_id: null,
+                image_paths: JSON.stringify(imagePaths),
+                price,
+                status,
+                result_display_name: null,
+                result_description: null,
+                result_tags: null,
+                error_message: null,
+                created_at: knex.fn.now(),
+                updated_at: knex.fn.now(),
+            });
+
+            const row = await knex<ProductAiJobRow>('product_ai_jobs').where({ id: insertId }).first();
+            const res = mapRowToResponse(row!);
+
+            safeEmit('aiJob:updated', res);
+            return res;
+        }
+
+        const mockName = 'AI Test Produkt';
+        const mockDesc = 'Dies ist ein KI-Mock-Text.';
+        const mockTags = ['Mock', 'AI', 'TV Wallau'];
+
+        const status: ProductAiJobStatus = 'SUCCESS';
 
         const [insertId] = await knex('product_ai_jobs').insert({
             product_id: null,
             image_paths: JSON.stringify(imagePaths),
             price,
             status,
-            result_display_name: null,
-            result_description: null,
-            result_tags: null,
+            result_display_name: mockName,
+            result_description: mockDesc,
+            result_tags: JSON.stringify(mockTags),
             error_message: null,
             created_at: knex.fn.now(),
             updated_at: knex.fn.now(),
@@ -132,191 +228,193 @@ export async function createProductAiJob(input: CreateProductAiJobInput) {
         const row = await knex<ProductAiJobRow>('product_ai_jobs').where({ id: insertId }).first();
         const res = mapRowToResponse(row!);
 
-        safeEmit('aiJob:updated', res);
+        safeEmit('aiJob:completed', res);
         return res;
     }
 
-    const mockName = 'AI Test Produkt';
-    const mockDesc = 'Dies ist ein KI-Mock-Text.';
-    const mockTags = ['Mock', 'AI', 'TV Wallau'];
+    async function retryProductAiJob(jobId: number): Promise<ProductAiJob | null> {
+        const row = await knex<ProductAiJobRow>('product_ai_jobs').where({ id: jobId }).first();
+        if (!row) return null;
 
-    const status: ProductAiJobStatus = 'SUCCESS';
+        if (row.status === 'PROCESSING') return mapRowToResponse(row);
 
-    const [insertId] = await knex('product_ai_jobs').insert({
-        product_id: null,
-        image_paths: JSON.stringify(imagePaths),
-        price,
-        status,
-        result_display_name: mockName,
-        result_description: mockDesc,
-        result_tags: JSON.stringify(mockTags),
-        error_message: null,
-        created_at: knex.fn.now(),
-        updated_at: knex.fn.now(),
-    });
-
-    const row = await knex<ProductAiJobRow>('product_ai_jobs').where({ id: insertId }).first();
-    const res = mapRowToResponse(row!);
-
-    safeEmit('aiJob:completed', res);
-    return res;
-}
-
-export async function retryProductAiJob(jobId: number): Promise<ProductAiJob | null> {
-    const row = await knex<ProductAiJobRow>('product_ai_jobs').where({ id: jobId }).first();
-    if (!row) return null;
-
-    if (row.status === 'PROCESSING') return mapRowToResponse(row);
-
-    await knex('product_ai_jobs')
-        .where({ id: jobId })
-        .update({
-            status: 'PROCESSING' as ProductAiJobStatus,
-            error_message: null,
-            result_display_name: null,
-            result_description: null,
-            result_tags: null,
-            updated_at: knex.fn.now(),
-        });
-
-    const updated = await knex<ProductAiJobRow>('product_ai_jobs').where({ id: jobId }).first();
-    const res = mapRowToResponse(updated!);
-
-    safeEmit('aiJob:updated', res);
-
-    void processProductAiJobImpl(jobId, true).catch((err) => {
-        console.error('[AI] processProductAiJob failed after retry', err);
-    });
-
-    return res;
-}
-
-async function processProductAiJobImpl(jobId: number, allowIfAlreadyProcessing: boolean): Promise<void> {
-    const row = await knex<ProductAiJobRow>('product_ai_jobs').where({ id: jobId }).first();
-    if (!row) {
-        throw new ProductAiError('AI_JOB_NOT_FOUND', `AI Job ${jobId} nicht gefunden.`, 404, { jobId });
-    }
-    if (row.status === 'SUCCESS') return;
-    if (row.status === 'PROCESSING' && !allowIfAlreadyProcessing) return;
-
-    await knex('product_ai_jobs')
-        .where({ id: jobId })
-        .update({
-            status: 'PROCESSING' as ProductAiJobStatus,
-            error_message: null,
-            result_display_name: null,
-            result_description: null,
-            result_tags: null,
-            updated_at: knex.fn.now(),
-        });
-
-    const processingRow = await knex<ProductAiJobRow>('product_ai_jobs').where({ id: jobId }).first();
-    if (processingRow) safeEmit('aiJob:updated', mapRowToResponse(processingRow));
-
-    try {
-        const imagePaths: string[] = row.image_paths ? JSON.parse(row.image_paths) : [];
-        const price = Number(row.price);
-
-        const publicBase = (process.env.APP_URL || 'http://localhost:3000').replace(/\/$/, '');
-
-        const imageUrls = imagePaths.map((p) => {
-            const normalized = String(p).replace(/\\/g, '/').replace(/^\.\?\//, '').replace(/^\.\//, '');
-            return `${publicBase}/${normalized}`;
-        });
-
-        const aiRes = await analyzeProductViaPython({ jobId, price, imageUrls });
-        const validation = validateAiCopyOutput(aiRes.title, aiRes.description);
-        const parsedTitle = typeof aiRes.title === 'string' ? aiRes.title : '';
-        const parsedDescription = typeof aiRes.description === 'string' ? aiRes.description : '';
-        console.info(
-            `[AI] LLM parsed output jobId=${jobId} schema_valid=${validation.valid} schema_error=${
-                validation.error || ''
-            } parsed_title=${JSON.stringify(truncateLogText(parsedTitle, 200))} parsed_description=${JSON.stringify(
-                truncateLogText(parsedDescription, 400)
-            )}`
+        const updated = await applyJobUpdate(
+            jobId,
+            'PROCESSING',
+            {
+                status: 'PROCESSING',
+                error_message: null,
+                result_display_name: null,
+                result_description: null,
+                result_tags: null,
+            },
+            { skipIfSuccess: true }
         );
-        if (!validation.valid) {
-            throw new ProductAiError('AI_INVALID_OUTPUT', validation.error || 'Invalid AI output.', 502, {
-                jobId,
-                title: parsedTitle,
-                description: parsedDescription,
-            });
+
+        if (!updated.row) return null;
+        if (updated.skipped && updated.row.status === 'SUCCESS') {
+            return mapRowToResponse(updated.row);
         }
-        const tags = normalizeTags(extractTagValues(aiRes.tags));
 
-        console.info(
-            `[AI] Persisting AI results jobId=${jobId} result_display_name=${JSON.stringify(
-                truncateLogText(parsedTitle, 200)
-            )} result_description=${JSON.stringify(truncateLogText(parsedDescription, 400))}`
+        safeEmit('aiJob:updated', mapRowToResponse(updated.row));
+
+        void processProductAiJobImpl(jobId, true).catch((err) => {
+            console.error('[AI] processProductAiJob failed after retry', err);
+        });
+
+        return mapRowToResponse(updated.row);
+    }
+
+    async function processProductAiJobImpl(jobId: number, allowIfAlreadyProcessing: boolean): Promise<void> {
+        const row = await knex<ProductAiJobRow>('product_ai_jobs').where({ id: jobId }).first();
+        if (!row) {
+            throw new ProductAiError('AI_JOB_NOT_FOUND', `AI Job ${jobId} nicht gefunden.`, 404, { jobId });
+        }
+        if (row.status === 'SUCCESS') return;
+        if (row.status === 'PROCESSING' && !allowIfAlreadyProcessing) return;
+
+        const processingUpdate = await applyJobUpdate(
+            jobId,
+            'PROCESSING',
+            {
+                status: 'PROCESSING',
+                error_message: null,
+                result_display_name: null,
+                result_description: null,
+                result_tags: null,
+            },
+            { skipIfSuccess: true }
         );
-        await knex('product_ai_jobs')
-            .where({ id: jobId })
-            .update({
+
+        if (!processingUpdate.row) return;
+        if (processingUpdate.skipped && processingUpdate.row.status === 'SUCCESS') return;
+
+        safeEmit('aiJob:updated', mapRowToResponse(processingUpdate.row));
+
+        try {
+            const imagePaths: string[] = row.image_paths ? JSON.parse(row.image_paths) : [];
+            const price = Number(row.price);
+
+            const publicBase = (process.env.APP_URL || 'http://localhost:3000').replace(/\/$/, '');
+
+            const imageUrls = imagePaths.map((p) => {
+                const normalized = String(p).replace(/\\/g, '/').replace(/^\.\?\//, '').replace(/^\.\//, '');
+                return `${publicBase}/${normalized}`;
+            });
+
+            const aiRes = await analyzeProductViaPython({ jobId, price, imageUrls });
+            const validation = validateAiCopyOutput(aiRes.title, aiRes.description);
+            const parsedTitle = typeof aiRes.title === 'string' ? aiRes.title : '';
+            const parsedDescription = typeof aiRes.description === 'string' ? aiRes.description : '';
+            console.info(
+                `[AI] LLM parsed output jobId=${jobId} schema_valid=${validation.valid} schema_error=${
+                    validation.error || ''
+                } parsed_title=${JSON.stringify(truncateLogText(parsedTitle, 200))} parsed_description=${JSON.stringify(
+                    truncateLogText(parsedDescription, 400)
+                )}`
+            );
+            if (!validation.valid) {
+                throw new ProductAiError('AI_INVALID_OUTPUT', validation.error || 'Invalid AI output.', 502, {
+                    jobId,
+                    title: parsedTitle,
+                    description: parsedDescription,
+                });
+            }
+            const tags = normalizeTags(extractTagValues(aiRes.tags));
+
+            console.info(
+                `[AI] Persisting AI results jobId=${jobId} result_display_name=${JSON.stringify(
+                    truncateLogText(parsedTitle, 200)
+                )} result_description=${JSON.stringify(truncateLogText(parsedDescription, 400))}`
+            );
+
+            const updated = await applyJobUpdate(jobId, 'SUCCESS', {
                 status: 'SUCCESS',
                 result_display_name: parsedTitle,
                 result_description: parsedDescription,
                 result_tags: JSON.stringify(tags),
                 error_message: null,
-                updated_at: knex.fn.now(),
             });
 
-        const updated = await knex<ProductAiJobRow>('product_ai_jobs').where({ id: jobId }).first();
-        safeEmit('aiJob:completed', mapRowToResponse(updated!));
-    } catch (err: any) {
-        const message = err?.message || 'AI processing failed';
+            if (updated.row) {
+                safeEmit('aiJob:completed', mapRowToResponse(updated.row));
+            }
+        } catch (err: any) {
+            const message = err?.message || 'AI processing failed';
 
-        await knex('product_ai_jobs')
-            .where({ id: jobId })
-            .update({
-                status: 'FAILED',
-                error_message: message,
-                updated_at: knex.fn.now(),
-            });
+            const updated = await applyJobUpdate(
+                jobId,
+                'FAILED',
+                {
+                    status: 'FAILED',
+                    error_message: message,
+                },
+                { skipIfSuccess: true }
+            );
 
-        const updated = await knex<ProductAiJobRow>('product_ai_jobs').where({ id: jobId }).first();
-        safeEmit('aiJob:completed', mapRowToResponse(updated!));
-    }
-}
-
-export async function processProductAiJob(jobId: number): Promise<void> {
-    return processProductAiJobImpl(jobId, false);
-}
-
-export async function getOpenProductAiJobs(): Promise<ProductAiJob[]> {
-    const rows = await knex<ProductAiJobRow>('product_ai_jobs')
-        .whereNull('product_id')
-        .whereIn('status', ['PENDING', 'PROCESSING', 'FAILED', 'SUCCESS'])
-        .orderBy('created_at', 'asc');
-
-    return rows.map(mapRowToResponse);
-}
-
-export async function deleteProductAiJob(jobId: number): Promise<void> {
-    const job = await knex<ProductAiJobRow>('product_ai_jobs').where({ id: jobId }).first();
-    if (!job) {
-        throw new ProductAiError('AI_JOB_NOT_FOUND', 'Job nicht gefunden.', 404, { jobId });
-    }
-
-    if (job.image_paths) {
-        const paths: string[] = JSON.parse(job.image_paths);
-        for (const relPath of paths) {
-            try {
-                const absPath = path.join(process.cwd(), relPath);
-                await fs.unlink(absPath);
-            } catch (err) {
-                console.warn('[AI] Failed to delete image:', relPath, err);
+            if (updated.row) {
+                safeEmit('aiJob:completed', mapRowToResponse(updated.row));
             }
         }
     }
 
-    await knex('product_ai_jobs').where({ id: jobId }).del();
+    async function processProductAiJob(jobId: number): Promise<void> {
+        return processProductAiJobImpl(jobId, false);
+    }
+
+    async function getOpenProductAiJobs(): Promise<ProductAiJob[]> {
+        const rows = await knex<ProductAiJobRow>('product_ai_jobs')
+            .whereNull('product_id')
+            .whereIn('status', ['PENDING', 'PROCESSING', 'FAILED', 'SUCCESS'])
+            .orderBy('created_at', 'asc');
+
+        return rows.map(mapRowToResponse);
+    }
+
+    async function deleteProductAiJob(jobId: number): Promise<void> {
+        const job = await knex<ProductAiJobRow>('product_ai_jobs').where({ id: jobId }).first();
+        if (!job) {
+            throw new ProductAiError('AI_JOB_NOT_FOUND', 'Job nicht gefunden.', 404, { jobId });
+        }
+
+        if (job.image_paths) {
+            const paths: string[] = JSON.parse(job.image_paths);
+            for (const relPath of paths) {
+                try {
+                    const absPath = path.join(process.cwd(), relPath);
+                    await fs.unlink(absPath);
+                } catch (err) {
+                    console.warn('[AI] Failed to delete image:', relPath, err);
+                }
+            }
+        }
+
+        await knex('product_ai_jobs').where({ id: jobId }).del();
+    }
+
+    return {
+        createProductAiJob,
+        retryProductAiJob,
+        getProductAiJobById,
+        processProductAiJob,
+        getOpenProductAiJobs,
+        deleteProductAiJob,
+    };
 }
 
-export const productAiService = {
+const defaultProductAiService = createProductAiService({
+    knex,
+    analyzeProductViaPython,
+    getIO,
+});
+
+export const {
     createProductAiJob,
     retryProductAiJob,
     getProductAiJobById,
     processProductAiJob,
     getOpenProductAiJobs,
     deleteProductAiJob,
-};
+} = defaultProductAiService;
+
+export const productAiService = defaultProductAiService;
