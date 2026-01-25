@@ -95,6 +95,7 @@ export interface LlmDebug {
   extractedJsonChars?: number;
   jsonParseError?: string;
   schemaError?: string;
+  titleLengthWarning?: string;
   llmInitMs?: number;
   llmGenerateMs?: number;
   llmDeviceRequested?: string;
@@ -104,7 +105,15 @@ export interface LlmDebug {
 
 export interface AnalyzeDebug {
   clipTagsTop: ClipTagScore[];
+  clipTagsImage1?: ClipTagScore[];
+  clipTagsImage2?: ClipTagScore[];
+  clipTagsIntersection?: string[];
+  tagMergeStrategy?: string;
+  tagMergeFallback?: string;
   blipCaption?: string;
+  blipCaptionImage1?: string;
+  blipCaptionImage2?: string;
+  captionsSentToLlm?: string[];
   llm: LlmDebug;
 }
 
