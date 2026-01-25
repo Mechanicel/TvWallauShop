@@ -97,6 +97,9 @@ class LlmDebug(BaseModel):
     )
     json_parse_error: Optional[str] = Field(default=None, alias="jsonParseError")
     schema_error: Optional[str] = Field(default=None, alias="schemaError")
+    title_length_warning: Optional[str] = Field(
+        default=None, alias="titleLengthWarning"
+    )
     llm_init_ms: Optional[float] = Field(default=None, alias="llmInitMs")
     llm_generate_ms: Optional[float] = Field(default=None, alias="llmGenerateMs")
     llm_device_requested: Optional[str] = Field(
@@ -118,7 +121,31 @@ class AnalyzeDebug(BaseModel):
     clip_tags_top: List[ClipTagScore] = Field(
         default_factory=list, alias="clipTagsTop"
     )
+    clip_tags_image_1: List[ClipTagScore] = Field(
+        default_factory=list, alias="clipTagsImage1"
+    )
+    clip_tags_image_2: List[ClipTagScore] = Field(
+        default_factory=list, alias="clipTagsImage2"
+    )
+    clip_tags_intersection: List[str] = Field(
+        default_factory=list, alias="clipTagsIntersection"
+    )
+    tag_merge_strategy: Optional[str] = Field(
+        default=None, alias="tagMergeStrategy"
+    )
+    tag_merge_fallback: Optional[str] = Field(
+        default=None, alias="tagMergeFallback"
+    )
     blip_caption: Optional[str] = Field(default=None, alias="blipCaption")
+    blip_caption_image_1: Optional[str] = Field(
+        default=None, alias="blipCaptionImage1"
+    )
+    blip_caption_image_2: Optional[str] = Field(
+        default=None, alias="blipCaptionImage2"
+    )
+    captions_sent_to_llm: List[str] = Field(
+        default_factory=list, alias="captionsSentToLlm"
+    )
     llm: LlmDebug
 
 

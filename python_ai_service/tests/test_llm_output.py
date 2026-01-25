@@ -26,6 +26,15 @@ def test_parse_llm_json_invalid_length():
         parse_llm_json(result)
 
 
+def test_parse_llm_json_short_title_allowed():
+    result = (
+        '{"title":"Short title","description":"First sentence. Second sentence."}'
+    )
+    title, description = parse_llm_json(result)
+    assert title == "Short title"
+    assert description.endswith(".")
+
+
 def test_parse_llm_output_debug_fallback_on_invalid_json():
     debug = LlmDebug()
     title, description = parse_llm_output("not-json", debug, allow_debug_failure=True)
@@ -48,3 +57,14 @@ def test_parse_llm_output_uses_first_json_object():
     title, description = parse_llm_output(raw, debug, allow_debug_failure=False)
     assert "Socks" in title
     assert description.endswith(".")
+
+
+def test_parse_llm_output_keeps_short_title():
+    debug = LlmDebug()
+    raw = (
+        '{"title":"Short title","description":"First sentence. Second sentence."}'
+    )
+    title, description = parse_llm_output(raw, debug, allow_debug_failure=False)
+    assert title == "Short title"
+    assert description.endswith(".")
+    assert debug.title_length_warning is not None

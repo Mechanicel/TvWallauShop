@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import itertools
 import json
 import logging
 import os
@@ -46,8 +45,6 @@ def _resolve_llm_dir() -> Path:
 def _validate_copy_output(title: str, description: str) -> None:
     if not isinstance(title, str) or not isinstance(description, str):
         raise ValueError("Title and description must be strings.")
-    if not (55 <= len(title) <= 90):
-        raise ValueError("Title length out of range.")
     sentence_count = len([s for s in description.split(".") if s.strip()])
     if sentence_count < 2 or sentence_count > 4:
         raise ValueError("Description must be 2-4 sentences.")
@@ -140,40 +137,6 @@ def _parse_json_strict(text: str) -> tuple[dict | None, str | None]:
         return None, str(exc)
 
 
-def _is_title_length_error(exc: AiServiceError) -> bool:
-    if exc.code != "LLM_OUTPUT_INVALID":
-        return False
-    details = exc.details or {}
-    if isinstance(details, dict):
-        return details.get("error") == "Title length out of range."
-    return False
-
-
-def _adjust_title_length(title: str, tags: list[str]) -> str:
-    cleaned_title = title.strip()
-    if len(cleaned_title) > 90:
-        return cleaned_title[:90].rstrip()
-    if len(cleaned_title) >= 55:
-        return cleaned_title
-    cleaned_tags = [tag.strip() for tag in tags if tag and tag.strip()]
-    if not cleaned_tags:
-        return cleaned_title
-    candidate = cleaned_title
-    separator = " | "
-    for tag in itertools.cycle(cleaned_tags):
-        if len(candidate) >= 55:
-            break
-        addition = f"{separator}{tag}"
-        if len(candidate) + len(addition) > 90:
-            break
-        candidate += addition
-        if len(candidate) >= 55:
-            break
-        if len(candidate) >= 90:
-            break
-    return candidate
-
-
 def parse_llm_output(
     raw: str,
     debug: LlmDebug | None,
@@ -230,21 +193,16 @@ def parse_llm_output(
     if debug:
         debug.parsed_title = title if isinstance(title, str) else None
         debug.parsed_description = description if isinstance(description, str) else None
+        if isinstance(title, str) and not (55 <= len(title) <= 90):
+            debug.title_length_warning = (
+                f"Title length out of range: {len(title)}"
+            )
+            logger.debug(
+                "LLM title length warning length=%s", len(title)
+            )
     try:
         _validate_copy_output(title, description)
     except ValueError as exc:
-        if str(exc) == "Title length out of range." and isinstance(title, str):
-            adjusted_title = _adjust_title_length(title, tags or [])
-            if 55 <= len(adjusted_title) <= 90:
-                if debug:
-                    debug.parsed_title = adjusted_title
-                _log_llm_schema_trace(
-                    title=adjusted_title,
-                    description=description if isinstance(description, str) else None,
-                    schema_valid=True,
-                    schema_error=None,
-                )
-                return adjusted_title, description
         if debug:
             debug.schema_error = str(exc)
         _log_llm_schema_trace(
@@ -477,8 +435,8 @@ class LlmCopywriter:
                 tags=tags,
             )
         except AiServiceError as exc:
-            if retry and not _is_title_length_error(exc):
-                retry_prompt = "Return ONLY JSON with keys title and description. Make title 55-90 chars."
+            if retry:
+                retry_prompt = "Return ONLY JSON with keys title and description."
                 return self._generate_with_retry(
                     f"{prompt}\n\n{retry_prompt}",
                     retry=False,
