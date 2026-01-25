@@ -3,9 +3,9 @@ from __future__ import annotations
 import json
 import logging
 import os
-import re
 import time
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
+from inspect import signature
 from pathlib import Path
 
 from ...config import get_settings
@@ -70,14 +70,7 @@ def _truncate_text(text: str, max_chars: int) -> str:
     return text[:max_chars]
 
 
-def _extract_json_fenced_block(text: str) -> str | None:
-    match = re.search(r"```json\\s*(.*?)```", text, flags=re.DOTALL | re.IGNORECASE)
-    if not match:
-        return None
-    return match.group(1).strip()
-
-
-def _extract_first_json_block(text: str) -> str | None:
+def _extract_first_json_object(text: str) -> str | None:
     in_string = False
     escape = False
     start_idx: int | None = None
@@ -116,29 +109,13 @@ def _extract_first_json_block(text: str) -> str | None:
     return None
 
 
-def _extract_json_candidate(text: str) -> str | None:
-    fenced = _extract_json_fenced_block(text)
-    if fenced:
-        return fenced
-    return _extract_first_json_block(text)
-
-
-def _parse_json_best_effort(text: str) -> tuple[dict | None, str | None]:
+def _parse_json_strict(text: str) -> tuple[dict | None, str | None]:
     try:
         parsed = json.loads(text)
         if isinstance(parsed, dict):
             return parsed, None
         return None, "Parsed JSON must be an object."
     except json.JSONDecodeError as exc:
-        if "Extra data" in str(exc) and exc.pos:
-            trimmed = text[: exc.pos].rstrip()
-            try:
-                parsed = json.loads(trimmed)
-                if isinstance(parsed, dict):
-                    return parsed, None
-                return None, "Parsed JSON must be an object."
-            except json.JSONDecodeError as exc_retry:
-                return None, str(exc_retry)
         return None, str(exc)
 
 
@@ -147,7 +124,7 @@ def parse_llm_output(
     debug: LlmDebug | None,
     allow_debug_failure: bool,
 ) -> tuple[str, str]:
-    candidate = _extract_json_candidate(raw)
+    candidate = _extract_first_json_object(raw)
     if debug:
         debug.raw_text_chars = len(raw)
         debug.raw_text_truncated = _truncate_text(raw, settings.DEBUG_AI_MAX_CHARS)
@@ -162,7 +139,7 @@ def parse_llm_output(
             details={"error": "No JSON object found."},
             http_status=502,
         )
-    parsed, parse_error = _parse_json_best_effort(candidate)
+    parsed, parse_error = _parse_json_strict(candidate)
     if debug:
         debug.extracted_json_truncated = _truncate_text(
             candidate, settings.DEBUG_AI_MAX_CHARS
@@ -307,10 +284,26 @@ class LlmCopywriter:
         allow_debug_failure: bool = False,
     ) -> tuple[str, str]:
         full_prompt = self._build_full_prompt(prompt)
-        config = self._ov_genai.GenerationConfig(
-            max_new_tokens=max(1, settings.LLM_MAX_NEW_TOKENS),
-            temperature=settings.LLM_TEMPERATURE,
-        )
+        stop_strings = self._resolve_stop_strings()
+        config_kwargs = {
+            "max_new_tokens": max(1, settings.LLM_MAX_NEW_TOKENS),
+            "temperature": settings.LLM_TEMPERATURE,
+        }
+        stop_strings_used: list[str] | None = None
+        if stop_strings:
+            try:
+                if "stop_strings" in signature(self._ov_genai.GenerationConfig).parameters:
+                    config_kwargs["stop_strings"] = stop_strings
+                    stop_strings_used = list(stop_strings)
+            except (TypeError, ValueError):
+                pass
+        config = self._ov_genai.GenerationConfig(**config_kwargs)
+        if stop_strings and stop_strings_used is None and hasattr(config, "stop_strings"):
+            try:
+                config.stop_strings = stop_strings
+                stop_strings_used = list(stop_strings)
+            except Exception:
+                stop_strings_used = None
         generate_start = time.monotonic()
         logger.info(
             "LLM generate start ts=%.6f device_resolved=%s",
@@ -348,6 +341,18 @@ class LlmCopywriter:
             )
         raw = result
         raw_trunc = _truncate_text(raw, settings.DEBUG_AI_MAX_CHARS)
+        stop_triggered = None
+        if stop_strings_used:
+            stop_triggered = any(stop_string in raw for stop_string in stop_strings_used)
+        if debug is not None:
+            debug.stop_strings_used = stop_strings_used
+            debug.stop_triggered = stop_triggered
+        if settings.DEBUG_AI and stop_strings_used:
+            logger.info(
+                "LLM stop strings used=%s stop_triggered=%s",
+                stop_strings_used,
+                stop_triggered,
+            )
         if settings.DEBUG or settings.DEBUG_AI:
             logger.info("LLM raw output (truncated): %s", raw_trunc)
         if settings.DEBUG_AI and settings.DEBUG_AI_INCLUDE_PROMPT:
@@ -371,6 +376,11 @@ class LlmCopywriter:
                     allow_debug_failure=allow_debug_failure,
                 )
             raise exc
+
+    def _resolve_stop_strings(self) -> tuple[str, ...]:
+        if settings.LLM_STOP_STRINGS:
+            return settings.LLM_STOP_STRINGS
+        return ("\n### User", "\nYou are an AI assistant", "\n### System")
 
     def _generate_with_timeout(
         self,

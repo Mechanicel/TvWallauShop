@@ -35,7 +35,7 @@ def test_parse_llm_output_debug_fallback_on_invalid_json():
     assert debug.json_parse_error == "No JSON object found."
 
 
-def test_parse_llm_output_handles_extra_data_in_fenced_block():
+def test_parse_llm_output_uses_first_json_object():
     debug = LlmDebug()
     raw = (
         "```json\n"
@@ -43,6 +43,7 @@ def test_parse_llm_output_handles_extra_data_in_fenced_block():
         '"description":"Soft knit crew socks with a sporty look. '
         'Designed for daily wear and easy styling."}'
         " trailing\n```"
+        '{"title":"Second","description":"Not used. Second sentence."}'
     )
     title, description = parse_llm_output(raw, debug, allow_debug_failure=False)
     assert "Socks" in title
