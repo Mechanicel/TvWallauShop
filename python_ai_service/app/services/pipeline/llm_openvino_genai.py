@@ -73,6 +73,23 @@ def _truncate_text(text: str, max_chars: int) -> str:
     return text[:max_chars]
 
 
+def _log_llm_schema_trace(
+    title: str | None,
+    description: str | None,
+    schema_valid: bool,
+    schema_error: str | None = None,
+) -> None:
+    title_value = title or ""
+    description_value = description or ""
+    logger.info(
+        "LLM parsed output schema_valid=%s parsed_title=%s parsed_description=%s schema_error=%s",
+        schema_valid,
+        _truncate_text(title_value, 200),
+        _truncate_text(description_value, 400),
+        schema_error or "",
+    )
+
+
 def _extract_first_json_object(text: str) -> str | None:
     in_string = False
     escape = False
@@ -134,6 +151,12 @@ def parse_llm_output(
     if candidate is None:
         if debug:
             debug.json_parse_error = "No JSON object found."
+        _log_llm_schema_trace(
+            title=None,
+            description=None,
+            schema_valid=False,
+            schema_error="No JSON object found.",
+        )
         if allow_debug_failure:
             return "", ""
         raise AiServiceError(
@@ -151,6 +174,12 @@ def parse_llm_output(
         if parse_error:
             debug.json_parse_error = parse_error
     if parse_error or parsed is None:
+        _log_llm_schema_trace(
+            title=None,
+            description=None,
+            schema_valid=False,
+            schema_error=parse_error or "JSON parse failed.",
+        )
         if allow_debug_failure:
             return "", ""
         raise AiServiceError(
@@ -166,6 +195,12 @@ def parse_llm_output(
     except ValueError as exc:
         if debug:
             debug.schema_error = str(exc)
+        _log_llm_schema_trace(
+            title=title if isinstance(title, str) else None,
+            description=description if isinstance(description, str) else None,
+            schema_valid=False,
+            schema_error=str(exc),
+        )
         if allow_debug_failure:
             return "", ""
         raise AiServiceError(
@@ -174,6 +209,12 @@ def parse_llm_output(
             details={"error": str(exc)},
             http_status=502,
         ) from exc
+    _log_llm_schema_trace(
+        title=title if isinstance(title, str) else None,
+        description=description if isinstance(description, str) else None,
+        schema_valid=True,
+        schema_error=None,
+    )
     return title, description
 
 

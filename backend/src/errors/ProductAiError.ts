@@ -1,5 +1,6 @@
 export type ProductAiErrorCode =
     | 'AI_INVALID_INPUT'
+    | 'AI_INVALID_OUTPUT'
     | 'AI_INVALID_JOB_ID'
     | 'AI_JOB_NOT_FOUND'
     | 'AI_JOB_ALREADY_COMPLETED'
