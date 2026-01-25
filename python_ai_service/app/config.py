@@ -1,3 +1,4 @@
+import logging
 import os
 from typing import Literal
 from functools import lru_cache
@@ -5,9 +6,12 @@ from functools import lru_cache
 from dotenv import load_dotenv
 
 from .contracts_models import DeviceRouting
+from .ov_runtime import normalize_device
 
 # .env-Datei aus Projektroot laden (wenn vorhanden)
 load_dotenv()
+
+logger = logging.getLogger("tvwallau-ai")
 
 
 class Settings:
@@ -17,7 +21,7 @@ class Settings:
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "info")
 
     # AI pipeline
-    AI_DEVICE: str = os.getenv("AI_DEVICE", "openvino:GPU").strip()
+    AI_DEVICE: str = os.getenv("AI_DEVICE", "").strip()
     ENABLE_CPU_FALLBACK: bool = os.getenv("ENABLE_CPU_FALLBACK", "0").strip() in (
         "1",
         "true",
@@ -26,8 +30,9 @@ class Settings:
     )
     MODEL_DIR: str = os.getenv("MODEL_DIR", "models").strip()
     MODEL_CACHE_DIR: str = os.getenv("MODEL_CACHE_DIR", MODEL_DIR).strip()
-    OFFLINE: bool = os.getenv("OFFLINE", "0").strip() in ("1", "true", "yes", "on")
+    OFFLINE: bool = os.getenv("OFFLINE", "1").strip() in ("1", "true", "yes", "on")
     MODEL_FETCH_MODE: str = os.getenv("MODEL_FETCH_MODE", "never").strip()
+    OV_CACHE_DIR: str = os.getenv("OV_CACHE_DIR", f"{MODEL_DIR}/.ov_cache").strip()
 
     OV_CLIP_DIR: str = os.getenv("OV_CLIP_DIR", f"{MODEL_DIR}/clip").strip()
     OV_CAPTION_DIR: str = os.getenv("OV_CAPTION_DIR", f"{MODEL_DIR}/caption").strip()
@@ -51,7 +56,8 @@ class Settings:
     LLM_MAX_NEW_TOKENS: int = int(os.getenv("LLM_MAX_NEW_TOKENS", "220"))
     LLM_TEMPERATURE: float = float(os.getenv("LLM_TEMPERATURE", "0.4"))
 
-    REQUEST_TIMEOUT_SEC: float = float(os.getenv("REQUEST_TIMEOUT_SEC", "8"))
+    REQUEST_TIMEOUT_SEC: float = float(os.getenv("REQUEST_TIMEOUT_SEC", "30"))
+    LLM_TIMEOUT_SECONDS: float = float(os.getenv("LLM_TIMEOUT_SECONDS", "20"))
     DEBUG: bool = os.getenv("DEBUG", "0").strip() in ("1", "true", "yes", "on")
 
     DEBUG_AI: bool = os.getenv("DEBUG_AI", "0").strip() in ("1", "true", "yes", "on")
@@ -81,10 +87,37 @@ class Settings:
     )
 
     def device_routing(self) -> DeviceRouting:
+        devices_env = {
+            "DEVICES_CLIP": os.getenv("DEVICES_CLIP"),
+            "DEVICES_BLIP": os.getenv("DEVICES_BLIP"),
+            "DEVICES_LLM": os.getenv("DEVICES_LLM"),
+        }
+        ai_device_env = os.getenv("AI_DEVICE")
+        if ai_device_env and any(devices_env.values()):
+            logger.warning(
+                "AI_DEVICE is set but DEVICES_* are also configured; using DEVICES_* for routing."
+            )
+        if ai_device_env and not any(devices_env.values()):
+            clip = blip = llm = ai_device_env
+        else:
+            clip = self.DEVICES_CLIP
+            blip = self.DEVICES_BLIP
+            llm = self.DEVICES_LLM
+
+        def _normalize(label: str, value: str) -> str:
+            normalized = normalize_device(value)
+            if value.strip() and value.strip().lower() != normalized.lower():
+                logger.info(
+                    "Device routing normalized %s device_requested=%s device_resolved=%s",
+                    label,
+                    value,
+                    normalized,
+                )
+            return normalized
         return DeviceRouting(
-            clip=self.DEVICES_CLIP,
-            blip=self.DEVICES_BLIP,
-            llm=self.DEVICES_LLM,
+            clip=_normalize("clip", clip),
+            blip=_normalize("blip", blip),
+            llm=_normalize("llm", llm),
             strict=self.DEVICES_STRICT,
         )
 

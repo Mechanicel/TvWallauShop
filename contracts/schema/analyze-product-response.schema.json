@@ -43,7 +43,17 @@
       "additionalProperties": false,
       "properties": {
         "contractVersion": { "type": "string" },
-        "device": { "type": "string", "enum": ["openvino:GPU", "openvino:NPU"] },
+        "device": {
+          "type": "string",
+          "enum": [
+            "CPU",
+            "GPU",
+            "NPU",
+            "openvino:CPU",
+            "openvino:GPU",
+            "openvino:NPU"
+          ]
+        },
         "models": {
           "type": "object",
           "additionalProperties": false,
@@ -88,7 +98,12 @@
             "extractedJsonTruncated": { "type": "string" },
             "extractedJsonChars": { "type": "number" },
             "jsonParseError": { "type": "string" },
-            "schemaError": { "type": "string" }
+            "schemaError": { "type": "string" },
+            "llmInitMs": { "type": "number" },
+            "llmGenerateMs": { "type": "number" },
+            "llmDeviceRequested": { "type": "string" },
+            "llmDeviceResolved": { "type": "string" },
+            "llmTimeoutHit": { "type": "boolean" }
           },
           "required": ["rawTextChars"]
         },

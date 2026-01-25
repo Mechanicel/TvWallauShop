@@ -12,7 +12,7 @@ from transformers import CLIPProcessor
 from ...config import get_settings
 from ...contracts_models import AnalyzeDebug, ClipTagScore, Tag
 from ...model_manager import model_fetch_hint
-from ...ov_runtime import compile_strict
+from ...ov_runtime import compile_strict, create_core
 from ..errors import AiServiceError
 from .normalize import normalize_tags
 
@@ -69,7 +69,7 @@ class ClipTagger:
         found_files = _list_files(clip_dir)
         image_model_path = clip_dir / "image_encoder.xml"
         text_model_path = clip_dir / "text_encoder.xml"
-        core = ov.Core()
+        core = create_core(settings.OV_CACHE_DIR)
         self.image_model: ov.CompiledModel | None = None
         self.text_model: ov.CompiledModel | None = None
         self.clip_dir = clip_dir
@@ -79,10 +79,18 @@ class ClipTagger:
         if image_model_path.exists() and text_model_path.exists():
             logger.info("CLIP loaded as dual-encoder (image_encoder.xml/text_encoder.xml)")
             self.image_model = compile_strict(
-                core, core.read_model(image_model_path), device
+                core,
+                core.read_model(image_model_path),
+                device,
+                model_name="clip-image",
+                log=logger,
             )
             self.text_model = compile_strict(
-                core, core.read_model(text_model_path), device
+                core,
+                core.read_model(text_model_path),
+                device,
+                model_name="clip-text",
+                log=logger,
             )
         else:
             raise AiServiceError(

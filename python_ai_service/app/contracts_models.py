@@ -6,7 +6,14 @@ from pydantic import BaseModel, ConfigDict, Field
 
 LanguageCode = Literal["en"]
 ImageRefKind = Literal["path", "url", "base64"]
-AiDevice = Literal["openvino:GPU", "openvino:NPU"]
+AiDevice = Literal[
+    "CPU",
+    "GPU",
+    "NPU",
+    "openvino:CPU",
+    "openvino:GPU",
+    "openvino:NPU",
+]
 
 
 class ImageRef(BaseModel):
@@ -87,6 +94,15 @@ class LlmDebug(BaseModel):
     )
     json_parse_error: Optional[str] = Field(default=None, alias="jsonParseError")
     schema_error: Optional[str] = Field(default=None, alias="schemaError")
+    llm_init_ms: Optional[float] = Field(default=None, alias="llmInitMs")
+    llm_generate_ms: Optional[float] = Field(default=None, alias="llmGenerateMs")
+    llm_device_requested: Optional[str] = Field(
+        default=None, alias="llmDeviceRequested"
+    )
+    llm_device_resolved: Optional[str] = Field(
+        default=None, alias="llmDeviceResolved"
+    )
+    llm_timeout_hit: Optional[bool] = Field(default=None, alias="llmTimeoutHit")
 
 
 class AnalyzeDebug(BaseModel):
