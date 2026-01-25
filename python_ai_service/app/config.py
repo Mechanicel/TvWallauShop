@@ -88,9 +88,19 @@ class Settings:
     MAX_SOFT_TAGS: int = int(os.getenv("MAX_SOFT_TAGS", "12"))
     BRAND_LIST_RAW: str = os.getenv("BRAND_LIST", "").strip()
     BRAND_LIST: tuple[str, ...] = _parse_list(BRAND_LIST_RAW)
+    BRAND_STRICT: bool = os.getenv("BRAND_STRICT", "1").strip() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
     CAPTION_MAX_CHARS: int = int(os.getenv("CAPTION_MAX_CHARS", "280"))
-    CAPTION_DEDUP_REPETITION_THRESHOLD: int = int(
-        os.getenv("CAPTION_DEDUP_REPETITION_THRESHOLD", "3")
+    CAPTION_REPETITION_THRESHOLD: int = int(
+        os.getenv("CAPTION_REPETITION_THRESHOLD")
+        or os.getenv("CAPTION_DEDUP_REPETITION_THRESHOLD", "3")
+    )
+    CAPTION_CONSENSUS_TOPK: int = int(
+        os.getenv("CAPTION_CONSENSUS_TOPK", "8")
     )
 
     LLM_MAX_NEW_TOKENS: int = int(os.getenv("LLM_MAX_NEW_TOKENS", "220"))

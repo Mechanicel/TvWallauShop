@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import List, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 LanguageCode = Literal["en"]
 ImageRefKind = Literal["path", "url", "base64"]
@@ -82,10 +82,20 @@ class ClipTagScore(BaseModel):
 
 
 class TagStat(BaseModel):
+    model_config = ConfigDict(validate_by_name=True)
+
     tag: str
     count: int
-    mean_score: float = Field(..., alias="meanScore")
-    max_score: float = Field(..., alias="maxScore")
+    mean_score: float = Field(
+        ...,
+        validation_alias=AliasChoices("meanScore", "mean_score"),
+        serialization_alias="meanScore",
+    )
+    max_score: float = Field(
+        ...,
+        validation_alias=AliasChoices("maxScore", "max_score"),
+        serialization_alias="maxScore",
+    )
     frequency: float
 
 
@@ -150,6 +160,9 @@ class AnalyzeDebug(BaseModel):
     tags_strict: List[str] = Field(default_factory=list, alias="tagsStrict")
     tags_soft: List[str] = Field(default_factory=list, alias="tagsSoft")
     tag_stats: List[TagStat] = Field(default_factory=list, alias="tagStats")
+    tags_per_image: Optional[List[List[ClipTagScore]]] = Field(
+        default=None, alias="tagsPerImage"
+    )
     brand_candidate: Optional[str] = Field(
         default=None, alias="brandCandidate"
     )
@@ -171,6 +184,12 @@ class AnalyzeDebug(BaseModel):
     )
     caption_consensus: List[str] = Field(
         default_factory=list, alias="captionConsensus"
+    )
+    captions_per_image: Optional[List[str]] = Field(
+        default=None, alias="captionsPerImage"
+    )
+    product_facts: Optional[dict[str, object]] = Field(
+        default=None, alias="productFacts"
     )
     llm: LlmDebug
 

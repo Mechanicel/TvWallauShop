@@ -4,7 +4,7 @@ import re
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 
-from ...contracts_models import Caption, Tag
+from ...contracts_models import Caption, Tag, TagStat
 from .normalize import normalize_tags
 
 
@@ -136,6 +136,61 @@ def merge_tags_for_images(
     )
 
 
+def _compute_tag_stats(
+    normalized_per_image: list[list[Tag]],
+) -> dict[str, TagStats]:
+    image_count = len(normalized_per_image)
+    if image_count == 0:
+        return {}
+    score_totals: dict[str, float] = defaultdict(float)
+    max_scores: dict[str, float] = defaultdict(float)
+    counts: dict[str, int] = defaultdict(int)
+    for normalized_tags in normalized_per_image:
+        for tag in normalized_tags:
+            counts[tag.value] += 1
+            score = tag.score or 0.0
+            score_totals[tag.value] += score
+            if score > max_scores[tag.value]:
+                max_scores[tag.value] = score
+
+    tag_stats: dict[str, TagStats] = {}
+    for tag, count in counts.items():
+        mean_score = score_totals[tag] / count if count else 0.0
+        frequency = count / image_count if image_count else 0.0
+        tag_stats[tag] = TagStats(
+            count=count,
+            mean_score=mean_score,
+            max_score=max_scores.get(tag, 0.0),
+            frequency=frequency,
+        )
+    return tag_stats
+
+
+def build_tag_stats(tags_per_image: list[list[Tag]]) -> dict[str, TagStats]:
+    normalized_per_image = [
+        normalize_scored_tags(tags) for tags in tags_per_image
+    ]
+    return _compute_tag_stats(normalized_per_image)
+
+
+def build_tag_stat_models(
+    tag_stats: dict[str, TagStats],
+) -> list[TagStat]:
+    return [
+        TagStat(
+            tag=tag,
+            count=stats.count,
+            mean_score=stats.mean_score,
+            max_score=stats.max_score,
+            frequency=stats.frequency,
+        )
+        for tag, stats in sorted(
+            tag_stats.items(),
+            key=lambda item: (-item[1].frequency, -item[1].mean_score, item[0]),
+        )
+    ]
+
+
 def build_tag_sets(
     tags_per_image: list[list[Tag]],
     min_shared_ratio: float,
@@ -160,27 +215,7 @@ def build_tag_sets(
         value for value in values_per_image[0] if value in intersection_set
     ]
 
-    score_totals: dict[str, float] = defaultdict(float)
-    max_scores: dict[str, float] = defaultdict(float)
-    counts: dict[str, int] = defaultdict(int)
-    for normalized_tags in normalized_per_image:
-        for tag in normalized_tags:
-            counts[tag.value] += 1
-            score = tag.score or 0.0
-            score_totals[tag.value] += score
-            if score > max_scores[tag.value]:
-                max_scores[tag.value] = score
-
-    tag_stats: dict[str, TagStats] = {}
-    for tag, count in counts.items():
-        mean_score = score_totals[tag] / count if count else 0.0
-        frequency = count / image_count if image_count else 0.0
-        tag_stats[tag] = TagStats(
-            count=count,
-            mean_score=mean_score,
-            max_score=max_scores.get(tag, 0.0),
-            frequency=frequency,
-        )
+    tag_stats = _compute_tag_stats(normalized_per_image)
 
     shared_tags = [
         tag
@@ -216,16 +251,25 @@ def clean_caption_text(
     tokens = cleaned.split()
     deduped: list[str] = []
     last_token = ""
+    last_token_normalized = ""
     repeat_count = 0
+    token_histogram: Counter[str] = Counter()
     for token in tokens:
-        if token == last_token:
+        normalized_token = token.lower()
+        token_histogram[normalized_token] += 1
+        if normalized_token == last_token_normalized:
             repeat_count += 1
         else:
             repeat_count = 1
             last_token = token
+            last_token_normalized = normalized_token
         if repeat_count > repetition_threshold:
             continue
         deduped.append(token)
+    if deduped:
+        most_common_token, count = token_histogram.most_common(1)[0]
+        if count / max(1, len(tokens)) >= 0.8 and count > repetition_threshold:
+            deduped = [most_common_token]
     cleaned = " ".join(deduped).strip()
     if len(cleaned) > max_chars:
         cleaned = cleaned[:max_chars].rstrip()
@@ -236,24 +280,44 @@ def build_caption_consensus(
     captions: list[str],
     max_items: int = 8,
 ) -> list[str]:
+    stopwords = {
+        "a",
+        "an",
+        "and",
+        "are",
+        "as",
+        "at",
+        "be",
+        "by",
+        "for",
+        "from",
+        "in",
+        "is",
+        "it",
+        "its",
+        "of",
+        "on",
+        "or",
+        "that",
+        "the",
+        "this",
+        "to",
+        "with",
+    }
     unigram_counts = Counter()
-    bigram_counts = Counter()
     for caption in captions:
-        tokens = re.findall(r"[a-z0-9]+", caption.lower())
+        tokens = [
+            token
+            for token in re.findall(r"[a-z0-9]+", caption.lower())
+            if token and token not in stopwords
+        ]
         if not tokens:
             continue
         unigram_counts.update(tokens)
-        bigram_counts.update(
-            f"{tokens[idx]} {tokens[idx + 1]}"
-            for idx in range(len(tokens) - 1)
-        )
-    if not unigram_counts and not bigram_counts:
+    if not unigram_counts:
         return []
-    combined = Counter()
-    combined.update(unigram_counts)
-    combined.update(bigram_counts)
     ranked = sorted(
-        combined.items(),
+        unigram_counts.items(),
         key=lambda item: (-item[1], item[0]),
     )
     return [item[0] for item in ranked[:max_items]]

@@ -40,11 +40,14 @@ class DummyLlmCopywriter:
         currency,
         tags,
         captions,
+        product_facts,
         debug=None,
         include_prompt=False,
         allow_debug_failure=False,
     ):
-        self.calls.append({"tags": tags, "captions": captions})
+        self.calls.append(
+            {"tags": tags, "captions": captions, "product_facts": product_facts}
+        )
         return "Short", "First sentence. Second sentence."
 
 

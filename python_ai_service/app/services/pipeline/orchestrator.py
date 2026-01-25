@@ -13,7 +13,6 @@ from ...contracts_models import (
     PipelineMeta,
     PipelineModels,
     PipelineTimings,
-    TagStat,
     Tag,
 )
 from ..errors import AiServiceError
@@ -23,10 +22,13 @@ from .image_loader import load_images
 from .llm_openvino_genai import get_llm_copywriter
 from .multi_image import (
     build_caption_consensus,
+    build_tag_stat_models,
     build_tag_sets,
     captions_per_image,
     clean_caption_text,
     merge_tags_for_images,
+    normalize_scored_tags,
+    TagSetResult,
     TagStats,
 )
 from .normalize import normalize_tags
@@ -45,6 +47,7 @@ def _detect_brand(
     tags_strict: list[str],
     tags_soft: list[str],
     tag_stats: dict[str, TagStats],
+    strict: bool,
 ) -> tuple[str | None, float | None]:
     if not brand_list:
         return None, None
@@ -55,7 +58,10 @@ def _detect_brand(
     }
     if not normalized_map:
         return None, None
-    tags_source = tags_strict or tags_soft
+    if strict:
+        tags_source = tags_strict or tags_soft
+    else:
+        tags_source = tags_soft or tags_strict
     candidates = [
         brand for brand in normalized_map.keys() if brand in tags_source
     ]
@@ -76,6 +82,38 @@ def _detect_brand(
     else:
         confidence = 0.0
     return normalized_map[selected], confidence
+
+
+def build_product_facts(
+    tags_per_image: list[list[Tag]],
+    tag_sets: TagSetResult,
+    caption_texts: list[str],
+    caption_consensus: list[str],
+    brand_candidate: str | None,
+    brand_confidence: float | None,
+    max_tags: int,
+) -> dict[str, object]:
+    tags_per_image_scored = [
+        [
+            {"tag": tag.value, "score": float(tag.score or 0.0)}
+            for tag in normalize_scored_tags(tags_for_image)[:max_tags]
+        ]
+        for tags_for_image in tags_per_image
+    ]
+    tag_stat_models = build_tag_stat_models(tag_sets.tag_stats)
+    tag_stats_payload = [
+        stat.model_dump(by_alias=True) for stat in tag_stat_models
+    ]
+    return {
+        "tags_per_image": tags_per_image_scored,
+        "tags_strict": tag_sets.tags_strict,
+        "tags_soft": tag_sets.tags_soft,
+        "tag_stats": tag_stats_payload,
+        "brand_candidate": brand_candidate,
+        "brand_confidence": brand_confidence,
+        "captions_per_image": caption_texts,
+        "caption_consensus": caption_consensus,
+    }
 
 
 def run_pipeline(payload: AnalyzeProductRequest) -> AnalyzeProductResponse:
@@ -134,6 +172,7 @@ def run_pipeline(payload: AnalyzeProductRequest) -> AnalyzeProductResponse:
         tag_stats = tag_sets.tag_stats
         tags_strict = tag_sets.tags_strict
         tags_soft = tag_sets.tags_soft
+        tag_stat_models = build_tag_stat_models(tag_stats)
         if debug_info:
             debug_info.clip_tags_per_image = [
                 [
@@ -163,17 +202,8 @@ def run_pipeline(payload: AnalyzeProductRequest) -> AnalyzeProductResponse:
             debug_info.tags_strict = tags_strict
             debug_info.tags_soft = tags_soft
             debug_info.tag_stats = [
-                TagStat(
-                    tag=tag,
-                    count=stats.count,
-                    mean_score=stats.mean_score,
-                    max_score=stats.max_score,
-                    frequency=stats.frequency,
-                )
-                for tag, stats in sorted(
-                    tag_stats.items(),
-                    key=lambda item: (-item[1].frequency, -item[1].mean_score, item[0]),
-                )[: settings.DEBUG_AI_MAX_TAGS_LOG]
+                stat
+                for stat in tag_stat_models[: settings.DEBUG_AI_MAX_TAGS_LOG]
             ]
         for idx, tags_for_image in enumerate(tags_per_image, start=1):
             logged_tags = [tag.value for tag in tags_for_image][
@@ -230,16 +260,29 @@ def run_pipeline(payload: AnalyzeProductRequest) -> AnalyzeProductResponse:
             clean_caption_text(
                 caption,
                 max_chars=settings.CAPTION_MAX_CHARS,
-                repetition_threshold=settings.CAPTION_DEDUP_REPETITION_THRESHOLD,
+                repetition_threshold=settings.CAPTION_REPETITION_THRESHOLD,
             )
             for caption in caption_texts_raw
         ]
-        caption_consensus = build_caption_consensus(caption_texts)
+        caption_consensus = build_caption_consensus(
+            caption_texts,
+            max_items=settings.CAPTION_CONSENSUS_TOPK,
+        )
         brand_candidate, brand_confidence = _detect_brand(
             settings.BRAND_LIST,
             tags_strict,
             tags_soft,
             tag_stats,
+            strict=settings.BRAND_STRICT,
+        )
+        product_facts = build_product_facts(
+            tags_per_image,
+            tag_sets,
+            caption_texts,
+            caption_consensus,
+            brand_candidate,
+            brand_confidence,
+            max_tags=max_tags,
         )
         if debug_info:
             debug_info.blip_captions_per_image = caption_texts
@@ -254,6 +297,15 @@ def run_pipeline(payload: AnalyzeProductRequest) -> AnalyzeProductResponse:
             debug_info.caption_consensus = caption_consensus
             debug_info.brand_candidate = brand_candidate
             debug_info.brand_confidence = brand_confidence
+            debug_info.captions_per_image = caption_texts
+            debug_info.tags_per_image = [
+                [
+                    ClipTagScore(tag=item["tag"], score=float(item["score"]))
+                    for item in image_tags
+                ]
+                for image_tags in product_facts["tags_per_image"]
+            ]
+            debug_info.product_facts = product_facts
         for idx, caption_text in enumerate(caption_texts, start=1):
             logger.info(
                 "BLIP caption image %s: %s",
@@ -274,23 +326,6 @@ def run_pipeline(payload: AnalyzeProductRequest) -> AnalyzeProductResponse:
                 brand_candidate,
                 brand_confidence or 0.0,
             )
-        product_facts = {
-            "tags_strict": tags_strict,
-            "tags_soft": tags_soft,
-            "tag_stats": {
-                tag: {
-                    "count": stats.count,
-                    "mean_score": stats.mean_score,
-                    "max_score": stats.max_score,
-                    "frequency": stats.frequency,
-                }
-                for tag, stats in tag_stats.items()
-            },
-            "brand_candidate": brand_candidate,
-            "brand_confidence": brand_confidence,
-            "captions_per_image": caption_texts,
-            "caption_consensus": caption_consensus,
-        }
         title, description = llm.generate(
             payload.price.amount,
             payload.price.currency or "USD",
