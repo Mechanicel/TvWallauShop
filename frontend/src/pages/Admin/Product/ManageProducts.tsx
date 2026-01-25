@@ -63,6 +63,7 @@ export const ManageProducts: React.FC = () => {
    const [editingProduct, setEditingProduct] = useState<EditableProduct | null>(null);
    const [displayNewAiDialog, setDisplayNewAiDialog] = useState(false);
    const [uploadFiles, setUploadFiles] = useState<File[]>([]);
+   const [existingImageUrls, setExistingImageUrls] = useState<string[]>([]);
 
    // ✅ Global Search (PrimeReact DataTable)
    const [globalFilter, setGlobalFilter] = useState<string>('');
@@ -177,6 +178,7 @@ export const ManageProducts: React.FC = () => {
       dispatch(resetAiJobState());
       setUploadFiles([]);
       setEditingProduct(null);
+      setExistingImageUrls([]);
       setDisplayNewAiDialog(true);
    };
 
@@ -223,6 +225,7 @@ export const ManageProducts: React.FC = () => {
       });
 
       setUploadFiles(item.files);
+      setExistingImageUrls(item.job.image_urls ?? []);
       setDisplayEditDialog(true);
    };
 
@@ -281,6 +284,7 @@ export const ManageProducts: React.FC = () => {
       setDisplayEditDialog(false);
       setEditingProduct(null);
       setUploadFiles([]);
+      setExistingImageUrls([]);
       setCompletingJobId(null);
    };
 
@@ -490,6 +494,7 @@ export const ManageProducts: React.FC = () => {
                         icon="pi pi-pencil"
                         onClick={() => {
                            setEditingProduct({ ...(p as EditableProduct) });
+                           setExistingImageUrls([]);
                            setDisplayEditDialog(true);
                         }}
                      />
@@ -518,6 +523,7 @@ export const ManageProducts: React.FC = () => {
             visible={displayEditDialog}
             product={editingProduct}
             uploadFiles={uploadFiles}
+            existingImageUrls={existingImageUrls}
             onProductChange={setEditingProduct}
             onUploadFilesChange={setUploadFiles}
             onHide={hideEditDialog}
