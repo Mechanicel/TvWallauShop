@@ -109,6 +109,18 @@ export const deleteProductImage = createAsyncThunk<
    }
 });
 
+export const finalizeProductAiJob = createAsyncThunk<
+   Product,
+   { jobId: number; payload: ProductPayload },
+   { rejectValue: string }
+>('product/finalizeAiJob', async ({ jobId, payload }, { rejectWithValue }) => {
+   try {
+      return await productService.finalizeProductAiJob(jobId, payload);
+   } catch (err) {
+      return rejectWithValue(toErrorMessage(err));
+   }
+});
+
 // KI-Job anlegen (Bilder + Preis -> product_ai_jobs-Eintrag)
 
 export const createProductAiJob = createAsyncThunk<ProductAiJob, CreateProductAiJobParams, { rejectValue: string }>(
@@ -245,6 +257,25 @@ const productSlice = createSlice({
          state.aiJobLoading = false;
          state.aiJobError = action.payload ?? 'KI-Job konnte nicht angelegt werden';
          state.currentAiJob = null;
+      });
+
+      // finalizeProductAiJob
+      builder.addCase(finalizeProductAiJob.pending, (state) => {
+         state.loading = true;
+         state.error = null;
+      });
+      builder.addCase(finalizeProductAiJob.fulfilled, (state, action: PayloadAction<Product>) => {
+         state.loading = false;
+         const idx = state.products.findIndex((p) => p.id === action.payload.id);
+         if (idx === -1) {
+            state.products.push(action.payload);
+         } else {
+            state.products[idx] = action.payload;
+         }
+      });
+      builder.addCase(finalizeProductAiJob.rejected, (state, action) => {
+         state.loading = false;
+         state.error = action.payload ?? 'KI-Produkt konnte nicht fertiggestellt werden';
       });
    },
 });

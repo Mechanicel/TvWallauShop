@@ -6,11 +6,12 @@ import fs from 'fs';
 import path from 'path';
 import { authMiddleware, requireRole } from '../middlewares/authMiddleware';
 import * as productAiController from '../controllers/productAiController';
+import { sanitizeFilenameBase } from '../utils/storage';
 
 const router = Router();
 
 // Basis-Pfad für KI-Uploads (Server-Dateisystem)
-const uploadRoot = path.join(process.cwd(), 'uploads', 'ai', 'product-jobs');
+const uploadRoot = path.join(process.cwd(), 'uploads', 'ai', 'product-jobs', 'tmp');
 
 // Multer-Storage konfigurieren (analog zu productRoutes)
 const storage = multer.diskStorage({
@@ -20,10 +21,11 @@ const storage = multer.diskStorage({
         });
     },
     filename: (req, file, cb) => {
-        const ext = path.extname(file.originalname) || '';
-        const base = path.basename(file.originalname, ext);
+        const ext = path.extname(file.originalname || '').toLowerCase();
+        const base = path.basename(file.originalname || 'file', ext);
+        const safeBase = sanitizeFilenameBase(base);
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-        cb(null, `${base}-${uniqueSuffix}${ext}`);
+        cb(null, `${safeBase}-${uniqueSuffix}${ext}`);
     },
 });
 
@@ -102,6 +104,42 @@ router.post(
     authMiddleware,
     requireRole('admin'),
     productAiController.retryProductAiJob
+);
+/**
+ * POST /api/ai/product-job/:id/finalize
+ * Admin-only
+ */
+/**
+ * @openapi
+ * /ai/product-job/{id}/finalize:
+ *   post:
+ *     tags: [AI]
+ *     summary: Finalize a product AI job and create a product.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200:
+ *         description: Product created.
+ *       default:
+ *         $ref: '#/components/responses/ErrorResponse'
+ */
+router.post(
+    '/product-job/:id/finalize',
+    authMiddleware,
+    requireRole('admin'),
+    productAiController.finalizeProductAiJob
 );
 /**
  * GET /api/ai/product-jobs/open

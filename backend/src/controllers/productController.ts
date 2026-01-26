@@ -2,10 +2,10 @@
 
 import { Request, Response } from 'express';
 import fs from 'fs';
-import path from 'path';
 import { catchAsync } from '../utils/helpers';
 import { ProductValidationError } from '../errors/ProductServiceError';
 import { productService } from '../services/productService';
+import { storageKeyToAbsolutePath } from '../utils/storage';
 
 export const getAllProducts = catchAsync(async (req: Request, res: Response) => {
     const products = await productService.getAllProducts(req.query);
@@ -52,7 +52,7 @@ export const uploadProductImages = catchAsync(async (req: Request, res: Response
 
     const imageUrls: string[] = files.map((file) => {
         const normalized = file.filename.replace(/\\/g, '/');
-        return `/uploads/products/${productId}/${normalized}`;
+        return `products/${productId}/${normalized}`;
     });
 
     const product = await productService.addImagesToProduct(productId, imageUrls);
@@ -74,8 +74,17 @@ export const deleteProductImage = catchAsync(async (req: Request, res: Response)
 
     // Versuchen, die Datei vom Dateisystem zu löschen
     if (deletedImageUrl) {
-        const relative = deletedImageUrl.replace(/^\//, ''); // "/uploads/..." -> "uploads/..."
-        const absolutePath = path.join(process.cwd(), relative);
+        let absolutePath: string | null = null;
+        try {
+            absolutePath = storageKeyToAbsolutePath(deletedImageUrl);
+        } catch {
+            absolutePath = null;
+        }
+
+        if (!absolutePath) {
+            res.status(200).json(product);
+            return;
+        }
 
         fs.unlink(absolutePath, (err) => {
             if (err && (err as any).code !== 'ENOENT') {

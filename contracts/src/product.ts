@@ -39,7 +39,7 @@ export interface ProductPayload {
   tags?: string[];
 }
 
-export type ProductAiJobStatus = 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'FAILED';
+export type ProductAiJobStatus = 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'FAILED' | 'FINALIZED';
 
 export interface ProductAiJob {
   id: number;

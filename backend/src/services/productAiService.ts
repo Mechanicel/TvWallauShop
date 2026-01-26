@@ -7,6 +7,14 @@ import { getIO } from '../middlewares/websocket';
 import { analyzeProductViaPython } from './aiPythonClient';
 import type { ProductAiJob, ProductAiJobStatus, ProductImageInput, Tag } from '@tvwallaushop/contracts';
 import { ProductAiError } from '../errors/ProductAiError';
+import { productService } from './productService';
+import {
+    normalizeStorageValue,
+    parseStorageKey,
+    storageKeyFromAbsolutePath,
+    storageKeyToAbsolutePath,
+    storageKeyToPublicUrl,
+} from '../utils/storage';
 
 export interface ProductAiJobRow {
     id: number;
@@ -34,6 +42,14 @@ export interface ProductAiServiceDependencies {
     getIO: typeof getIO;
 }
 
+export interface FinalizeProductAiJobInput {
+    name?: string;
+    description?: string | null;
+    price?: number | null;
+    sizes?: Array<{ label: string; stock: number }>;
+    tags?: string[] | null;
+}
+
 function getPublicBaseUrl(): string {
     return (process.env.APP_URL || 'http://localhost:3000').replace(/\/$/, '');
 }
@@ -50,12 +66,20 @@ function parseImagePaths(rawPaths: string | null | undefined): string[] {
     }
 }
 
-function buildImageInputsFromPaths(imagePaths: string[]): ProductImageInput[] {
+function buildImageInputsFromKeys(
+    storageKeys: string[],
+    options: { absolute?: boolean } = {}
+): ProductImageInput[] {
     const publicBase = getPublicBaseUrl();
-    return imagePaths.map((p, index) => {
-        const normalized = String(p).replace(/\\/g, '/').replace(/^\.\?\//, '').replace(/^\.\//, '');
+    return storageKeys.map((key, index) => {
+        const normalizedKey = normalizeStorageValue(String(key));
+        const relativeUrl = storageKeyToPublicUrl(normalizedKey);
+        const url =
+            options.absolute && !relativeUrl.startsWith('http://') && !relativeUrl.startsWith('https://')
+                ? `${publicBase}${relativeUrl}`
+                : relativeUrl;
         return {
-            url: `${publicBase}/${normalized}`,
+            url,
             sortOrder: index,
             isPrimary: index === 0,
         };
@@ -73,7 +97,7 @@ function mapRowToResponse(row: ProductAiJobRow): ProductAiJob {
         id: row.id,
         productId: row.product_id,
         price: parsePrice(row.price),
-        images: buildImageInputsFromPaths(imagePaths),
+        images: buildImageInputsFromKeys(imagePaths),
         status: row.status,
         resultDisplayName: row.result_display_name,
         resultDescription: row.result_description,
@@ -217,14 +241,14 @@ export function createProductAiService(dependencies: ProductAiServiceDependencie
             });
         }
 
-        const imagePaths = files.map((f) => path.relative(process.cwd(), f.path).replace(/\\/g, '/'));
+        const tempImageKeys = files.map((file) => storageKeyFromAbsolutePath(file.path));
 
         if (useRealService) {
             const status: ProductAiJobStatus = 'PENDING';
 
             const [insertId] = await knex('product_ai_jobs').insert({
                 product_id: null,
-                image_paths: JSON.stringify(imagePaths),
+                image_paths: JSON.stringify(tempImageKeys),
                 price,
                 status,
                 result_display_name: null,
@@ -235,6 +259,10 @@ export function createProductAiService(dependencies: ProductAiServiceDependencie
                 updated_at: knex.fn.now(),
             });
 
+            const finalKeys = await moveJobImages(insertId, files);
+            await knex('product_ai_jobs')
+                .where({ id: insertId })
+                .update({ image_paths: JSON.stringify(finalKeys), updated_at: knex.fn.now() });
             const row = await knex<ProductAiJobRow>('product_ai_jobs').where({ id: insertId }).first();
             const res = mapRowToResponse(row!);
 
@@ -250,7 +278,7 @@ export function createProductAiService(dependencies: ProductAiServiceDependencie
 
         const [insertId] = await knex('product_ai_jobs').insert({
             product_id: null,
-            image_paths: JSON.stringify(imagePaths),
+            image_paths: JSON.stringify(tempImageKeys),
             price,
             status,
             result_display_name: mockName,
@@ -261,6 +289,10 @@ export function createProductAiService(dependencies: ProductAiServiceDependencie
             updated_at: knex.fn.now(),
         });
 
+        const finalKeys = await moveJobImages(insertId, files);
+        await knex('product_ai_jobs')
+            .where({ id: insertId })
+            .update({ image_paths: JSON.stringify(finalKeys), updated_at: knex.fn.now() });
         const row = await knex<ProductAiJobRow>('product_ai_jobs').where({ id: insertId }).first();
         const res = mapRowToResponse(row!);
 
@@ -330,7 +362,7 @@ export function createProductAiService(dependencies: ProductAiServiceDependencie
         try {
             const imagePaths = parseImagePaths(row.image_paths);
             const price = Number(row.price);
-            const imageUrls = buildImageInputsFromPaths(imagePaths).map((image) => image.url);
+            const imageUrls = buildImageInputsFromKeys(imagePaths, { absolute: true }).map((image) => image.url);
 
             const aiRes = await analyzeProductViaPython({ jobId, price, imageUrls });
             const validation = validateAiCopyOutput(aiRes.title, aiRes.description);
@@ -411,7 +443,7 @@ export function createProductAiService(dependencies: ProductAiServiceDependencie
             const paths: string[] = JSON.parse(job.image_paths);
             for (const relPath of paths) {
                 try {
-                    const absPath = path.join(process.cwd(), relPath);
+                    const absPath = storageKeyToAbsolutePath(relPath);
                     await fs.unlink(absPath);
                 } catch (err) {
                     console.warn('[AI] Failed to delete image:', relPath, err);
@@ -419,7 +451,130 @@ export function createProductAiService(dependencies: ProductAiServiceDependencie
             }
         }
 
+        const jobDir = path.join(process.cwd(), 'uploads', 'ai', 'product-jobs', String(jobId));
+        await fs.rm(jobDir, { recursive: true, force: true }).catch((err) => {
+            if ((err as any)?.code !== 'ENOENT') {
+                console.warn('[AI] Failed to delete job directory:', jobDir, err);
+            }
+        });
+
         await knex('product_ai_jobs').where({ id: jobId }).del();
+    }
+
+    async function finalizeProductAiJob(
+        jobId: number,
+        input: FinalizeProductAiJobInput
+    ) {
+        const job = await knex<ProductAiJobRow>('product_ai_jobs').where({ id: jobId }).first();
+        if (!job) {
+            throw new ProductAiError('AI_JOB_NOT_FOUND', 'Job nicht gefunden.', 404, { jobId });
+        }
+
+        if (job.product_id) {
+            return await productService.getProductById(job.product_id);
+        }
+
+        if (job.status !== 'SUCCESS') {
+            throw new ProductAiError('AI_JOB_NOT_READY', 'Job ist noch nicht fertig.', 409, {
+                status: job.status,
+            });
+        }
+
+        const imageKeys = parseImagePaths(job.image_paths).map((key) => normalizeStorageValue(key));
+        const price = input.price ?? parsePrice(job.price);
+
+        if (!price || price <= 0) {
+            throw new ProductAiError('AI_INVALID_INPUT', 'Ungültiger Preis.', 400, { price });
+        }
+
+        const createdProduct = await productService.createProduct({
+            name: input.name ?? job.result_display_name ?? 'AI Produkt',
+            description: input.description ?? job.result_description ?? '',
+            price,
+            sizes: input.sizes ?? [],
+            tags: input.tags ?? [],
+            images: [],
+        });
+
+        try {
+            const copiedKeys = await copyJobImagesToProduct(imageKeys, createdProduct.id);
+
+            if (copiedKeys.length > 0) {
+                const imageInputs: ProductImageInput[] = copiedKeys.map((key, index) => ({
+                    url: key,
+                    sortOrder: index,
+                    isPrimary: index === 0,
+                }));
+                await productService.addImageInputsToProduct(createdProduct.id, imageInputs);
+            }
+
+            await knex('product_ai_jobs')
+                .where({ id: jobId })
+                .update({
+                    product_id: createdProduct.id,
+                    status: 'FINALIZED',
+                    updated_at: knex.fn.now(),
+                });
+        } catch (err) {
+            await productService.deleteProduct(createdProduct.id);
+            throw err;
+        }
+
+        return await productService.getProductById(createdProduct.id);
+    }
+
+    async function moveJobImages(jobId: number, files: Express.Multer.File[]): Promise<string[]> {
+        const jobDir = path.join(process.cwd(), 'uploads', 'ai', 'product-jobs', String(jobId));
+        await fs.mkdir(jobDir, { recursive: true });
+
+        const finalKeys: string[] = [];
+
+        for (const file of files) {
+            const targetKey = path.posix.join('ai', 'product-jobs', String(jobId), file.filename);
+            const targetPath = storageKeyToAbsolutePath(targetKey);
+
+            await fs.mkdir(path.dirname(targetPath), { recursive: true });
+            try {
+                await fs.rename(file.path, targetPath);
+            } catch (err: any) {
+                if (err?.code === 'EXDEV') {
+                    await fs.copyFile(file.path, targetPath);
+                    await fs.unlink(file.path);
+                } else {
+                    throw err;
+                }
+            }
+
+            finalKeys.push(targetKey);
+        }
+
+        return finalKeys;
+    }
+
+    async function copyJobImagesToProduct(storageKeys: string[], productId: number): Promise<string[]> {
+        const copiedKeys: string[] = [];
+
+        for (const key of storageKeys) {
+            const parsedKey = parseStorageKey(key);
+            if (!parsedKey) continue;
+
+            const filename = path.basename(parsedKey);
+            const targetKey = path.posix.join('products', String(productId), filename);
+            const sourcePath = storageKeyToAbsolutePath(parsedKey);
+            const targetPath = storageKeyToAbsolutePath(targetKey);
+
+            await fs.mkdir(path.dirname(targetPath), { recursive: true });
+
+            try {
+                await fs.access(targetPath);
+            } catch {
+                await fs.copyFile(sourcePath, targetPath);
+            }
+
+            copiedKeys.push(targetKey);
+        }
+
+        return copiedKeys;
     }
 
     return {
@@ -429,6 +584,7 @@ export function createProductAiService(dependencies: ProductAiServiceDependencie
         processProductAiJob,
         getOpenProductAiJobs,
         deleteProductAiJob,
+        finalizeProductAiJob,
     };
 }
 
@@ -445,6 +601,7 @@ export const {
     processProductAiJob,
     getOpenProductAiJobs,
     deleteProductAiJob,
+    finalizeProductAiJob,
 } = defaultProductAiService;
 
 export const productAiService = defaultProductAiService;

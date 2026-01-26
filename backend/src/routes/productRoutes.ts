@@ -6,6 +6,7 @@ import fs from 'fs';
 import path from 'path';
 import * as productController from '../controllers/productController';
 import { authMiddleware, requireRole } from '../middlewares/authMiddleware';
+import { sanitizeFilenameBase } from '../utils/storage';
 
 const router = Router();
 
@@ -22,8 +23,10 @@ const storage = multer.diskStorage({
     },
     filename: (req, file, cb) => {
         const timestamp = Date.now();
-        const safeOriginalName = file.originalname.replace(/\s+/g, '_');
-        cb(null, `${timestamp}-${safeOriginalName}`);
+        const ext = path.extname(file.originalname || '').toLowerCase();
+        const base = path.basename(file.originalname || 'file', ext);
+        const safeBase = sanitizeFilenameBase(base);
+        cb(null, `${timestamp}-${safeBase}${ext}`);
     },
 });
 
