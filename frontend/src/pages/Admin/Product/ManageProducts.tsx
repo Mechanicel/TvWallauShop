@@ -218,7 +218,7 @@ export const ManageProducts: React.FC = () => {
          name: item.job.result_display_name ?? '',
          description: item.job.result_description ?? '',
          price: item.job.price,
-         imageUrl: '',
+         imageUrl: item.job.image_urls?.[0] ?? '',
          sizes: [],
          images: [],
          tags: item.job.result_tags ?? [],
@@ -293,16 +293,22 @@ export const ManageProducts: React.FC = () => {
 
       const { id, name, description, price, imageUrl, sizes, tags } = editingProduct;
       const safeDescription = description ?? '';
-      const safeImageUrl = imageUrl ?? '';
+      const aiImageUrls = existingImageUrls.length > 0 ? existingImageUrls : undefined;
+      const safeImageUrl = imageUrl ?? aiImageUrls?.[0] ?? '';
       let productId: number | undefined;
 
       if (id != null) {
          const action = await dispatch(
-            updateProduct({ id, changes: { name, description: safeDescription, price, imageUrl: safeImageUrl, sizes, tags } }),
+            updateProduct({
+               id,
+               changes: { name, description: safeDescription, price, imageUrl: safeImageUrl, imageUrls: aiImageUrls, sizes, tags },
+            }),
          );
          productId = (action as any).payload?.id;
       } else {
-         const action = await dispatch(addProduct({ name, description: safeDescription, price, imageUrl: safeImageUrl, sizes, tags }));
+         const action = await dispatch(
+            addProduct({ name, description: safeDescription, price, imageUrl: safeImageUrl, imageUrls: aiImageUrls, sizes, tags }),
+         );
          productId = (action as any).payload?.id;
       }
 

@@ -28,6 +28,7 @@ export interface ProductPayload {
   description: string;
   price: number;
   imageUrl: string;
+  imageUrls?: string[];
   sizes: { id: string | number; label: string; stock: number }[];
   tags?: string[];
 }
