@@ -369,7 +369,7 @@ export const productService = {
         return product;
     },
 
-    async createProduct(data: Partial<Product>): Promise<Product> {
+    async createProduct(data: Partial<Product> & { imageUrls?: string[] }): Promise<Product> {
         console.log('createProduct payload:', data);
 
         if (!data) {
@@ -378,11 +378,21 @@ export const productService = {
         assertValidName(data.name);
         assertValidPrice(data.price);
 
+        const requestedImageUrl =
+            typeof data.imageUrl === 'string' && data.imageUrl.trim().length > 0
+                ? data.imageUrl.trim()
+                : null;
+        const providedImageUrls = normalizeImageUrls(data.imageUrls ?? []);
+        const primaryImageUrl = requestedImageUrl ?? providedImageUrls[0] ?? null;
+        const imageUrls = normalizeImageUrls(
+            primaryImageUrl ? [primaryImageUrl, ...providedImageUrls] : providedImageUrls
+        );
+
         const [newId] = await knex('products').insert({
             name: data.name,
             description: data.description ?? null,
             price: data.price,
-            image_url: data.imageUrl ?? null,
+            image_url: primaryImageUrl,
         });
 
         // Größen für neues Produkt setzen (falls übergeben)
@@ -398,10 +408,14 @@ export const productService = {
         // Tags für neues Produkt setzen (falls übergeben)
         await setTagsForProduct(newId, data.tags);
 
+        if (imageUrls.length > 0) {
+            await this.addImagesToProduct(newId, imageUrls);
+        }
+
         return await this.getProductById(newId);
     },
 
-    async updateProduct(id: number, data: Partial<Product>): Promise<Product> {
+    async updateProduct(id: number, data: Partial<Product> & { imageUrls?: string[] }): Promise<Product> {
         console.log('updateProduct payload:', data);
         assertValidId(id, 'productId');
         if (!data) {
@@ -412,6 +426,11 @@ export const productService = {
             throw new ProductNotFoundError(id);
         }
 
+        const requestedImageUrl =
+            typeof data.imageUrl === 'string' && data.imageUrl.trim().length > 0
+                ? data.imageUrl.trim()
+                : null;
+
         await knex('products')
             .where({ id })
             .update({
@@ -421,8 +440,13 @@ export const productService = {
                     typeof data.price === 'number' && !Number.isNaN(data.price) && data.price >= 0
                         ? data.price
                         : Number(existing.price),
-                image_url: data.imageUrl ?? existing.image_url,
+                image_url: requestedImageUrl ?? existing.image_url,
             });
+
+        const providedImageUrls = normalizeImageUrls(data.imageUrls ?? []);
+        if (providedImageUrls.length > 0) {
+            await this.addImagesToProduct(id, providedImageUrls);
+        }
 
         // Größen aktualisieren
         if (data.sizes) {
