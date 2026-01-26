@@ -98,7 +98,7 @@ export const ManageProducts: React.FC = () => {
                merged.push({ ...existing, job: { ...existing.job, ...job } });
                prevById.delete(job.id);
             } else {
-               merged.push({ job, price: 0, files: [] });
+               merged.push({ job, price: Number(job.price ?? 0), files: [] });
             }
          }
 
@@ -140,7 +140,7 @@ export const ManageProducts: React.FC = () => {
          setQueuedAiItems((prev) => {
             const idx = prev.findIndex((item) => item.job.id === job.id);
             if (idx === -1) {
-               return [...prev, { job, price: 0, files: [] }];
+               return [...prev, { job, price: Number(job.price ?? 0), files: [] }];
             }
             const next = [...prev];
             next[idx] = { ...next[idx], job: { ...next[idx].job, ...job } };
@@ -206,8 +206,37 @@ export const ManageProducts: React.FC = () => {
       setDisplayNewAiDialog(false);
    };
 
-   const handleCompleteFromAi = (item: QueuedAiItem) => {
+   const rehydrateFilesIfNeeded = async (job: ProductAiJob): Promise<File[]> => {
+      const paths = job.image_paths ?? [];
+      if (!paths.length) return [];
+
+      const urls = paths.map((path) => resolveImageUrl(path));
+
+      const files = await Promise.all(
+         urls.map(async (url, idx) => {
+            const res = await fetch(url);
+            if (!res.ok) throw new Error(`Failed to fetch AI image: ${url} (${res.status})`);
+            const blob = await res.blob();
+            const name = `ai_${job.id}_${idx}.jpg`;
+            return new File([blob], name, { type: blob.type || 'image/jpeg' });
+         }),
+      );
+
+      return files;
+   };
+
+   const handleCompleteFromAi = async (item: QueuedAiItem) => {
       setCompletingJobId(item.job.id);
+
+      let files = item.files;
+      if ((!files || files.length === 0) && item.job.image_paths?.length) {
+         try {
+            files = await rehydrateFilesIfNeeded(item.job);
+         } catch (err) {
+            console.error('[AI] Failed to rehydrate files', err);
+            files = [];
+         }
+      }
 
       setEditingProduct({
          name: item.job.result_display_name ?? '',
@@ -219,7 +248,7 @@ export const ManageProducts: React.FC = () => {
          tags: item.job.result_tags ?? [],
       });
 
-      setUploadFiles(item.files);
+      setUploadFiles(files);
       setDisplayEditDialog(true);
    };
 
@@ -410,7 +439,7 @@ export const ManageProducts: React.FC = () => {
                            label="Fertigstellen"
                            icon="pi pi-check"
                            disabled={!success || retrying}
-                           onClick={() => handleCompleteFromAi(item)}
+                           onClick={() => void handleCompleteFromAi(item)}
                         />
 
                         {failed && (

@@ -35,6 +35,9 @@ export interface ProductAiServiceDependencies {
 }
 
 function mapRowToResponse(row: ProductAiJobRow): ProductAiJob {
+    const imagePaths: string[] = row.image_paths ? JSON.parse(row.image_paths) : [];
+    const price = Number(row.price) || 0;
+
     return {
         id: row.id,
         product_id: row.product_id,
@@ -45,6 +48,8 @@ function mapRowToResponse(row: ProductAiJobRow): ProductAiJob {
         error_message: row.error_message,
         created_at: row.created_at.toISOString(),
         updated_at: row.updated_at.toISOString(),
+
+        ...( { price, image_paths: imagePaths } as any ),
     };
 }
 
@@ -181,7 +186,11 @@ export function createProductAiService(dependencies: ProductAiServiceDependencie
             });
         }
 
-        const imagePaths = files.map((f) => path.relative(process.cwd(), f.path).replace(/\\/g, '/'));
+        const uploadRoot = path.join(process.cwd(), 'uploads');
+        const imagePaths = files.map((f) => {
+            const rel = path.relative(uploadRoot, f.path).replace(/\\/g, '/');
+            return `/uploads/${rel}`;
+        });
 
         if (useRealService) {
             const status: ProductAiJobStatus = 'PENDING';
@@ -298,7 +307,11 @@ export function createProductAiService(dependencies: ProductAiServiceDependencie
             const publicBase = (process.env.APP_URL || 'http://localhost:3000').replace(/\/$/, '');
 
             const imageUrls = imagePaths.map((p) => {
-                const normalized = String(p).replace(/\\/g, '/').replace(/^\.\?\//, '').replace(/^\.\//, '');
+                const normalized = String(p)
+                    .replace(/\\/g, '/')
+                    .replace(/^\.\?\//, '')
+                    .replace(/^\.\//, '')
+                    .replace(/^\/+/, '');
                 return `${publicBase}/${normalized}`;
             });
 
@@ -381,7 +394,8 @@ export function createProductAiService(dependencies: ProductAiServiceDependencie
             const paths: string[] = JSON.parse(job.image_paths);
             for (const relPath of paths) {
                 try {
-                    const absPath = path.join(process.cwd(), relPath);
+                    const normalizedPath = String(relPath).replace(/^\/+/, '');
+                    const absPath = path.join(process.cwd(), normalizedPath);
                     await fs.unlink(absPath);
                 } catch (err) {
                     console.warn('[AI] Failed to delete image:', relPath, err);
