@@ -112,6 +112,6 @@ test('processProductAiJob persists short titles and emits completed payload', as
   assert.ok(completedEvents.length > 0);
   const payload = completedEvents[completedEvents.length - 1].payload;
   assert.equal(payload.status, 'SUCCESS');
-  assert.equal(payload.result_display_name, 'Short title');
-  assert.ok(payload.result_description);
+  assert.equal(payload.resultDisplayName, 'Short title');
+  assert.ok(payload.resultDescription);
 });

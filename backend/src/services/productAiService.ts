@@ -5,7 +5,7 @@ import fs from 'fs/promises';
 import { knex } from '../database';
 import { getIO } from '../middlewares/websocket';
 import { analyzeProductViaPython } from './aiPythonClient';
-import type { ProductAiJob, ProductAiJobStatus, Tag } from '@tvwallaushop/contracts';
+import type { ProductAiJob, ProductAiJobStatus, ProductImageInput, Tag } from '@tvwallaushop/contracts';
 import { ProductAiError } from '../errors/ProductAiError';
 
 export interface ProductAiJobRow {
@@ -50,11 +50,15 @@ function parseImagePaths(rawPaths: string | null | undefined): string[] {
     }
 }
 
-function buildImageUrlsFromPaths(imagePaths: string[]): string[] {
+function buildImageInputsFromPaths(imagePaths: string[]): ProductImageInput[] {
     const publicBase = getPublicBaseUrl();
-    return imagePaths.map((p) => {
+    return imagePaths.map((p, index) => {
         const normalized = String(p).replace(/\\/g, '/').replace(/^\.\?\//, '').replace(/^\.\//, '');
-        return `${publicBase}/${normalized}`;
+        return {
+            url: `${publicBase}/${normalized}`,
+            sortOrder: index,
+            isPrimary: index === 0,
+        };
     });
 }
 
@@ -67,16 +71,16 @@ function mapRowToResponse(row: ProductAiJobRow): ProductAiJob {
     const imagePaths = parseImagePaths(row.image_paths);
     return {
         id: row.id,
-        product_id: row.product_id,
+        productId: row.product_id,
         price: parsePrice(row.price),
-        image_urls: buildImageUrlsFromPaths(imagePaths),
+        images: buildImageInputsFromPaths(imagePaths),
         status: row.status,
-        result_display_name: row.result_display_name,
-        result_description: row.result_description,
-        result_tags: row.result_tags ? JSON.parse(row.result_tags) : null,
-        error_message: row.error_message,
-        created_at: row.created_at.toISOString(),
-        updated_at: row.updated_at.toISOString(),
+        resultDisplayName: row.result_display_name,
+        resultDescription: row.result_description,
+        resultTags: row.result_tags ? JSON.parse(row.result_tags) : null,
+        errorMessage: row.error_message,
+        createdAt: row.created_at.toISOString(),
+        updatedAt: row.updated_at.toISOString(),
     };
 }
 
@@ -326,7 +330,7 @@ export function createProductAiService(dependencies: ProductAiServiceDependencie
         try {
             const imagePaths = parseImagePaths(row.image_paths);
             const price = Number(row.price);
-            const imageUrls = buildImageUrlsFromPaths(imagePaths);
+            const imageUrls = buildImageInputsFromPaths(imagePaths).map((image) => image.url);
 
             const aiRes = await analyzeProductViaPython({ jobId, price, imageUrls });
             const validation = validateAiCopyOutput(aiRes.title, aiRes.description);

@@ -214,18 +214,19 @@ export const ManageProducts: React.FC = () => {
 
       setCompletingJobId(item.job.id);
 
+      const imageUrls = item.job.images?.map((image) => image.url) ?? [];
+
       setEditingProduct({
-         name: item.job.result_display_name ?? '',
-         description: item.job.result_description ?? '',
+         name: item.job.resultDisplayName ?? '',
+         description: item.job.resultDescription ?? '',
          price: item.job.price,
-         imageUrl: item.job.image_urls?.[0] ?? '',
          sizes: [],
          images: [],
-         tags: item.job.result_tags ?? [],
+         tags: item.job.resultTags ?? [],
       });
 
       setUploadFiles(item.files);
-      setExistingImageUrls(item.job.image_urls ?? []);
+      setExistingImageUrls(imageUrls);
       setDisplayEditDialog(true);
    };
 
@@ -239,7 +240,7 @@ export const ManageProducts: React.FC = () => {
       setQueuedAiItems((prev) =>
          prev.map((q) =>
             q.job.id === jobId
-               ? { ...q, job: { ...q.job, status: 'PROCESSING' as ProductAiJobStatus, error_message: null } }
+               ? { ...q, job: { ...q.job, status: 'PROCESSING' as ProductAiJobStatus, errorMessage: null } }
                : q,
          ),
       );
@@ -291,23 +292,25 @@ export const ManageProducts: React.FC = () => {
    const saveProduct = async () => {
       if (!editingProduct) return;
 
-      const { id, name, description, price, imageUrl, sizes, tags } = editingProduct;
+      const { id, name, description, price, sizes, tags } = editingProduct;
       const safeDescription = description ?? '';
-      const aiImageUrls = existingImageUrls.length > 0 ? existingImageUrls : undefined;
-      const safeImageUrl = imageUrl ?? aiImageUrls?.[0] ?? '';
+      const aiImages =
+         existingImageUrls.length > 0
+            ? existingImageUrls.map((url, index) => ({ url, sortOrder: index, isPrimary: index === 0 }))
+            : undefined;
       let productId: number | undefined;
 
       if (id != null) {
          const action = await dispatch(
             updateProduct({
                id,
-               changes: { name, description: safeDescription, price, imageUrl: safeImageUrl, imageUrls: aiImageUrls, sizes, tags },
+               changes: { name, description: safeDescription, price, images: aiImages, sizes, tags },
             }),
          );
          productId = (action as any).payload?.id;
       } else {
          const action = await dispatch(
-            addProduct({ name, description: safeDescription, price, imageUrl: safeImageUrl, imageUrls: aiImageUrls, sizes, tags }),
+            addProduct({ name, description: safeDescription, price, images: aiImages, sizes, tags }),
          );
          productId = (action as any).payload?.id;
       }
@@ -403,7 +406,7 @@ export const ManageProducts: React.FC = () => {
                const failed = job.status === 'FAILED';
 
                const retrying = isRetrying(job.id);
-               const hasImages = (job.image_urls ?? []).length > 0;
+               const hasImages = (job.images ?? []).length > 0;
                const formattedPrice =
                   typeof job.price === 'number' && Number.isFinite(job.price)
                      ? `Preis: ${job.price.toFixed(2)} €`
@@ -418,14 +421,14 @@ export const ManageProducts: React.FC = () => {
                            {renderAiBadge(job.status as ProductAiJobStatus, retrying)}
                         </div>
 
-                        {job.result_display_name && <div>{job.result_display_name}</div>}
+                        {job.resultDisplayName && <div>{job.resultDisplayName}</div>}
                         <div>{formattedPrice}</div>
                         {hasImages ? (
                            <div className="products-ai-item-images">
-                              {job.image_urls.map((url, index) => (
+                              {job.images.map((image, index) => (
                                  <img
                                     key={`${job.id}-img-${index}`}
-                                    src={resolveImageUrl(url)}
+                                    src={resolveImageUrl(image.url)}
                                     alt={`KI-Bild ${index + 1}`}
                                     className="products-ai-item-image"
                                  />
@@ -434,7 +437,7 @@ export const ManageProducts: React.FC = () => {
                         ) : (
                            <div className="products-ai-item-images products-ai-item-images--empty">Bilder: –</div>
                         )}
-                        {job.error_message && <div className="products-ai-item-error">{job.error_message}</div>}
+                        {job.errorMessage && <div className="products-ai-item-error">{job.errorMessage}</div>}
                      </div>
 
                      <div className="products-ai-item-actions">
@@ -486,11 +489,12 @@ export const ManageProducts: React.FC = () => {
             <Column field="name" header="Name" />
             <Column field="price" header="Preis" body={(p: Product) => `${p.price.toFixed(2)} €`} />
             <Column
-               field="imageUrl"
                header="Bild"
-               body={(p: Product) =>
-                  p.imageUrl ? <img src={resolveImageUrl(p.imageUrl)} width={50} alt={'Fehler'} /> : '–'
-               }
+               body={(p: Product) => {
+                  const imageUrl =
+                     p.primaryImageUrl ?? p.images.find((img) => img.isPrimary)?.url ?? p.images[0]?.url ?? null;
+                  return imageUrl ? <img src={resolveImageUrl(imageUrl)} width={50} alt={'Fehler'} /> : '–';
+               }}
             />
             <Column
                header="Aktionen"
