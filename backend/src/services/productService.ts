@@ -16,6 +16,7 @@ import {
     ProductNotFoundError,
     ProductValidationError,
 } from '../errors/ProductServiceError';
+import { normalizeStorageValue, storageKeyToPublicUrl } from '../utils/storage';
 import {
     ProductImageRow,
     ProductQuery,
@@ -48,7 +49,7 @@ function mapSizeRow(row: ProductSizeRow): ProductSize {
 function mapImageRow(row: ProductImageRow): ProductImage {
     return {
         id: row.id,
-        url: row.url,
+        url: storageKeyToPublicUrl(row.url),
         sortOrder: row.sort_order ?? 0,
         isPrimary: Boolean(row.is_primary),
     };
@@ -74,14 +75,14 @@ function assertValidPrice(value: unknown): void {
 
 function normalizeImageUrls(imageUrls: string[]): string[] {
     return imageUrls
-        .map((url) => (typeof url === 'string' ? url.trim() : ''))
+        .map((url) => (typeof url === 'string' ? normalizeStorageValue(url) : ''))
         .filter((url) => url.length > 0);
 }
 
 function normalizeImageInputs(inputs: ProductImageInput[]): ProductImageInput[] {
     return inputs
         .map((input) => ({
-            url: typeof input.url === 'string' ? input.url.trim() : '',
+            url: typeof input.url === 'string' ? normalizeStorageValue(input.url) : '',
             sortOrder: input.sortOrder,
             isPrimary: input.isPrimary,
         }))

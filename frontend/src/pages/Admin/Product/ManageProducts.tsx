@@ -16,6 +16,7 @@ import {
    deleteProduct,
    uploadProductImages,
    createProductAiJob,
+   finalizeProductAiJob,
    selectProducts,
    selectProductLoading,
    selectProductError,
@@ -294,23 +295,27 @@ export const ManageProducts: React.FC = () => {
 
       const { id, name, description, price, sizes, tags } = editingProduct;
       const safeDescription = description ?? '';
-      const aiImages =
-         existingImageUrls.length > 0
-            ? existingImageUrls.map((url, index) => ({ url, sortOrder: index, isPrimary: index === 0 }))
-            : undefined;
       let productId: number | undefined;
 
-      if (id != null) {
+      if (completingJobId !== null) {
+         const action = await dispatch(
+            finalizeProductAiJob({
+               jobId: completingJobId,
+               payload: { name, description: safeDescription, price, sizes, tags },
+            }),
+         );
+         productId = (action as any).payload?.id;
+      } else if (id != null) {
          const action = await dispatch(
             updateProduct({
                id,
-               changes: { name, description: safeDescription, price, images: aiImages, sizes, tags },
+               changes: { name, description: safeDescription, price, sizes, tags },
             }),
          );
          productId = (action as any).payload?.id;
       } else {
          const action = await dispatch(
-            addProduct({ name, description: safeDescription, price, images: aiImages, sizes, tags }),
+            addProduct({ name, description: safeDescription, price, sizes, tags }),
          );
          productId = (action as any).payload?.id;
       }
@@ -320,7 +325,7 @@ export const ManageProducts: React.FC = () => {
       }
 
       // 🔥 KI-Job nach erfolgreicher Fertigstellung löschen
-      if (completingJobId !== null) {
+      if (completingJobId !== null && productId) {
          try {
             await productService.deleteProductAiJob(completingJobId);
          } catch (err) {

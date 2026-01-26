@@ -52,7 +52,7 @@ export const retryProductAiJob = catchAsync(async (req: Request, res: Response) 
 
     const existing = await productAiService.getProductAiJobById(jobId);
     if (!existing) throw new ProductAiError('AI_JOB_NOT_FOUND', 'Job nicht gefunden.', 404);
-    if (existing.status === 'SUCCESS') {
+    if (existing.status === 'SUCCESS' || existing.status === 'FINALIZED') {
         throw new ProductAiError(
             'AI_JOB_ALREADY_COMPLETED',
             'Job ist bereits abgeschlossen.',
@@ -64,6 +64,19 @@ export const retryProductAiJob = catchAsync(async (req: Request, res: Response) 
     if (!updated) throw new ProductAiError('AI_JOB_NOT_FOUND', 'Job nicht gefunden.', 404);
 
     res.status(200).json(updated);
+});
+
+export const finalizeProductAiJob = catchAsync(async (req: Request, res: Response) => {
+    const jobId = Number(req.params.id);
+
+    if (!jobId || Number.isNaN(jobId)) {
+        throw new ProductAiError('AI_INVALID_JOB_ID', 'Ungültige Job-ID.', 400, {
+            providedId: req.params.id,
+        });
+    }
+
+    const product = await productAiService.finalizeProductAiJob(jobId, req.body ?? {});
+    res.status(200).json(product);
 });
 
 export const getOpenProductAiJobs = catchAsync(async (_req: Request, res: Response) => {

@@ -102,6 +102,15 @@ const getOpenProductAiJobs = async (): Promise<ProductAiJob[]> => {
 const deleteProductAiJob = async (jobId: number): Promise<void> => {
    await api.delete(`/ai/product-job/${jobId}`);
 };
+
+/**
+ * KI-Job finalisieren (Produkt anlegen & Bilder kopieren)
+ * POST /api/ai/product-job/:id/finalize
+ */
+const finalizeProductAiJob = async (jobId: number, payload: ProductPayload): Promise<Product> => {
+   const { data } = await api.post(`/ai/product-job/${jobId}/finalize`, payload);
+   return data;
+};
 /* ============================================================================
  *  Export
  * ========================================================================== */
@@ -123,6 +132,7 @@ const productService = {
    retryProductAiJob,
    getOpenProductAiJobs,
    deleteProductAiJob,
+   finalizeProductAiJob,
 };
 
 export default productService;

@@ -18,6 +18,11 @@ export function resolveImageUrl(imageUrl: string | null | undefined): string {
       return imageUrl;
    }
 
-   // Relativen Pfad an die Backend-Base anhängen
-   return `${BACKEND_BASE_URL}${imageUrl}`;
+   const normalized = imageUrl.startsWith('/') ? imageUrl : `/${imageUrl}`;
+
+   if (normalized.startsWith('/uploads/') || normalized.startsWith('/assets/')) {
+      return `${BACKEND_BASE_URL}${normalized}`;
+   }
+
+   return `${BACKEND_BASE_URL}/uploads${normalized}`;
 }
