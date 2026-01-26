@@ -9,7 +9,7 @@ import type { Knex } from 'knex';
 import { InsufficientStockError } from '../errors/InsufficientStockError';
 import path from 'path';
 import fs from 'fs';
-import type { Product, ProductImage, ProductSize } from '@tvwallaushop/contracts';
+import type { Product, ProductImage, ProductImageInput, ProductSize } from '@tvwallaushop/contracts';
 import {
     ProductImageNotFoundError,
     ProductImageTableMissingError,
@@ -30,7 +30,6 @@ function mapProductRow(row: ProductRow): Product {
         name: row.name,
         description: row.description ?? null,
         price: Number(row.price),
-        imageUrl: row.image_url ?? null,
         createdAt: row.created_at ? row.created_at.toISOString() : null,
         sizes: [],
         images: [],
@@ -77,6 +76,28 @@ function normalizeImageUrls(imageUrls: string[]): string[] {
     return imageUrls
         .map((url) => (typeof url === 'string' ? url.trim() : ''))
         .filter((url) => url.length > 0);
+}
+
+function normalizeImageInputs(inputs: ProductImageInput[]): ProductImageInput[] {
+    return inputs
+        .map((input) => ({
+            url: typeof input.url === 'string' ? input.url.trim() : '',
+            sortOrder: input.sortOrder,
+            isPrimary: input.isPrimary,
+        }))
+        .filter((input) => input.url.length > 0);
+}
+
+function buildImageInputsFromUrls(imageUrls: string[]): ProductImageInput[] {
+    return normalizeImageUrls(imageUrls).map((url, index) => ({
+        url,
+        sortOrder: index,
+        isPrimary: index === 0,
+    }));
+}
+
+function getPrimaryImage(images: ProductImage[]): ProductImage | null {
+    return images.find((img) => img.isPrimary) ?? images[0] ?? null;
 }
 
 /**
@@ -226,14 +247,7 @@ export const productService = {
 
             p.images = imagesForProduct;
 
-            const primary =
-                imagesForProduct.find((img) => img.isPrimary) ??
-                imagesForProduct[0] ??
-                null;
-
-            if (primary) {
-                p.imageUrl = primary.url;
-            }
+            p.primaryImageUrl = getPrimaryImage(imagesForProduct)?.url ?? null;
 
             // Tags
             p.tags = tagRows
@@ -348,15 +362,7 @@ export const productService = {
 
         const images = imageRows.map(mapImageRow);
         product.images = images;
-
-        const primary =
-            images.find((img) => img.isPrimary) ??
-            images[0] ??
-            null;
-
-        if (primary) {
-            product.imageUrl = primary.url;
-        }
+        product.primaryImageUrl = getPrimaryImage(images)?.url ?? null;
 
         // Tags
         const tagRows = await knex('product_tags as pt')
@@ -369,7 +375,9 @@ export const productService = {
         return product;
     },
 
-    async createProduct(data: Partial<Product> & { imageUrls?: string[] }): Promise<Product> {
+    async createProduct(
+        data: Partial<Product> & { imageUrls?: string[]; images?: ProductImageInput[] }
+    ): Promise<Product> {
         console.log('createProduct payload:', data);
 
         if (!data) {
@@ -378,15 +386,20 @@ export const productService = {
         assertValidName(data.name);
         assertValidPrice(data.price);
 
-        const requestedImageUrl =
-            typeof data.imageUrl === 'string' && data.imageUrl.trim().length > 0
-                ? data.imageUrl.trim()
-                : null;
-        const providedImageUrls = normalizeImageUrls(data.imageUrls ?? []);
-        const primaryImageUrl = requestedImageUrl ?? providedImageUrls[0] ?? null;
-        const imageUrls = normalizeImageUrls(
-            primaryImageUrl ? [primaryImageUrl, ...providedImageUrls] : providedImageUrls
-        );
+        const hasImages = Array.isArray(data.images) && data.images.length > 0;
+        const hasImageUrls = Array.isArray(data.imageUrls) && data.imageUrls.length > 0;
+
+        if (hasImages && hasImageUrls) {
+            throw new ProductValidationError('Provide either images or imageUrls, not both.');
+        }
+
+        const providedImages = hasImages
+            ? normalizeImageInputs(data.images ?? [])
+            : buildImageInputsFromUrls(data.imageUrls ?? []);
+
+        const primaryInput =
+            providedImages.find((img) => img.isPrimary) ?? providedImages[0] ?? null;
+        const primaryImageUrl = primaryInput?.url ?? null;
 
         const [newId] = await knex('products').insert({
             name: data.name,
@@ -408,14 +421,17 @@ export const productService = {
         // Tags für neues Produkt setzen (falls übergeben)
         await setTagsForProduct(newId, data.tags);
 
-        if (imageUrls.length > 0) {
-            await this.addImagesToProduct(newId, imageUrls);
+        if (providedImages.length > 0) {
+            await this.addImageInputsToProduct(newId, providedImages);
         }
 
         return await this.getProductById(newId);
     },
 
-    async updateProduct(id: number, data: Partial<Product> & { imageUrls?: string[] }): Promise<Product> {
+    async updateProduct(
+        id: number,
+        data: Partial<Product> & { imageUrls?: string[]; images?: ProductImageInput[] }
+    ): Promise<Product> {
         console.log('updateProduct payload:', data);
         assertValidId(id, 'productId');
         if (!data) {
@@ -426,11 +442,6 @@ export const productService = {
             throw new ProductNotFoundError(id);
         }
 
-        const requestedImageUrl =
-            typeof data.imageUrl === 'string' && data.imageUrl.trim().length > 0
-                ? data.imageUrl.trim()
-                : null;
-
         await knex('products')
             .where({ id })
             .update({
@@ -440,12 +451,21 @@ export const productService = {
                     typeof data.price === 'number' && !Number.isNaN(data.price) && data.price >= 0
                         ? data.price
                         : Number(existing.price),
-                image_url: requestedImageUrl ?? existing.image_url,
             });
 
-        const providedImageUrls = normalizeImageUrls(data.imageUrls ?? []);
-        if (providedImageUrls.length > 0) {
-            await this.addImagesToProduct(id, providedImageUrls);
+        const hasImages = Array.isArray(data.images) && data.images.length > 0;
+        const hasImageUrls = Array.isArray(data.imageUrls) && data.imageUrls.length > 0;
+
+        if (hasImages && hasImageUrls) {
+            throw new ProductValidationError('Provide either images or imageUrls, not both.');
+        }
+
+        const providedImages = hasImages
+            ? normalizeImageInputs(data.images ?? [])
+            : buildImageInputsFromUrls(data.imageUrls ?? []);
+
+        if (providedImages.length > 0) {
+            await this.addImageInputsToProduct(id, providedImages);
         }
 
         // Größen aktualisieren
@@ -463,6 +483,74 @@ export const productService = {
         }
 
         return await this.getProductById(id);
+    },
+
+    async addImageInputsToProduct(
+        productId: number,
+        imageInputs: ProductImageInput[]
+    ): Promise<Product> {
+        assertValidId(productId, 'productId');
+        const existing = await knex<ProductRow>('products').where({ id: productId }).first();
+        if (!existing) {
+            throw new ProductNotFoundError(productId);
+        }
+
+        const sanitizedInputs = normalizeImageInputs(imageInputs ?? []);
+        if (sanitizedInputs.length === 0) {
+            return await this.getProductById(productId);
+        }
+
+        let existingImages: ProductImageRow[] = [];
+        try {
+            existingImages = await knex('product_images')
+                .where({ product_id: productId })
+                .orderBy('sort_order', 'asc');
+        } catch {
+            throw new ProductImageTableMissingError();
+        }
+
+        const hasPrimaryAlready = existingImages.some(
+            (img: any) => img.is_primary
+        );
+        const nextSortOrder =
+            existingImages.length > 0
+                ? (existingImages[existingImages.length - 1].sort_order ??
+                existingImages.length - 1) + 1
+                : 0;
+
+        let primaryAssigned = false;
+
+        const inserts = sanitizedInputs.map((input, index) => {
+            const sortOrder =
+                Number.isFinite(Number(input.sortOrder)) ? Number(input.sortOrder) : nextSortOrder + index;
+            const shouldBePrimary = !hasPrimaryAlready && Boolean(input.isPrimary) && !primaryAssigned;
+            if (shouldBePrimary) {
+                primaryAssigned = true;
+            }
+
+            return {
+                product_id: productId,
+                url: input.url,
+                sort_order: sortOrder,
+                is_primary: shouldBePrimary ? 1 : 0,
+            };
+        });
+
+        if (!hasPrimaryAlready && !primaryAssigned && inserts.length > 0) {
+            inserts[0].is_primary = 1;
+            primaryAssigned = true;
+        }
+
+        await knex('product_images').insert(inserts);
+
+        if (!hasPrimaryAlready && primaryAssigned) {
+            const primary = inserts.find((img) => img.is_primary) ?? inserts[0];
+            await knex('products')
+                .where({ id: productId })
+                .update({ image_url: primary.url });
+        }
+
+        return await this.getProductById(productId);
     },
 
     // mehrere Bild-URLs zu einem Produkt hinzufügen

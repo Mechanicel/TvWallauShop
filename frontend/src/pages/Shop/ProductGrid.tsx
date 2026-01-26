@@ -21,7 +21,12 @@ export const ProductGrid: React.FC<ProductGridProps> = ({ products, loading }) =
                name={product.name}
                description={product.description}
                price={Number(product.price)}
-               imageUrl={product.imageUrl}
+               imageUrl={
+                  product.primaryImageUrl ??
+                  product.images.find((img) => img.isPrimary)?.url ??
+                  product.images[0]?.url ??
+                  null
+               }
             />
          ))}
       </div>

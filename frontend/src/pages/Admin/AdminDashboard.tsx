@@ -71,14 +71,13 @@ export const AdminDashboard: React.FC = () => {
    const saveProduct = async () => {
       if (!editingProduct || editingProduct.id == null) return;
 
-      const { id, name, description, price, imageUrl, sizes } = editingProduct;
+      const { id, name, description, price, sizes } = editingProduct;
       const safeDescription = description ?? '';
-      const safeImageUrl = imageUrl ?? '';
 
       await dispatch(
          updateProduct({
             id,
-            changes: { name, description: safeDescription, price, imageUrl: safeImageUrl, sizes },
+            changes: { name, description: safeDescription, price, sizes },
          }),
       );
 

@@ -13,7 +13,7 @@ export interface CartItem {
     */
    sizeLabel?: string | null;
    /**
-    * Bild-URL des Produkts (relativer Pfad wie im Produkt.imageUrl / images[i].url)
+    * Bild-URL des Produkts (relativer Pfad wie im Produkt.images[i].url)
     */
    imageUrl?: string | null;
 }

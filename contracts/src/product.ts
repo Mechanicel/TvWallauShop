@@ -11,12 +11,18 @@ export interface ProductImage {
   isPrimary: boolean;
 }
 
+export interface ProductImageInput {
+  url: string;
+  sortOrder?: number;
+  isPrimary?: boolean;
+}
+
 export interface Product {
   id: number;
   name: string;
   description: string | null;
   price: number;
-  imageUrl: string | null;
+  primaryImageUrl?: string | null;
   createdAt?: string | null;
   sizes: ProductSize[];
   images: ProductImage[];
@@ -27,7 +33,7 @@ export interface ProductPayload {
   name: string;
   description: string;
   price: number;
-  imageUrl: string;
+  images?: ProductImageInput[];
   imageUrls?: string[];
   sizes: { id: string | number; label: string; stock: number }[];
   tags?: string[];
@@ -37,14 +43,14 @@ export type ProductAiJobStatus = 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'FAILED'
 
 export interface ProductAiJob {
   id: number;
-  product_id: number | null;
+  productId: number | null;
   price: number | null;
-  image_urls: string[];
+  images: ProductImageInput[];
   status: ProductAiJobStatus;
-  result_display_name: string | null;
-  result_description: string | null;
-  result_tags: string[] | null;
-  error_message: string | null;
-  created_at: string;
-  updated_at: string;
+  resultDisplayName: string | null;
+  resultDescription: string | null;
+  resultTags: string[] | null;
+  errorMessage: string | null;
+  createdAt: string;
+  updatedAt: string;
 }

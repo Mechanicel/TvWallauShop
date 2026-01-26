@@ -76,7 +76,10 @@ const ProductDialog: React.FC<ProductDialogProps> = ({
 }) => {
    const [newTag, setNewTag] = useState('');
 
-   const updateField = (field: keyof Omit<Product, 'id' | 'sizes' | 'images'>, value: string | number) => {
+   const updateField = (
+      field: keyof Omit<Product, 'id' | 'sizes' | 'images' | 'primaryImageUrl'>,
+      value: string | number,
+   ) => {
       if (!product) return;
       onProductChange({ ...product, [field]: value });
    };
