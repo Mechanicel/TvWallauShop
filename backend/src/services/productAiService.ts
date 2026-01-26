@@ -35,6 +35,9 @@ export interface ProductAiServiceDependencies {
 }
 
 function mapRowToResponse(row: ProductAiJobRow): ProductAiJob {
+    const imagePaths: string[] = row.image_paths ? JSON.parse(row.image_paths) : [];
+    const price = Number(row.price) || 0;
+
     return {
         id: row.id,
         product_id: row.product_id,
@@ -45,6 +48,8 @@ function mapRowToResponse(row: ProductAiJobRow): ProductAiJob {
         error_message: row.error_message,
         created_at: row.created_at.toISOString(),
         updated_at: row.updated_at.toISOString(),
+
+        ...( { price, image_paths: imagePaths } as any ),
     };
 }
 
