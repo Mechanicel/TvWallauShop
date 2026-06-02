@@ -89,7 +89,7 @@ APP_URL=http://localhost:3000
 APP_ORIGIN=http://localhost:3001
 
 AI_PY_SERVICE_URL=http://localhost:8000
-AI_PY_TIMEOUT_MS=8000
+AI_PY_TIMEOUT_MS=150000
 ```
 
 ### Monorepo Workflow (Nx)
