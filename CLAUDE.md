@@ -418,4 +418,71 @@ Der **Akzent als eine zentrale Variable** halten, damit er später leicht tausch
   2. Shop / Produkt / Warenkorb
   3. Admin **zuletzt** (wegen `ManageProducts.tsx`)
 - **PrimeReact + PrimeIcons erst entfernen**, wenn keine Seite mehr darauf zugreift.
+
+---
+
+## 10. Analyse-Befund: Abhängigkeiten & Frontend-Struktur (read-only, Stand 2026-06-02)
+
+> Reine Analyse für Roadmap A/B. Es wurde **nichts** entfernt. Vor dem Entfernen entscheiden wir
+> gemeinsam (siehe Streichliste-Kategorien). `depcheck`/`knip` haben bei Monorepos und CSS-/Dispatch-/
+> Routing-Indirektion Fehlalarme – verifizierte Punkte sind markiert.
+
+### 10.1 Interne Workspace-Abhängigkeiten (`nx graph`)
+- `frontend → contracts` (static), `backend → contracts` (static).
+- `python-ai-service`, `infra`, `repo-tools`: keine internen Abhängigkeiten.
+- **Keine doppelten/divergierenden Paketversionen** (`npm ls`): `react`/`react-dom` 18.3.1, `typescript`
+  5.9.3, `axios` 1.13.2, `primereact` 9.6.5 jeweils einmalig/dedupliziert.
+
+### 10.2 Dependency-Streichliste je Workspace
+
+**frontend**
+- _Sicher entfernbar:_ `jwt-decode` (verifiziert: nur in `package.json`, nirgends importiert).
+- _Behalten:_ `primeicons` (CSS-Import + 84× `pi pi-*`), `typescript`, `rimraf` (npm-Script `clean`) –
+  depcheck/knip-Fehlalarme.
+- _Entfernen NACH Migration:_ `primereact` + `primeicons` (erst wenn keine Seite mehr zugreift; in 19/22
+  Seiten genutzt).
+- _Tote lokale Dateien (untracked, nicht in git) → löschbar:_ `src/main.js`, `src/counter.js`,
+  `src/javascript.svg`, `src/style.css` (Vite-Vanilla-Template-Reste; `main.js` importiert die drei
+  anderen; `index.html` lädt `main.tsx`).
+- _Kleinkram (knip, vor Entfernen je einzeln verifizieren):_ Komponenten doppelt als named **und**
+  default exportiert (Footer, AdminDashboard, ManageOrders/-Products/-Users, OrderEditDialog);
+  ungenutzte Selektoren/Actions (`selectCartItems`, `selectCurrentProductAiJob`, `resetProductError`,
+  `clearUser`); ungenutzte Konstanten (`STORAGE_KEYS`, `UI`, `AVAILABLE_SIZES`, `CURRENCY`, ggf.
+  `API_BASE_URL`).
+- _Tote Routen-Konstanten_ in `utils/constants.ts` (nicht in `App.tsx`): `PRODUCTS`,
+  `ORDER_CONFIRMATION`, `IMPRESSUM`, `DATENSCHUTZ`, `USER_DETAIL`.
+
+**backend**
+- _Deklaration ergänzen:_ `ms` wird in `authService.ts` importiert, ist aber **nicht** als Dependency
+  deklariert (Phantom-Dependency über Transitiv-Abhängigkeit) → explizit aufnehmen.
+- _Nicht entfernen, sondern aktivieren:_ `helmet` (ungenutzt, aber laut Roadmap → Security-Härtung).
+- _Behalten:_ `mysql2` (Knex-Client via String, kein Import → depcheck-Fehlalarm); übrige genutzt.
+
+**contracts:** sauber, nichts zu entfernen.
+
+**python_ai_service** (JS-Tools n/a; Befund per Import-Analyse):
+- _Runtime vs. Konvertierung trennen → großes Einsparpotenzial fürs CPU-Prod-Image:_
+  - `torch`: **nur** in `app/tools/convert_*.py` (Konvertierung, Dev/Build) → im Runtime-Pfad nicht
+    importiert → für CPU-Prod vermutlich entfernbar/in Dev-Gruppe (torch ist sehr groß). Verifizieren,
+    dass `model_manager` zur Laufzeit kein torch lädt (ruft Convert-Skripte nur als Subprozess).
+  - `optimum-intel[openvino]`, `onnx`, `onnxscript`, `huggingface-hub`: nur für
+    `MODEL_FETCH_MODE=download`/Export → für Prod mit vorgebauter IR nicht im Runtime nötig.
+  - `transformers`: **im Runtime genutzt** (`CLIPProcessor`/`BlipProcessor`) → behalten.
+
+### 10.3 Frontend-Struktur-Inventar
+- **Routen (App.tsx):** 15 aktive Routen + `*`-Fallback → HOME. Öffentlich: `/`, `/products/:id`,
+  `/cart`, `/cart/checkout`, `/auth/login`, `/auth/signup`. `requireAdmin`: `/admin/{dashboard,products,
+  orders,users}`. `requireUser`: `/user/{account,profile,orders,orders/:id,settings}`. Keine verwaisten
+  Seiten; tote Routen nur als Konstanten (siehe 10.2).
+- **Nutzerfluss:** Shop (`ProductListPage → ProductDetailPage → CartPage → CheckoutPage`) → Konto
+  (`OrdersPage → OrderDetailPage`, `AccountPage/ProfilePage/SettingsPage`). Admin getrennt
+  (`AdminDashboard → ManageProducts(+ProductDialog/ProductAiDialog) / ManageOrders / ManageUsers`).
+- **Aufteil-Kandidaten (Zeilen):** `ManageProducts.tsx` (537), `ProductDialog.tsx` (336),
+  `ManageOrders.tsx` (318), `ManageUsers.tsx` (226), `authSlice.ts` (298), `productSlice.ts` (264).
+- **CSS-Strategie (uneinheitlich):** PrimeReact-Theme + `primeicons` zentral in `index.css`; sonst
+  Mischung aus CSS-Modulen (Header/Footer) und page-scoped globalem CSS (`ManageProducts.css` etc.);
+  nennenswerte Inline-Styles in `ProductCard.tsx`, `ProductDialog.tsx`, `ProductAiDialog.tsx`; **keine
+  Design-Tokens**. `src/style.css` = totes Vite-Boilerplate.
+- **PrimeReact-Nutzung:** 19/22 Seiten. Ohne PrimeReact (leicht migrierbar): `ProductListPage`,
+  `ProductGrid`, `ProductCard`. Schwerste Migration: Admin-`DataTable`-Seiten.
 ```
