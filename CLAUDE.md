@@ -315,39 +315,42 @@ npm run deps:reset           # zusätzlich Root-Lockfile entfernen (danach neu i
 
 ## 7. Roadmap (nach Wichtigkeit)
 
-> An die Entscheidungen aus Abschnitt 8 angepasst. Keine großen Umbauten ohne Rückfrage.
+> **Fokus ab 2026-06-02: die Website selbst** – Optik, Frontend-Struktur und Verschlanken der
+> Abhängigkeiten. KI-Themen sind nach hinten geschoben (optional). Keine großen Umbauten ohne Rückfrage.
 
-**Phase 0 – Lauffähig + für Hetzner-CPU validiert (AKTIV)**
-1. **[in Arbeit]** Python-Versions-Konflikt fixen (`Dockerfile` → `python:3.12-slim`) und
-   `AI_PY_TIMEOUT_MS` auf realistischen CPU-Wert (~`150000`) setzen; Werte über Code/README/env
-   vereinheitlichen (P1-2, P1-4).
-2. KI-Fluss einmal **end-to-end mit erzwungenem `device=CPU`** durchspielen (nicht nur NPU/GPU), reale
-   Laufzeit messen und festhalten – damit der Hetzner-Pfad sicher läuft.
-3. `helmet` aktivieren + Rate-Limiting auf Login/Signup (P1-3; früh mitnehmen, kleiner Aufwand).
-4. `console.log`/`console.error` im Backend durch den `winston`-Logger ersetzen (P2-6).
+### Baseline – Phase 0 (erledigt)
+- Python einheitlich auf 3.12 (`Dockerfile`) und `AI_PY_TIMEOUT_MS` auf CPU-realistische `150000`
+  vereinheitlicht (P1-2, P1-4). Committet auf `refactor/overhaul-phase-0`.
+- _Bewusst weggelassen:_ der KI-End-to-End-Test mit `device=CPU` (nicht Teil des aktuellen Fokus).
 
-**Phase 1 – KI für Prod-CPU tauglich machen (Entscheidungen 2, 4, 6, 7)**
-5. Device-Routing defaultet in Prod sauber auf **CPU**; **NPU-only-IR wird nicht deployt**; CPU-taugliche
-   IR-Artefakte (LLM bevorzugt **INT4**) bereitstellen. Bereitstellungsweg festlegen (siehe offener
-   Detailpunkt in Abschnitt 8).
-6. KI-Output auf **Deutsch** umstellen (`prompts.py`, `lang`); Tags intern englisch belassen (P3-14 bleibt).
-7. **Mehrbild**-Tag-/Caption-Merging sauber behandeln **und testen** (Standardfall, Entscheidung 7).
+### (A) Abhängigkeiten verschlanken — **nächster Schritt**
+1. Ungenutzte/doppelte npm-Dependencies und tote Dateien/Exports je Workspace identifizieren
+   (`nx graph`, `knip`/`depcheck`, `npm ls`) und eine Streichliste erstellen (Analyse siehe Abschnitt 10).
+2. Sicher entfernbare Pakete/Dateien entfernen. **PrimeReact + PrimeIcons erst NACH der Design-Migration
+   (C) entfernen** – nicht vorher.
 
-**Phase 2 – Tests gezielt (kritische Pfade zuerst, P1-1)**
-8. Tests für **Bestandsreservierung/Bestellung** und **Auth**. Bewusst **nicht** flächendeckend; weitere
-   Pfade (Produkt-CRUD, KI-Job-Lebenszyklus, Frontend-Smoke) nach Bedarf.
+### (B) Frontend-Struktur / Informationsarchitektur aufräumen
+3. Routen/Seiten-Inventar und Nutzerfluss (Shop → Produkt → Warenkorb → Checkout → Konto; Admin getrennt)
+   sauber strukturieren; tote/unfertige Routen klären (P3-17).
+4. Übergroße Komponenten aufteilen (v.a. `ManageProducts.tsx`, P2-8); Namens-/Ordnerkonventionen
+   (`pages/Admin/Ordner→Orders`, Status-Enums) und CSS-Strategie vereinheitlichen (P3/5.2).
+5. Warenkorb-Persistenz nachrüsten (P2-9).
 
-**Phase 3 – Datenmodell & Terminologie (Entscheidungen 1, 8)**
-9. **Soft-Delete** für Produkte (`is_active`/`deleted_at`): Migration, Shop blendet inaktive aus,
-   Bestellungen bleiben erhalten (P3 / ehem. offene Frage 8).
-10. „Microservices" → **Feature-Module** umbenennen (`services/{auth,catalog,order,ai}` + Doku);
-    typsichere Auth-Request-Typen statt `as any` (P2-7), Fehlerbehandlung vereinheitlichen (P3-12/13).
+### (C) Visuelles Design (Zielbild: Abschnitt 9)
+6. Tailwind + shadcn **inkrementell** einführen, parallel zu PrimeReact; seitenweise migrieren
+   (Auth/Login zuerst → Shop/Produkt/Warenkorb → Admin zuletzt). Akzentfarbe als zentrale Variable.
+7. PrimeReact + PrimeIcons entfernen, sobald keine Seite mehr darauf zugreift (→ schließt Punkt 2 ab).
 
-**Phase 4 – Aufräumen & Konsistenz**
-11. Sprach-/Namenskonventionen (`pages/Admin/Ordner→Orders`, Status-Enums, CSS-Strategie, P3/5.2).
-12. Große Module aufteilen (`orderService`, `productService`, `ManageProducts`, P2-8); WebSocket-CORS aus
-    `APP_ORIGIN` (P2-5).
-13. Warenkorb-Persistenz, tote Routen/Seiten klären (P2-9, P3-17); Contract-Sync automatisieren (P2-11).
+### Später / optional
+- **Backend-Härtung:** `helmet` aktivieren, Rate-Limiting Login/Signup (P1-3); `console.log` →
+  `winston` (P2-6); typsichere Auth-Request-Typen statt `as any` (P2-7); WebSocket-CORS aus `APP_ORIGIN`
+  (P2-5); Fehlerbehandlung vereinheitlichen (P3-12/13).
+- **Tests gezielt** (P1-1): Bestandsreservierung/Bestellung und Auth; nicht flächendeckend.
+- **Datenmodell & Terminologie** (Entscheidungen 1, 8): Soft-Delete für Produkte
+  (`is_active`/`deleted_at`); „Microservices" → Feature-Module umbenennen.
+- **KI-Themen (optional, nach hinten):** Deutsch-Output (`prompts.py`, `lang`), CPU-Default beim
+  Device-Routing + INT4-Modelle bereitstellen (Entscheidungen 2, 4, 6), Mehrbild-Merging testen
+  (Entscheidung 7), Contract-Sync automatisieren (P2-11), CLIP-Kandidaten konfigurierbar (P3-14).
 
 ---
 
@@ -376,6 +379,43 @@ npm run deps:reset           # zusätzlich Root-Lockfile entfernen (danach neu i
 
 ### Offene Detailpunkte (nicht blockierend)
 - Beim realen KI-Betrieb (`AI_PRODUCT_AI_USE_REAL_SERVICE=true`): Bereitstellungsweg der CPU-/INT4-
-  Modelle auf dem Hetzner-Server (vorgebaute IR mitliefern vs. `MODEL_FETCH_MODE=download`) – wird in
-  Phase 1 konkretisiert.
+  Modelle auf dem Hetzner-Server (vorgebaute IR mitliefern vs. `MODEL_FETCH_MODE=download`) – wird bei
+  den (optionalen) KI-Themen konkretisiert.
+
+---
+
+## 9. Zielbild Design (noch NICHT umgesetzt)
+
+> Referenz für die Design-Migration (Roadmap C). Wird erst nach Abstimmung umgesetzt.
+
+### Stil
+- Clean & modern, viel Weißraum, weiße Flächen, **ein** Akzent.
+- Keine Schatten, weiche Radien (8–12px), eine ruhige Sans (z. B. Inter).
+
+### Design-Tokens
+Der **Akzent als eine zentrale Variable** halten, damit er später leicht tauschbar ist
+(Vereinsfarben noch offen).
+
+| Token | Wert | Zweck |
+|---|---|---|
+| `--color-accent` | `#2563EB` | Akzent (zentrale, tauschbare Variable) |
+| `--color-accent-hover` | `#1D4ED8` | Akzent Hover |
+| `--color-text` | `#0F172A` | Text |
+| `--color-surface` | `#FFFFFF` | Fläche (Karten, Dialoge) |
+| `--color-background` | `#F8FAFC` | Hintergrund |
+| `--color-border` | `#E2E8F0` | Linien/Rahmen |
+| `--color-success` | `#16A34A` | Erfolg |
+| `--color-danger` | `#DC2626` | Gefahr/Fehler |
+| Radius | `8–12px` | weiche Ecken |
+| Schatten | keine | flaches Design |
+| Font | Inter (o. ä. ruhige Sans) | Typografie |
+
+### Zielstack & Migrationsweg
+- **Zielstack:** Tailwind + shadcn, **inkrementell** eingeführt.
+- Während der Migration **parallel zu PrimeReact** betreiben.
+- **Seitenweise migrieren**, einfachste Seite zuerst:
+  1. Auth/Login (einfachste)
+  2. Shop / Produkt / Warenkorb
+  3. Admin **zuletzt** (wegen `ManageProducts.tsx`)
+- **PrimeReact + PrimeIcons erst entfernen**, wenn keine Seite mehr darauf zugreift.
 ```
