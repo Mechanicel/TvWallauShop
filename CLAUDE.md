@@ -331,15 +331,28 @@ npm run deps:reset           # zusätzlich Root-Lockfile entfernen (danach neu i
 
 ### (B) Frontend-Struktur / Informationsarchitektur aufräumen
 3. Routen/Seiten-Inventar und Nutzerfluss (Shop → Produkt → Warenkorb → Checkout → Konto; Admin getrennt)
-   sauber strukturieren; tote/unfertige Routen klären (P3-17).
-4. Übergroße Komponenten aufteilen (v.a. `ManageProducts.tsx`, P2-8); Namens-/Ordnerkonventionen
-   (`pages/Admin/Ordner→Orders`, Status-Enums) und CSS-Strategie vereinheitlichen (P3/5.2).
+   sauber strukturieren.
+4. Namens-/Ordnerkonventionen (`pages/Admin/Ordner→Orders`, Status-Enums) vereinheitlichen (P3/5.2).
 5. Warenkorb-Persistenz nachrüsten (P2-9).
+6. **Fehlende Seiten/Funktionen (später bauen – Konstanten NICHT als Dead Code löschen):** Die
+   Routen-Konstanten in `utils/constants.ts` (`IMPRESSUM`, `DATENSCHUTZ`, `ORDER_CONFIRMATION`,
+   `PRODUCTS`, `USER_DETAIL`) bleiben stehen – es sind **nicht** gebaute Features, kein Dead Code.
+   - `IMPRESSUM`, `DATENSCHUTZ`: für einen deutschen Verbraucher-Webshop i.d.R. **rechtlich Pflicht**,
+     nur nie umgesetzt. Für Verkauf an Verbraucher sind zusätzlich **AGB** und **Widerrufsbelehrung**
+     wahrscheinlich relevant (rechtlich prüfen).
+   - `ORDER_CONFIRMATION` (Bestellbestätigung), `PRODUCTS` (Listen-Route), `USER_DETAIL`
+     (Admin-User-Detail): fehlende Features, später bauen.
 
-### (C) Visuelles Design (Zielbild: Abschnitt 9)
-6. Tailwind + shadcn **inkrementell** einführen, parallel zu PrimeReact; seitenweise migrieren
-   (Auth/Login zuerst → Shop/Produkt/Warenkorb → Admin zuletzt). Akzentfarbe als zentrale Variable.
-7. PrimeReact + PrimeIcons entfernen, sobald keine Seite mehr darauf zugreift (→ schließt Punkt 2 ab).
+### (C) Visuelles Design (Zielbild: Abschnitt 9) – Migration bestätigt
+7. Tailwind + shadcn **inkrementell**, parallel zu PrimeReact. **Bestätigte Reihenfolge:**
+   1. **Login** zuerst – nur Toolchain/Tokens validieren (kleinste Seite).
+   2. `ProductListPage` / `ProductGrid` / `ProductCard` (bereits PrimeReact-frei).
+   3. weitere Shop-/Warenkorb-/User-Seiten.
+   4. **Admin-DataTables zuletzt** (schwerste Migration).
+8. **Komponenten-Splitting** (`ManageProducts.tsx` etc., P2-8) und **CSS-Vereinheitlichung** (P3/5.2)
+   werden **je Seite während der Migration** miterledigt – **kein separater Split-/CSS-Durchlauf** vorab.
+   Akzentfarbe als zentrale Variable (Abschnitt 9).
+9. PrimeReact + PrimeIcons entfernen, sobald keine Seite mehr darauf zugreift (→ schließt A-Punkt 2 ab).
 
 ### Später / optional
 - **Backend-Härtung:** `helmet` aktivieren, Rate-Limiting Login/Signup (P1-3); `console.log` →
@@ -449,8 +462,9 @@ Der **Akzent als eine zentrale Variable** halten, damit er später leicht tausch
   ungenutzte Selektoren/Actions (`selectCartItems`, `selectCurrentProductAiJob`, `resetProductError`,
   `clearUser`); ungenutzte Konstanten (`STORAGE_KEYS`, `UI`, `AVAILABLE_SIZES`, `CURRENCY`, ggf.
   `API_BASE_URL`).
-- _Tote Routen-Konstanten_ in `utils/constants.ts` (nicht in `App.tsx`): `PRODUCTS`,
-  `ORDER_CONFIRMATION`, `IMPRESSUM`, `DATENSCHUTZ`, `USER_DETAIL`.
+- _Routen-Konstanten ohne Seite_ in `utils/constants.ts` (`PRODUCTS`, `ORDER_CONFIRMATION`, `IMPRESSUM`,
+  `DATENSCHUTZ`, `USER_DETAIL`): **kein Dead Code – bleiben stehen.** Fehlende Features bzw. rechtliche
+  Pflichtseiten, siehe Roadmap (B).6.
 
 **backend**
 - _Deklaration ergänzen:_ `ms` wird in `authService.ts` importiert, ist aber **nicht** als Dependency
