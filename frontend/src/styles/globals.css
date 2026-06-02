@@ -1,0 +1,29 @@
+/* frontend/src/styles/globals.css
+ * Tailwind-Layer für migrierte Seiten. Koexistiert mit index.css (PrimeReact).
+ * preflight ist in tailwind.config.ts deaktiviert -> kein globaler Reset, der PrimeReact-Seiten verändert.
+ */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+   /* Akzent = die EINE zentrale Stellschraube (Vereinsfarbe später per einem Wert tauschbar). */
+   --accent: #2563eb;
+   --accent-hover: #1d4ed8;
+
+   --text: #0f172a;
+   --surface: #ffffff;
+   --background: #f8fafc;
+   --border: #e2e8f0;
+   --success: #16a34a;
+   --danger: #dc2626;
+
+   --radius: 10px;
+}
+
+/* Inter vorerst NUR auf migrierte Bereiche scopen (Wrapper .tw-scope).
+ * Nicht-migrierte PrimeReact-Seiten behalten ihre bisherige Schrift. */
+.tw-scope {
+   font-family: 'Inter Variable', Inter, system-ui, sans-serif;
+   color: var(--text);
+}
