@@ -1,4 +1,5 @@
 .idea
+*.iml
 /python_ai_service/.env
 /infra/.env
 /infra/backend.env
@@ -8,7 +9,10 @@
 **/build/
 **/coverage/
 **/target/
-**/.nx/cache/
+**/.nx/
 **/.venv/
 **/__pycache__/
 **/.pytest_cache/
+
+# Große AI-Modell-Binaries (OpenVINO IR etc.) gehören nicht ins Git
+/python_ai_service/models/
