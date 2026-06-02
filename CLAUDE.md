@@ -287,6 +287,12 @@ npm run deps:reset           # zusätzlich Root-Lockfile entfernen (danach neu i
     vereinfachen/klar benennen.
 11. **`generate_contracts.py` nicht automatisiert.** Bei Änderungen an `contracts/src/ai-product.ts`
     müssen `gen:schema` und die Pydantic-Generierung manuell laufen → Drift-Gefahr zwischen TS und Python.
+21. **Kein Typecheck im Frontend-Build.** `vite build` (esbuild) prüft keine Typen; `tsc --noEmit` meldet
+    aktuell **4 vorbestehende Typfehler** in `pages/Admin/Product/ManageProducts.tsx`,
+    `pages/Auth/SignupPage.tsx`, `pages/Cart/CheckoutPage.tsx`, `pages/User/OrderDetailPage.tsx`
+    (domänennahe Contract-Typen). **Nicht jetzt fixen** – die Dateien werden bei ihrer eigenen
+    Seiten-Migration ohnehin angefasst. **Backlog: Typecheck (`tsc --noEmit`) als Build/CI-Schritt
+    ergänzen**, damit solche Fehler künftig auffallen.
 
 ### P3 – Niedrig / Aufräumen
 12. **Inkonsistente Fehlerbehandlung:** teils eigene Fehlerklassen, teils `throw new Error(...)`.
