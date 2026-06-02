@@ -57,7 +57,9 @@ unfertig. Die unten gelisteten Probleme (Abschnitt 6) spiegeln das wider.
 - `src/gateway/app.ts`: ein `express.Router`, der vier **Service-Router** unter `/api` **und** `/api/v1`
   einhängt und Swagger-UIs bereitstellt.
 - Die "Services" `src/services/{auth,catalog,order,ai}/app.ts` sind **nur dünne Router-Wrapper** um die
-  jeweiligen Routen – sie laufen alle im selben Prozess, mit einer gemeinsamen DB.
+  jeweiligen Routen – sie laufen alle im selben Prozess, mit einer gemeinsamen DB. Laut Entscheidung 1
+  (Abschnitt 8) werden diese künftig als **Feature-Module** verstanden und benannt (nicht als „Microservices");
+  die Umbenennung ist als Phase-3-Aufgabe vorgemerkt.
 
 Schichten: `routes/ → controllers/ → services/ → models/ (Knex)`. Eigene Fehlerklassen in `src/errors/`
 (`AuthError`, `ProductAiError`, `ProductServiceError`, `InsufficientStockError`, `ServiceError`),
@@ -207,6 +209,20 @@ npm run clear                # generierte Artefakte entfernen (node_modules, dis
 npm run deps:reset           # zusätzlich Root-Lockfile entfernen (danach neu installieren)
 ```
 
+### 4.8 Env-Dateien – welche gilt wann (Entscheidung)
+
+| Datei | Gilt für | Inhalt | In Git? |
+|---|---|---|---|
+| `backend/.env` | **Lokale Entwicklung ohne Docker** | Alle Backend-Variablen (DB, JWT, SMTP, AI-URL …) | nein (gitignored) |
+| `infra/backend.env` | **Docker-Stack** (Backend-Container) | Alle Backend-Variablen, `DB_HOST=mariadb`, `AI_PY_SERVICE_URL=http://python-ai-service:8000` | nein (gitignored) |
+| `infra/.env` | **Docker Compose selbst** | Nur Compose-Variablen (Ports, DB-Name/-User/-Pass, Root-PW) | nein (gitignored) |
+| `python_ai_service/.env` | AI-Service (lokal/Container) | OpenVINO-/Pipeline-Konfiguration | nein (gitignored) |
+
+- Vorlagen liegen als `*.example` im Repo (`infra/.env.example`, `infra/backend.env.example`,
+  `python_ai_service/example.env`); die `backend/.env`-Vorlage steht im `README.md`.
+- `scripts/env/init-env.js` erzeugt `infra/.env` und `infra/backend.env` bei Bedarf aus den `*.example`-
+  Dateien (mit **geleerten** Werten – Secrets manuell ergänzen).
+
 ---
 
 ## 5. Konventionen
@@ -244,15 +260,15 @@ npm run deps:reset           # zusätzlich Root-Lockfile entfernen (danach neu i
 1. **Kaum Tests.** Nur Platzhalter (`*/tests/placeholder.test.js`) + ein echter Backend-Test
    (`backend/tests/product-ai-short-title.test.js`) + die Python-Tests (`python_ai_service/tests/*`).
    Keine Tests für Auth-, Order-, User-, Product-Logik im Backend; keine echten Frontend-Tests.
-2. **Python-Versions-Konflikt.** `python_ai_service/Dockerfile` nutzt `python:3.11-slim`, aber
-   `pyproject.toml` verlangt `requires-python = ">=3.12,<3.13"`. Der Docker-Build des AI-Service ist damit
-   inkonsistent und vermutlich nicht lauffähig.
+2. **Python-Versions-Konflikt.** _[Phase 0, in Arbeit]_ `python_ai_service/Dockerfile` nutzte
+   `python:3.11-slim`, während `pyproject.toml`/`uv.lock` 3.12 verlangen → auf `python:3.12-slim`
+   vereinheitlicht.
 3. **Security-Header fehlen.** `helmet` ist als Dependency vorhanden, wird in `backend/src/app.ts` aber
    **nicht** eingebunden (verifiziert: keine Referenz in `backend/src/`). Kein Rate-Limiting auf
    Login/Signup.
-4. **AI-Timeout inkonsistent.** Default `AI_PY_TIMEOUT_MS=8000` (Code/`README`), aber echte
-   KI-Verarbeitung (BLIP+CLIP+LLM) dauert deutlich länger; `infra/backend.env.example`-Pfad nutzt
-   teils `150000`. 8 s führen in der Realität zu `FAILED`-Jobs. Werte vereinheitlichen.
+4. **AI-Timeout inkonsistent.** _[Phase 0, in Arbeit]_ Default war `AI_PY_TIMEOUT_MS=8000`, zu kurz für
+   CPU-Inferenz (BLIP+CLIP+LLM) → `FAILED`-Jobs. Auf `150000` (CPU-Wert) vereinheitlicht über
+   Code (`aiPythonClient.ts`), `README.md` und `infra/backend.env.example`.
 
 ### P2 – Mittel
 5. **WebSocket-CORS hartkodiert.** `backend/src/middlewares/websocket.ts` setzt `origin:
@@ -299,52 +315,67 @@ npm run deps:reset           # zusätzlich Root-Lockfile entfernen (danach neu i
 
 ## 7. Roadmap (nach Wichtigkeit)
 
-> Vorschlag – die endgültige Reihenfolge legen wir gemeinsam fest (siehe offene Fragen).
+> An die Entscheidungen aus Abschnitt 8 angepasst. Keine großen Umbauten ohne Rückfrage.
 
-**Phase 0 – Lauffähigkeit & Vertrauen sichern**
-1. End-to-End lokal starten und den KI-Fluss real durchspielen; dabei P1-Punkte 2 (Python-Version) und
-   4 (AI-Timeout) fixen, damit echte Jobs nicht sofort `FAILED` sind.
-2. Minimal-Lint/Format auch fürs Backend aktivieren; `console.log` durch Logger ersetzen (P2-6).
+**Phase 0 – Lauffähig + für Hetzner-CPU validiert (AKTIV)**
+1. **[in Arbeit]** Python-Versions-Konflikt fixen (`Dockerfile` → `python:3.12-slim`) und
+   `AI_PY_TIMEOUT_MS` auf realistischen CPU-Wert (~`150000`) setzen; Werte über Code/README/env
+   vereinheitlichen (P1-2, P1-4).
+2. KI-Fluss einmal **end-to-end mit erzwungenem `device=CPU`** durchspielen (nicht nur NPU/GPU), reale
+   Laufzeit messen und festhalten – damit der Hetzner-Pfad sicher läuft.
+3. `helmet` aktivieren + Rate-Limiting auf Login/Signup (P1-3; früh mitnehmen, kleiner Aufwand).
+4. `console.log`/`console.error` im Backend durch den `winston`-Logger ersetzen (P2-6).
 
-**Phase 1 – Sicherheit & Robustheit**
-3. `helmet` aktivieren, Rate-Limiting für Auth-Endpunkte (P1-3); WebSocket-CORS aus `APP_ORIGIN`
-   ableiten (P2-5).
-4. Einheitliche, typsichere Auth-Request-Typen statt `as any` (P2-7); Fehlerbehandlung vereinheitlichen
-   (P3-12/13).
+**Phase 1 – KI für Prod-CPU tauglich machen (Entscheidungen 2, 4, 6, 7)**
+5. Device-Routing defaultet in Prod sauber auf **CPU**; **NPU-only-IR wird nicht deployt**; CPU-taugliche
+   IR-Artefakte (LLM bevorzugt **INT4**) bereitstellen. Bereitstellungsweg festlegen (siehe offener
+   Detailpunkt in Abschnitt 8).
+6. KI-Output auf **Deutsch** umstellen (`prompts.py`, `lang`); Tags intern englisch belassen (P3-14 bleibt).
+7. **Mehrbild**-Tag-/Caption-Merging sauber behandeln **und testen** (Standardfall, Entscheidung 7).
 
-**Phase 2 – Testabdeckung**
-5. Tests für die kritische Geschäftslogik: Auth, Order (inkl. Bestandsreservierung), Produkt-CRUD,
-   KI-Job-Lebenszyklus. Danach Frontend-Smoke-/Integrationstests (P1-1).
+**Phase 2 – Tests gezielt (kritische Pfade zuerst, P1-1)**
+8. Tests für **Bestandsreservierung/Bestellung** und **Auth**. Bewusst **nicht** flächendeckend; weitere
+   Pfade (Produkt-CRUD, KI-Job-Lebenszyklus, Frontend-Smoke) nach Bedarf.
 
-**Phase 3 – KI-Pipeline härten & fertigstellen**
-6. Contract-Sync automatisieren (`gen:schema` + `generate_contracts.py` in einen Befehl/CI, P2-11).
-7. CLIP-Kandidaten konfigurierbar machen, Bildgrößen-Limits, ggf. echte Async-/Queue-Verarbeitung im
-   Python-Service prüfen (P3-14).
+**Phase 3 – Datenmodell & Terminologie (Entscheidungen 1, 8)**
+9. **Soft-Delete** für Produkte (`is_active`/`deleted_at`): Migration, Shop blendet inaktive aus,
+   Bestellungen bleiben erhalten (P3 / ehem. offene Frage 8).
+10. „Microservices" → **Feature-Module** umbenennen (`services/{auth,catalog,order,ai}` + Doku);
+    typsichere Auth-Request-Typen statt `as any` (P2-7), Fehlerbehandlung vereinheitlichen (P3-12/13).
 
 **Phase 4 – Aufräumen & Konsistenz**
-8. Sprach-/Namenskonventionen vereinheitlichen (`Ordner→Orders`, Status-Enums, CSS-Strategie, P3/5.2).
-9. Große Module aufteilen (`orderService`, `productService`, `ManageProducts`, P2-8).
-10. Warenkorb-Persistenz, tote Routen/Seiten klären und entfernen oder fertigstellen (P2-9, P3-17).
+11. Sprach-/Namenskonventionen (`pages/Admin/Ordner→Orders`, Status-Enums, CSS-Strategie, P3/5.2).
+12. Große Module aufteilen (`orderService`, `productService`, `ManageProducts`, P2-8); WebSocket-CORS aus
+    `APP_ORIGIN` (P2-5).
+13. Warenkorb-Persistenz, tote Routen/Seiten klären (P2-9, P3-17); Contract-Sync automatisieren (P2-11).
 
 ---
 
-## 8. Offene Fragen (bitte klären, bevor wir die Roadmap finalisieren)
+## 8. Getroffene Entscheidungen (Architektur & Scope)
 
-1. **Zielarchitektur Backend:** Soll die Microservice-Anmutung (`services/{auth,catalog,order,ai}`) zu
-   echten getrennten Services ausgebaut oder bewusst als modularer Monolith vereinfacht werden?
-2. **Sprache des KI-Outputs:** Der Request nutzt `lang: 'en'` und die Modelle/Prompts sind englisch –
-   der Shop ist aber deutsch. Soll der KI-Service deutschsprachige Titel/Beschreibungen liefern?
-3. **Python-Laufzeit:** Ist 3.12 (`pyproject.toml`) verbindlich, oder soll der Service auf 3.11
-   (Dockerfile) laufen? Welche Variante ist die Referenz?
-4. **Deployment-Ziel:** Wo läuft das produktiv (eigener Server mit GPU/NPU für OpenVINO?, reines Docker?)
-   – relevant für AI-Device-Routing und CPU-Fallback.
-5. **Env-Strategie:** `infra/.env` vs. `infra/backend.env` vs. `backend/.env` – welche Datei ist für
-   welchen Modus (lokal vs. Docker) die maßgebliche? (Aktuell teils überlappend/unklar.)
-6. **Realer KI-Betrieb:** Ist `AI_PRODUCT_AI_USE_REAL_SERVICE=true` der Zielzustand, und stehen die
-   benötigten OpenVINO-Modelle lokal bereit (Ordner `python_ai_service/models/`), oder soll
-   `MODEL_FETCH_MODE=download` verwendet werden?
-7. **Mehrbild-Analyse:** Ist die Analyse mehrerer Bilder pro Produkt der Standardfall (beeinflusst
-   Tag-Merging-Strategie und Tests)?
-8. **Bestelldaten-Modell:** `order_items.product_id` ist `RESTRICT` – wie soll mit dem Löschen von
-   Produkten umgegangen werden, die in Bestellungen referenziert sind (Soft-Delete?)?
+> Stand 2026-06-02 gemeinsam festgelegt. Diese Entscheidungen sind für die weitere Arbeit verbindlich.
+
+1. **Backend-Architektur:** Bewusst **modularer Monolith**. `services/{auth,catalog,order,ai}` bleiben
+   bestehen, werden aber als **Feature-Module** verstanden/benannt – nicht als „Microservices". (Rename/
+   Umbenennung der Begriffe in Code/Doku ist Phase-3-Aufgabe.)
+2. **KI-Output: Deutsch.** `prompts.py` auf deutsche Titel/Beschreibungen umstellen, `lang` entsprechend
+   setzen. CLIP-/BLIP-Tags dürfen intern englisch bleiben.
+3. **Python-Laufzeit: einheitlich 3.12.** `Dockerfile` läuft auf `python:3.12-slim` (passend zu
+   `pyproject.toml` `>=3.12,<3.13` und `uv.lock` `==3.12.*`).
+4. **Deployment: Hetzner Cloud, CPU-only.** Kein Intel NPU/GPU in Prod. Die für Intel NPU/GPU
+   kompilierten Modelle sind reine lokale Dev-Optimierung, **nicht** der Prod-Pfad. Prod-Inferenz läuft
+   auf CPU.
+5. **Env-Strategie (siehe Tabelle in Abschnitt 4.8):** `backend/.env` = lokal ohne Docker,
+   `infra/backend.env` = Docker-Stack, `infra/.env` = nur Compose-Variablen.
+6. **Modelle für Prod:** CPU-taugliche Artefakte bereitstellen (generisches IR; LLM bevorzugt **INT4**).
+   Device-Routing muss in Prod sauber auf **CPU** defaulten; **NPU-only-IR NICHT deployen**.
+7. **Mehrbild-Analyse ist der Standardfall.** Tag-/Caption-Merging über mehrere Bilder muss sauber
+   behandelt und getestet werden.
+8. **Produkt-Löschen: Soft-Delete** (`is_active`/`deleted_at`). Inaktive Produkte werden aus dem Shop
+   ausgeblendet, in Bestellungen aber erhalten. Der FK `order_items.product_id = RESTRICT` kann bleiben.
+
+### Offene Detailpunkte (nicht blockierend)
+- Beim realen KI-Betrieb (`AI_PRODUCT_AI_USE_REAL_SERVICE=true`): Bereitstellungsweg der CPU-/INT4-
+  Modelle auf dem Hetzner-Server (vorgebaute IR mitliefern vs. `MODEL_FETCH_MODE=download`) – wird in
+  Phase 1 konkretisiert.
 ```
