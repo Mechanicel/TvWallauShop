@@ -9,7 +9,9 @@ export type AnalyzeProductPayload = {
 };
 
 const AI_PY_SERVICE_URL = (process.env.AI_PY_SERVICE_URL || 'http://localhost:8000').replace(/\/$/, '');
-const AI_PY_TIMEOUT_MS = Number(process.env.AI_PY_TIMEOUT_MS || 8000); // ⬅ kürzer, schneller FAIL
+// CPU-Inferenz (BLIP + CLIP + LLM) auf dem Prod-Server (Hetzner, CPU-only) dauert lange.
+// Default daher großzügig; per AI_PY_TIMEOUT_MS überschreibbar.
+const AI_PY_TIMEOUT_MS = Number(process.env.AI_PY_TIMEOUT_MS || 150000);
 
 /**
  * Ruft den Python-AI-Service auf und analysiert ein Produkt

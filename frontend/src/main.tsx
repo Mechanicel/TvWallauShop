@@ -6,7 +6,10 @@ import { Provider } from 'react-redux';
 
 import App from './App';
 import { store } from './store';
+
+import '@fontsource-variable/inter';
 import './index.css';
+import './styles/globals.css';
 
 const container = document.getElementById('root');
 if (!container) throw new Error('Root container missing in index.html');
