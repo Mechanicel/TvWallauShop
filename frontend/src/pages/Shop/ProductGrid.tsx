@@ -9,17 +9,20 @@ type ProductGridProps = {
 
 export const ProductGrid: React.FC<ProductGridProps> = ({ products, loading }) => {
    if (loading) {
-      return <p>Lädt…</p>;
+      return <p className="py-12 text-center text-muted-foreground">Lädt…</p>;
+   }
+
+   if (!products.length) {
+      return <p className="py-12 text-center text-muted-foreground">Keine Produkte gefunden.</p>;
    }
 
    return (
-      <div className="p-d-flex p-flex-wrap">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-6">
          {products.map((product) => (
             <ProductCard
                key={product.id}
                id={product.id}
                name={product.name}
-               description={product.description}
                price={Number(product.price)}
                imageUrl={product.imageUrl}
             />

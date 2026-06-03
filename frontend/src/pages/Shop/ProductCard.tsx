@@ -1,72 +1,53 @@
-// frontend/src/components/ProductCard.tsx
-
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ShoppingCart } from 'lucide-react';
 import { ROUTES } from '@/utils/constants';
 import { resolveImageUrl } from '@/utils/imageUrl';
+import { formatPrice } from '@/utils/format';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 
 type ProductCardProps = {
    id: number;
    name: string;
-   description: string | null;
    price: number;
    imageUrl: string | null;
 };
 
-export const ProductCard: React.FC<ProductCardProps> = ({ id, name, description, price, imageUrl }) => {
+export const ProductCard: React.FC<ProductCardProps> = ({ id, name, price, imageUrl }) => {
    const navigate = useNavigate();
-   const imgSrc = resolveImageUrl(imageUrl);
-
-   const handleClick = () => {
-      navigate(ROUTES.PRODUCT_DETAIL(id));
-   };
+   const goToDetail = () => navigate(ROUTES.PRODUCT_DETAIL(id));
 
    return (
-      <div
-         className="product-card"
-         style={{
-            width: '260px',
-            margin: '0.5rem',
-            cursor: 'pointer',
-            borderRadius: '8px',
-            overflow: 'hidden',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-            display: 'flex',
-            flexDirection: 'column',
-         }}
-         onClick={handleClick}
+      <Card
+         onClick={goToDetail}
+         className="group flex cursor-pointer flex-col overflow-hidden transition-colors hover:border-primary"
       >
-         <div style={{ width: '100%', height: '180px', overflow: 'hidden' }}>
-            <img src={imgSrc} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+         <div className="aspect-[4/3] w-full overflow-hidden bg-muted">
+            <img
+               src={resolveImageUrl(imageUrl)}
+               alt={name}
+               loading="lazy"
+               className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+            />
          </div>
-         <div style={{ padding: '0.75rem 1rem', flexGrow: 1 }}>
-            <h3 style={{ margin: '0 0 0.5rem', fontSize: '1.05rem' }}>{name}</h3>
-            <p
-               style={{
-                  margin: 0,
-                  fontSize: '0.9rem',
-                  color: '#555',
-                  minHeight: '2.7rem',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-               }}
-            >
-               {description ?? ''}
-            </p>
+         <div className="flex flex-1 flex-col gap-3 p-4">
+            <h3 className="line-clamp-2 text-base font-medium text-foreground">{name}</h3>
+            <div className="mt-auto flex items-center justify-between gap-2">
+               <span className="text-lg font-semibold text-foreground">{formatPrice(price)}</span>
+               <Button
+                  type="button"
+                  size="sm"
+                  onClick={(e) => {
+                     e.stopPropagation();
+                     goToDetail();
+                  }}
+               >
+                  <ShoppingCart className="h-4 w-4" />
+                  Auswählen
+               </Button>
+            </div>
          </div>
-         <div
-            style={{
-               padding: '0.75rem 1rem',
-               borderTop: '1px solid #eee',
-               display: 'flex',
-               justifyContent: 'space-between',
-               alignItems: 'center',
-               fontWeight: 600,
-            }}
-         >
-            <span>{price.toFixed(2)} €</span>
-            <span style={{ fontSize: '0.85rem', color: '#777' }}>Details</span>
-         </div>
-      </div>
+      </Card>
    );
 };
