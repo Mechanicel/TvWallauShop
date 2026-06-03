@@ -2,12 +2,12 @@
 
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { Toast } from 'primereact/toast';
 import { useAppSelector } from './store';
 import { selectAuth } from './store/slices/authSlice';
 
 import { Header } from './components/Header/Header';
 import { Footer } from './components/Footer/Footer';
+import { Toaster } from '@/components/ui/sonner';
 
 import { ProductListPage } from './pages/Shop/ProductListPage';
 import { ProductDetailPage } from './pages/Shop/ProductDetailPage';
@@ -82,7 +82,7 @@ const App: React.FC = () => {
             </Routes>
          </main>
          <Footer />
-         <Toast />
+         <Toaster />
       </>
    );
 };

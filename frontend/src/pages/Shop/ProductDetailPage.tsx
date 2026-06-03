@@ -1,28 +1,28 @@
 // frontend/src/pages/Shop/ProductDetailPage.tsx
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { ChevronLeft, ChevronRight, ShoppingCart } from 'lucide-react';
+import { toast } from 'sonner';
 import { useAppDispatch } from '@/store';
 import { addToCart } from '@/store/slices/cartSlice';
-import { Card } from 'primereact/card';
-import { Dropdown } from 'primereact/dropdown';
-import { Button } from 'primereact/button';
-import { Toast } from 'primereact/toast';
-import productService from '../../services/productService';
+import productService from '@/services/productService';
 import type { Product, ProductSize } from '@/type/product';
 import { resolveImageUrl } from '@/utils/imageUrl';
+import { formatPrice } from '@/utils/format';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export const ProductDetailPage: React.FC = () => {
    const { id } = useParams<{ id: string }>();
    const dispatch = useAppDispatch();
-   const toast = useRef<Toast>(null);
 
    const [product, setProduct] = useState<Product | null>(null);
    const [selectedSizeId, setSelectedSizeId] = useState<number | null>(null);
    const [quantity, setQuantity] = useState<number>(1);
    const [loading, setLoading] = useState<boolean>(true);
-
-   // Index statt URL — das macht Pfeile super einfach!
    const [activeIndex, setActiveIndex] = useState(0);
 
    useEffect(() => {
@@ -35,7 +35,6 @@ export const ProductDetailPage: React.FC = () => {
                setSelectedSizeId(data.sizes[0].id);
             }
 
-            // Aktives Bild bestimmen
             if (data.images?.length > 0) {
                const primaryIndex = data.images.findIndex((img) => img.isPrimary);
                setActiveIndex(primaryIndex >= 0 ? primaryIndex : 0);
@@ -66,9 +65,6 @@ export const ProductDetailPage: React.FC = () => {
 
       const size = product.sizes.find((s) => s.id === selectedSizeId)!;
 
-      // Bild für den Warenkorb bestimmen:
-      // - Wenn es mehrere Bilder gibt -> aktuell ausgewähltes (activeIndex)
-      // - Sonst Fallback auf product.imageUrl
       let imageUrl: string | undefined;
       if (product.images?.length) {
          const img = product.images[activeIndex] ?? product.images[0];
@@ -89,166 +85,113 @@ export const ProductDetailPage: React.FC = () => {
          }),
       );
 
-      toast.current?.show({
-         severity: 'success',
-         summary: 'Hinzugefügt',
-         detail: `${product.name} in Größe ${size.label} zum Warenkorb hinzugefügt.`,
-         life: 3000,
+      toast.success('Zum Warenkorb hinzugefügt', {
+         description: `${product.name} in Größe ${size.label} (${quantity}×)`,
       });
    };
 
-   if (loading) return <p>Lädt…</p>;
-   if (!product) return <p>Produkt nicht gefunden.</p>;
+   if (loading) return <p className="tw-scope py-12 text-center text-muted-foreground">Lädt…</p>;
+   if (!product) return <p className="tw-scope py-12 text-center text-muted-foreground">Produkt nicht gefunden.</p>;
 
    const images = product.images?.length ? product.images : [{ url: product.imageUrl ?? '' }];
    const mainImageSrc = resolveImageUrl(images[activeIndex].url);
 
-   const sizeOptions = product.sizes.map((s: ProductSize) => ({
-      label: s.label,
-      value: s.id,
-   }));
-
-   const qtyOptions = [1, 2, 3, 4, 5].map((n) => ({
-      label: String(n),
-      value: n,
-   }));
-
    return (
-      <div className="p-d-flex p-jc-center p-mt-4">
-         <Toast ref={toast} />
-
-         <Card
-            title={product.name}
-            subTitle={product.description}
-            header={
-               <div style={{ position: 'relative', width: '100%', maxWidth: 500 }}>
-                  {/* Hauptbild */}
-                  <img
-                     src={mainImageSrc}
-                     alt={product.name}
-                     style={{
-                        width: '100%',
-                        borderRadius: '6px',
-                        objectFit: 'cover',
-                     }}
-                  />
-
-                  {/* ⬅️ LINKER PFEIL */}
-                  {images.length > 1 && (
+      <div className="tw-scope mx-auto grid max-w-5xl gap-8 px-4 py-8 md:grid-cols-2">
+         {/* Galerie */}
+         <div>
+            <div className="relative aspect-square w-full overflow-hidden rounded-lg border border-solid border-border bg-muted">
+               <img src={mainImageSrc} alt={product.name} className="h-full w-full object-cover" />
+               {images.length > 1 && (
+                  <>
                      <button
+                        type="button"
+                        aria-label="Vorheriges Bild"
                         onClick={handlePrev}
-                        style={{
-                           position: 'absolute',
-                           top: '50%',
-                           left: '10px',
-                           transform: 'translateY(-50%)',
-                           background: 'rgba(0,0,0,0.4)',
-                           color: 'white',
-                           border: 'none',
-                           borderRadius: '50%',
-                           width: '34px',
-                           height: '34px',
-                           cursor: 'pointer',
-                           fontSize: '18px',
-                        }}
+                        className="absolute left-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/40 text-white transition-colors hover:bg-black/60"
                      >
-                        ‹
+                        <ChevronLeft className="h-5 w-5" />
                      </button>
-                  )}
-
-                  {/* ➡️ RECHTER PFEIL */}
-                  {images.length > 1 && (
                      <button
+                        type="button"
+                        aria-label="Nächstes Bild"
                         onClick={handleNext}
-                        style={{
-                           position: 'absolute',
-                           top: '50%',
-                           right: '10px',
-                           transform: 'translateY(-50%)',
-                           background: 'rgba(0,0,0,0.4)',
-                           color: 'white',
-                           border: 'none',
-                           borderRadius: '50%',
-                           width: '34px',
-                           height: '34px',
-                           cursor: 'pointer',
-                           fontSize: '18px',
-                        }}
+                        className="absolute right-3 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/40 text-white transition-colors hover:bg-black/60"
                      >
-                        ›
+                        <ChevronRight className="h-5 w-5" />
                      </button>
-                  )}
+                  </>
+               )}
+            </div>
 
-                  {/* Thumbnails */}
-                  {images.length > 1 && (
-                     <div
-                        style={{
-                           marginTop: '0.75rem',
-                           display: 'flex',
-                           gap: '0.5rem',
-                           flexWrap: 'wrap',
-                        }}
+            {images.length > 1 && (
+               <div className="mt-3 flex flex-wrap gap-2">
+                  {images.map((img, i) => (
+                     <button
+                        type="button"
+                        key={img.url + i}
+                        onClick={() => setActiveIndex(i)}
+                        className={cn(
+                           'h-16 w-16 overflow-hidden rounded-md border border-solid transition-colors',
+                           i === activeIndex ? 'border-primary' : 'border-border opacity-80 hover:opacity-100',
+                        )}
                      >
-                        {images.map((img, i) => {
-                           const thumbSrc = resolveImageUrl(img.url);
-                           const active = i === activeIndex;
+                        <img src={resolveImageUrl(img.url)} alt="Vorschau" className="h-full w-full object-cover" />
+                     </button>
+                  ))}
+               </div>
+            )}
+         </div>
 
-                           return (
-                              <img
-                                 key={img.url + i}
-                                 src={thumbSrc}
-                                 onClick={() => setActiveIndex(i)}
-                                 alt="thumbnail"
-                                 style={{
-                                    width: 64,
-                                    height: 64,
-                                    objectFit: 'cover',
-                                    cursor: 'pointer',
-                                    borderRadius: 4,
-                                    border: active ? '2px solid #007ad9' : '1px solid #ccc',
-                                    opacity: active ? 1 : 0.8,
-                                 }}
-                              />
-                           );
-                        })}
-                     </div>
-                  )}
-               </div>
-            }
-            footer={
-               <div className="p-d-flex p-jc-between p-ai-center">
-                  <span className="p-text-bold">{product.price.toFixed(2)} €</span>
-                  <Button
-                     label="In den Warenkorb"
-                     icon="pi pi-shopping-cart"
-                     onClick={handleAddToCart}
-                     disabled={selectedSizeId == null}
-                  />
-               </div>
-            }
-            style={{ width: '100%', maxWidth: '800px', margin: '0 1rem' }}
-         >
-            <div className="p-field p-mb-3">
-               <label htmlFor="size">Größe wählen</label>
-               <Dropdown
-                  id="size"
-                  value={selectedSizeId}
-                  options={sizeOptions}
-                  onChange={(e) => setSelectedSizeId(e.value as number)}
-                  placeholder="Größe auswählen"
-               />
+         {/* Info */}
+         <div className="flex flex-col gap-5">
+            <div>
+               <h1 className="text-2xl font-semibold text-foreground">{product.name}</h1>
+               {product.description && <p className="mt-2 text-sm text-muted-foreground">{product.description}</p>}
             </div>
 
-            <div className="p-field">
-               <label htmlFor="quantity">Menge</label>
-               <Dropdown
-                  id="quantity"
-                  value={quantity}
-                  options={qtyOptions}
-                  onChange={(e) => setQuantity(e.value as number)}
-               />
+            <span className="text-2xl font-semibold text-foreground">{formatPrice(Number(product.price))}</span>
+
+            <div className="flex flex-col gap-2">
+               <Label htmlFor="size">Größe wählen</Label>
+               <Select
+                  value={selectedSizeId != null ? String(selectedSizeId) : undefined}
+                  onValueChange={(v) => setSelectedSizeId(Number(v))}
+               >
+                  <SelectTrigger id="size" className="max-w-xs">
+                     <SelectValue placeholder="Größe auswählen" />
+                  </SelectTrigger>
+                  <SelectContent>
+                     {product.sizes.map((s: ProductSize) => (
+                        <SelectItem key={s.id} value={String(s.id)}>
+                           {s.label}
+                        </SelectItem>
+                     ))}
+                  </SelectContent>
+               </Select>
             </div>
-         </Card>
+
+            <div className="flex flex-col gap-2">
+               <Label htmlFor="quantity">Menge</Label>
+               <Select value={String(quantity)} onValueChange={(v) => setQuantity(Number(v))}>
+                  <SelectTrigger id="quantity" className="max-w-[8rem]">
+                     <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                     {[1, 2, 3, 4, 5].map((n) => (
+                        <SelectItem key={n} value={String(n)}>
+                           {n}
+                        </SelectItem>
+                     ))}
+                  </SelectContent>
+               </Select>
+            </div>
+
+            <Button onClick={handleAddToCart} disabled={selectedSizeId == null} className="mt-2 w-full sm:w-auto">
+               <ShoppingCart className="h-4 w-4" />
+               In den Warenkorb
+            </Button>
+         </div>
       </div>
    );
 };
