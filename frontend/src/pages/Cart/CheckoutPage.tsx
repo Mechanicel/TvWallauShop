@@ -1,19 +1,22 @@
 // frontend/src/pages/Cart/CheckoutPage.tsx
 
 import React, { useState } from 'react';
+import { Check } from 'lucide-react';
 import { useAppSelector, useAppDispatch } from '@/store';
-import { InputText } from 'primereact/inputtext';
-import { Button } from 'primereact/button';
-import { Card } from 'primereact/card';
 import { useNavigate } from 'react-router-dom';
 import { clearCart } from '@/store/slices/cartSlice';
 import { placeOrder } from '@/store/slices/orderSlice';
 import type { AxiosError } from 'axios';
 import { isAxiosError } from 'axios';
-import type { PlaceOrderPayload } from '@/services/orderService';
+import type { PlaceOrderPayload } from '@/type/order';
 import { resolveImageUrl } from '@/utils/imageUrl';
 import { getApiErrorMessage } from '@/utils/error';
-import './CheckoutPage.css';
+import { formatPrice } from '@/utils/format';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 type CartItem = {
    productId: number;
@@ -184,119 +187,85 @@ export const CheckoutPage: React.FC = () => {
    };
 
    return (
-      <div className="checkout-page">
-         <div className="checkout-wrapper">
-            {/* Überschrift analog Warenkorb */}
-            <h2>Bestellübersicht</h2>
+      <div className="tw-scope mx-auto max-w-3xl px-4 py-8">
+         <h1 className="mb-6 text-2xl font-semibold text-foreground">Bestellübersicht</h1>
 
-            {/* Übersicht im gleichen Card-/Table-Stil wie der Warenkorb */}
-            <div className="checkout-table">
-               {cartItems.length > 0 && (
-                  <>
-                     <div className="checkout-table-head">
-                        <div className="checkout-head-col checkout-head-col--image">Bild</div>
-                        <div className="checkout-head-col checkout-head-col--details">Artikel / Details</div>
-                        <div className="checkout-head-col checkout-head-col--price">Preis</div>
-                     </div>
+         <div className="mb-6 overflow-hidden rounded-lg border border-solid border-border bg-surface">
+            {cartItems.length > 0 && (
+               <ul className="divide-y divide-border">
+                  {cartItems.map((item) => {
+                     const insufficient = isItemInsufficient(item);
+                     const imageSrc = item.imageUrl ? resolveImageUrl(item.imageUrl) : undefined;
+                     const linePrice = Number(item.price) * item.quantity;
 
-                     <div className="checkout-items-list">
-                        {cartItems.map((item) => {
-                           const insufficient = isItemInsufficient(item);
-                           const imageSrc = item.imageUrl ? resolveImageUrl(item.imageUrl) : undefined;
-
-                           const linePrice = Number(item.price) * item.quantity;
-
-                           return (
-                              <div
-                                 key={`${normalizeId(item.productId)}-${normalizeId(item.sizeId)}`}
-                                 className={
-                                    'checkout-order-item' + (insufficient ? ' checkout-order-item--insufficient' : '')
-                                 }
-                              >
-                                 {/* Bild-Spalte */}
-                                 <div className="checkout-order-item-image">
-                                    {imageSrc && <img src={imageSrc} alt={item.name} />}
-                                 </div>
-
-                                 {/* Details-Spalte */}
-                                 <div className="checkout-order-item-info">
-                                    <span className="checkout-order-item-name">{item.name}</span>
-
-                                    <span className="checkout-order-item-meta">
-                                       {item.sizeLabel && <>Größe: {item.sizeLabel} &nbsp;|&nbsp; </>}
-                                       Menge: {item.quantity}
-                                    </span>
-
-                                    {insufficient && (
-                                       <span className="checkout-order-item-warning">
-                                          Nicht genug Bestand – bitte Menge anpassen.
-                                       </span>
-                                    )}
-                                 </div>
-
-                                 {/* Preis-Spalte */}
-                                 <div className="checkout-order-item-price">
-                                    <span className="checkout-order-item-price-total">{linePrice.toFixed(2)} €</span>
-                                    <span className="checkout-order-item-price-unit">
-                                       ({Number(item.price).toFixed(2)} € / Stk.)
-                                    </span>
-                                 </div>
-                              </div>
-                           );
-                        })}
-                     </div>
-                  </>
-               )}
-
-               <div className="checkout-summary-row">
-                  <span>Summe:</span>
-                  <span>{totalPrice.toFixed(2)} €</span>
-               </div>
+                     return (
+                        <li
+                           key={`${normalizeId(item.productId)}-${normalizeId(item.sizeId)}`}
+                           className={cn(
+                              'flex items-center gap-4 p-4',
+                              insufficient && 'bg-red-50',
+                           )}
+                        >
+                           <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-md bg-muted">
+                              {imageSrc && <img src={imageSrc} alt={item.name} className="h-full w-full object-cover" />}
+                           </div>
+                           <div className="flex flex-1 flex-col">
+                              <span className="font-medium text-foreground">{item.name}</span>
+                              <span className="text-sm text-muted-foreground">
+                                 {item.sizeLabel && <>Größe: {item.sizeLabel} · </>}
+                                 Menge: {item.quantity}
+                              </span>
+                              {insufficient && (
+                                 <span className="mt-1 text-sm text-destructive">
+                                    Nicht genug Bestand – bitte Menge anpassen.
+                                 </span>
+                              )}
+                           </div>
+                           <div className="flex flex-col items-end">
+                              <span className="font-semibold text-foreground">{formatPrice(linePrice)}</span>
+                              <span className="text-xs text-muted-foreground">
+                                 {formatPrice(Number(item.price))} / Stk.
+                              </span>
+                           </div>
+                        </li>
+                     );
+                  })}
+               </ul>
+            )}
+            <div className="flex items-center justify-between border-t border-border p-4 text-lg font-semibold text-foreground">
+               <span>Summe</span>
+               <span>{formatPrice(totalPrice)}</span>
             </div>
-
-            {/* Abhol-Infos bleiben als Card */}
-            <Card title="Abholer-Informationen" className="checkout-info-card">
-               <div className="p-fluid">
-                  <div className="p-field">
-                     <label htmlFor="name">Name</label>
-                     <InputText id="name" value={name} onChange={(e) => setName(e.target.value)} required />
-                  </div>
-
-                  <div className="p-field">
-                     <label htmlFor="email">E-Mail</label>
-                     <InputText
-                        id="email"
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        required
-                     />
-                  </div>
-
-                  <div className="p-field">
-                     <label htmlFor="address">Adresse</label>
-                     <InputText id="address" value={address} onChange={(e) => setAddress(e.target.value)} required />
-                  </div>
-
-                  {error && (
-                     <div className="p-mt-2">
-                        <p className="p-text-danger" style={{ whiteSpace: 'pre-line' }}>
-                           {error}
-                        </p>
-                     </div>
-                  )}
-
-                  <Button
-                     label="Bestellung abschicken"
-                     icon="pi pi-check"
-                     onClick={handlePlaceOrder}
-                     loading={loading}
-                     disabled={loading}
-                     className="p-mt-3"
-                  />
-               </div>
-            </Card>
          </div>
+
+         <Card>
+            <CardHeader>
+               <CardTitle>Abholer-Informationen</CardTitle>
+            </CardHeader>
+            <CardContent>
+               <div className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-2">
+                     <Label htmlFor="name">Name</Label>
+                     <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                     <Label htmlFor="email">E-Mail</Label>
+                     <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                     <Label htmlFor="address">Adresse</Label>
+                     <Input id="address" value={address} onChange={(e) => setAddress(e.target.value)} required />
+                  </div>
+
+                  {error && <p className="whitespace-pre-line text-sm text-destructive">{error}</p>}
+
+                  <Button onClick={handlePlaceOrder} disabled={loading} className="mt-2 w-full sm:w-auto">
+                     <Check className="h-4 w-4" />
+                     {loading ? 'Wird gesendet …' : 'Bestellung abschicken'}
+                  </Button>
+               </div>
+            </CardContent>
+         </Card>
       </div>
    );
 };
