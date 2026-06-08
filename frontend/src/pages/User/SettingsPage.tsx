@@ -131,7 +131,7 @@ export const SettingsPage: React.FC = () => {
    const anyBusy = savingPassword || savingPrefs || deleting;
 
    return (
-      <div className="tw-scope mx-auto max-w-3xl px-4 py-8">
+      <div className="mx-auto max-w-3xl px-4 py-8">
          <div className="rounded-lg border border-solid border-border bg-surface p-6">
             <div className="mb-6 flex items-center justify-between">
                <h1 className="text-2xl font-semibold text-foreground">Einstellungen</h1>

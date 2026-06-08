@@ -34,7 +34,7 @@ export const CartPage: React.FC = () => {
    const totalPrice = cartItems.reduce((sum, item) => sum + Number(item.price) * item.quantity, 0);
 
    return (
-      <div className="tw-scope mx-auto max-w-5xl px-4 py-8">
+      <div className="mx-auto max-w-5xl px-4 py-8">
          <h1 className="mb-6 text-2xl font-semibold text-foreground">Warenkorb</h1>
 
          {cartItems.length > 0 ? (

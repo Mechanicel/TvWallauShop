@@ -34,7 +34,7 @@ export const ProductListPage: React.FC = () => {
    }, [products, sortKey]);
 
    return (
-      <div className="tw-scope mx-auto max-w-7xl px-4 py-6">
+      <div className="mx-auto max-w-7xl px-4 py-6">
          <ProductListToolbar
             search={search}
             sortKey={sortKey}

@@ -90,14 +90,14 @@ export const ProductDetailPage: React.FC = () => {
       });
    };
 
-   if (loading) return <p className="tw-scope py-12 text-center text-muted-foreground">Lädt…</p>;
-   if (!product) return <p className="tw-scope py-12 text-center text-muted-foreground">Produkt nicht gefunden.</p>;
+   if (loading) return <p className="py-12 text-center text-muted-foreground">Lädt…</p>;
+   if (!product) return <p className="py-12 text-center text-muted-foreground">Produkt nicht gefunden.</p>;
 
    const images = product.images?.length ? product.images : [{ url: product.imageUrl ?? '' }];
    const mainImageSrc = resolveImageUrl(images[activeIndex].url);
 
    return (
-      <div className="tw-scope mx-auto grid max-w-5xl gap-8 px-4 py-8 md:grid-cols-2">
+      <div className="mx-auto grid max-w-5xl gap-8 px-4 py-8 md:grid-cols-2">
          {/* Galerie */}
          <div>
             <div className="relative aspect-square w-full overflow-hidden rounded-lg border border-solid border-border bg-muted">

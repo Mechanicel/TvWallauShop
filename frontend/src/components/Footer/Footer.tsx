@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 
 export const Footer: React.FC = () => {
    return (
-      <footer className="tw-scope border-t border-solid border-border bg-background">
+      <footer className="border-t border-solid border-border bg-background">
          <div className="mx-auto flex max-w-7xl flex-col items-center gap-2 px-4 py-6 text-center text-sm text-muted-foreground">
             <p>&copy; {new Date().getFullYear()} Dein Verein. Alle Rechte vorbehalten.</p>
             <nav className="flex gap-4">

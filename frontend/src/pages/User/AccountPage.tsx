@@ -30,7 +30,7 @@ export const AccountPage: React.FC = () => {
 
    if (!user) {
       return (
-         <div className="tw-scope mx-auto max-w-3xl px-4 py-8">
+         <div className="mx-auto max-w-3xl px-4 py-8">
             <h1 className="mb-6 text-2xl font-semibold text-foreground">Mein Konto</h1>
             <div className="flex flex-col items-center gap-4 rounded-lg border border-solid border-border bg-surface p-8 text-center">
                <p className="text-muted-foreground">Du bist aktuell nicht eingeloggt.</p>
@@ -63,7 +63,7 @@ export const AccountPage: React.FC = () => {
    }
 
    return (
-      <div className="tw-scope mx-auto max-w-3xl px-4 py-8">
+      <div className="mx-auto max-w-3xl px-4 py-8">
          <h1 className="mb-6 text-2xl font-semibold text-foreground">Mein Konto</h1>
 
          <div className="rounded-lg border border-solid border-border bg-surface">

@@ -268,7 +268,7 @@ export const AdminDashboard: React.FC = () => {
    ];
 
    return (
-      <div className="tw-scope mx-auto max-w-6xl px-4 py-8">
+      <div className="mx-auto max-w-6xl px-4 py-8">
          <h1 className="mb-6 text-2xl font-semibold text-foreground">Admin-Dashboard</h1>
 
          <Section title="Produkte verwalten" actionLabel="Vollständig verwalten" onAction={() => navigate(ROUTES.MANAGE_PRODUCTS)}>

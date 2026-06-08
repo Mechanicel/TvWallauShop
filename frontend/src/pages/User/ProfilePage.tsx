@@ -157,7 +157,7 @@ export const ProfilePage: React.FC = () => {
 
    if (!user) {
       return (
-         <div className="tw-scope mx-auto max-w-3xl px-4 py-8">
+         <div className="mx-auto max-w-3xl px-4 py-8">
             <div className="rounded-lg border border-solid border-border bg-surface p-6">
                <div className="mb-4 flex items-center justify-between">
                   <h1 className="text-2xl font-semibold text-foreground">Mein Profil</h1>
@@ -175,7 +175,7 @@ export const ProfilePage: React.FC = () => {
    const preferredPaymentLabel = paymentOptions.find((o) => o.value === form.preferredPayment)?.label || '–';
 
    return (
-      <div className="tw-scope mx-auto max-w-3xl px-4 py-8">
+      <div className="mx-auto max-w-3xl px-4 py-8">
          <div className="rounded-lg border border-solid border-border bg-surface p-6">
             <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                <h1 className="text-2xl font-semibold text-foreground">Mein Profil</h1>

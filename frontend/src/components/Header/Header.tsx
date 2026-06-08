@@ -14,7 +14,7 @@ export const Header: React.FC = () => {
    const { accessToken, user } = useAppSelector(selectAuth);
 
    return (
-      <header className="tw-scope sticky top-0 z-40 border-b border-solid border-border bg-surface">
+      <header className="sticky top-0 z-40 border-b border-solid border-border bg-surface">
          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2 px-4 py-3">
             <button
                type="button"

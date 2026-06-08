@@ -74,12 +74,12 @@ export const OrderDetailPage: React.FC = () => {
    };
 
    if (!order && loading) {
-      return <p className="tw-scope py-12 text-center text-muted-foreground">Lade Bestellung…</p>;
+      return <p className="py-12 text-center text-muted-foreground">Lade Bestellung…</p>;
    }
 
    if (!order) {
       return (
-         <div className="tw-scope mx-auto max-w-3xl px-4 py-8">
+         <div className="mx-auto max-w-3xl px-4 py-8">
             <div className="flex flex-col items-start gap-4 rounded-lg border border-solid border-border bg-surface p-6">
                <p className="text-muted-foreground">Keine Bestellung gefunden.</p>
                <Button variant="outline" onClick={() => navigate('/user/orders')}>
@@ -92,7 +92,7 @@ export const OrderDetailPage: React.FC = () => {
    }
 
    return (
-      <div className="tw-scope mx-auto max-w-3xl px-4 py-8">
+      <div className="mx-auto max-w-3xl px-4 py-8">
          <div className="rounded-lg border border-solid border-border bg-surface p-6">
             <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                <h1 className="text-2xl font-semibold text-foreground">Bestellung #{order.id}</h1>

@@ -42,7 +42,7 @@ export const LoginPage: React.FC = () => {
    };
 
    return (
-      <div className="tw-scope flex min-h-[70vh] items-center justify-center bg-background px-4 py-10">
+      <div className="flex min-h-[70vh] items-center justify-center bg-background px-4 py-10">
          <Card className="w-full max-w-sm">
             <CardHeader className="text-center">
                <CardTitle>Anmelden</CardTitle>
