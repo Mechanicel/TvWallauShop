@@ -1,13 +1,14 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ArrowLeft, Pencil, RefreshCw, Save } from 'lucide-react';
+import { toast } from 'sonner';
 import { useAppDispatch, useAppSelector } from '@/store';
 import { fetchUser, updateUser } from '@/store/slices/userSlice';
-import { InputText } from 'primereact/inputtext';
-import { Button } from 'primereact/button';
-import { Dropdown } from 'primereact/dropdown';
-import { Checkbox } from 'primereact/checkbox';
-import { Toast } from 'primereact/toast';
-import './ProfilePage.css';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 type PaymentValue = 'invoice' | 'paypal' | 'creditcard' | 'banktransfer';
 
@@ -73,12 +74,26 @@ function isDirty(a: FormState, b: FormState) {
    return false;
 }
 
+const EditableField: React.FC<{
+   label: string;
+   value?: string | null;
+   edit: boolean;
+   onChange?: (value: string) => void;
+}> = ({ label, value, edit, onChange }) => (
+   <div className="flex flex-col gap-2">
+      <Label>{label}</Label>
+      <Input
+         value={value || ''}
+         disabled={!edit || !onChange}
+         onChange={(e) => onChange?.(e.target.value)}
+      />
+   </div>
+);
+
 export const ProfilePage: React.FC = () => {
    const dispatch = useAppDispatch();
    const navigate = useNavigate();
-   const toast = useRef<Toast>(null);
 
-   // ✅ Quelle: userSlice (fetchUser/updateUser arbeiten genau darauf)
    const userState = useAppSelector((s) => s.user);
    const user = userState.user;
    const loading = userState.loading;
@@ -87,12 +102,10 @@ export const ProfilePage: React.FC = () => {
    const [saving, setSaving] = useState(false);
    const [form, setForm] = useState<FormState>(emptyForm);
 
-   // ✅ 1) nur EINMAL laden (kein Loop mehr!)
    useEffect(() => {
       dispatch(fetchUser());
    }, [dispatch]);
 
-   // ✅ 2) Form nur dann aus Store nachziehen, wenn NICHT gerade editiert wird
    useEffect(() => {
       if (!user) return;
       if (isEditing) return;
@@ -131,26 +144,12 @@ export const ProfilePage: React.FC = () => {
       setSaving(true);
       try {
          await dispatch(updateUser(payload as any)).unwrap();
-
-         // ✅ Truth refresh (holt sicher den DB-Stand + synchronisiert Store)
          await dispatch(fetchUser()).unwrap();
-
-         toast.current?.show({
-            severity: 'success',
-            summary: 'Gespeichert',
-            detail: 'Deine Änderungen wurden übernommen.',
-            life: 2500,
-         });
-
+         toast.success('Gespeichert', { description: 'Deine Änderungen wurden übernommen.' });
          setIsEditing(false);
       } catch (err) {
          console.error('[ProfilePage] save failed:', err);
-         toast.current?.show({
-            severity: 'error',
-            summary: 'Fehler',
-            detail: 'Speichern fehlgeschlagen.',
-            life: 3500,
-         });
+         toast.error('Fehler', { description: 'Speichern fehlgeschlagen.' });
       } finally {
          setSaving(false);
       }
@@ -158,166 +157,120 @@ export const ProfilePage: React.FC = () => {
 
    if (!user) {
       return (
-         <div className="profile-page">
-            <div className="profile-card">
-               <div className="profile-header">
-                  <h2>Mein Profil</h2>
-                  <div className="profile-header-actions">
-                     <Button
-                        label="Zurück"
-                        icon="pi pi-arrow-left"
-                        className="p-button-outlined"
-                        onClick={() => navigate('/account')}
-                     />
-                  </div>
+         <div className="tw-scope mx-auto max-w-3xl px-4 py-8">
+            <div className="rounded-lg border border-solid border-border bg-surface p-6">
+               <div className="mb-4 flex items-center justify-between">
+                  <h1 className="text-2xl font-semibold text-foreground">Mein Profil</h1>
+                  <Button variant="outline" onClick={() => navigate('/account')}>
+                     <ArrowLeft className="h-4 w-4" />
+                     Zurück
+                  </Button>
                </div>
-
-               <p className="profile-loading">{loading ? 'Lade...' : 'Bitte einloggen.'}</p>
+               <p className="text-muted-foreground">{loading ? 'Lade…' : 'Bitte einloggen.'}</p>
             </div>
          </div>
       );
    }
 
-   const preferredPaymentLabel = paymentOptions.find((o) => o.value === form.preferredPayment)?.label || '-';
+   const preferredPaymentLabel = paymentOptions.find((o) => o.value === form.preferredPayment)?.label || '–';
 
    return (
-      <div className="profile-page">
-         <Toast ref={toast} />
-
-         <div className="profile-card">
-            <div className="profile-header">
-               <h2>Mein Profil</h2>
-
-               <div className="profile-header-actions">
-                  <Button
-                     label="Aktualisieren"
-                     icon="pi pi-refresh"
-                     className="p-button-outlined"
-                     onClick={() => dispatch(fetchUser())}
-                     disabled={saving}
-                  />
-                  <Button
-                     label="Zurück"
-                     icon="pi pi-arrow-left"
-                     className="p-button-outlined"
-                     onClick={() => navigate('/user/account')}
-                     disabled={saving}
-                  />
+      <div className="tw-scope mx-auto max-w-3xl px-4 py-8">
+         <div className="rounded-lg border border-solid border-border bg-surface p-6">
+            <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+               <h1 className="text-2xl font-semibold text-foreground">Mein Profil</h1>
+               <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" onClick={() => dispatch(fetchUser())} disabled={saving}>
+                     <RefreshCw className="h-4 w-4" />
+                     Aktualisieren
+                  </Button>
+                  <Button variant="outline" onClick={() => navigate('/user/account')} disabled={saving}>
+                     <ArrowLeft className="h-4 w-4" />
+                     Zurück
+                  </Button>
                </div>
             </div>
 
-            <section>
-               <h4>Allgemein</h4>
-               <div className="profile-grid">
-                  <EditableField
-                     label="Vorname"
-                     value={form.firstName}
-                     edit={isEditing}
-                     onChange={(v) => handleChange('firstName', v)}
-                  />
-                  <EditableField
-                     label="Nachname"
-                     value={form.lastName}
-                     edit={isEditing}
-                     onChange={(v) => handleChange('lastName', v)}
-                  />
+            <section className="mb-6">
+               <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Allgemein</h2>
+               <div className="grid gap-4 sm:grid-cols-2">
+                  <EditableField label="Vorname" value={form.firstName} edit={isEditing} onChange={(v) => handleChange('firstName', v)} />
+                  <EditableField label="Nachname" value={form.lastName} edit={isEditing} onChange={(v) => handleChange('lastName', v)} />
                   <EditableField label="E-Mail" value={form.email} edit={false} />
-                  <EditableField
-                     label="Telefon"
-                     value={form.phone}
-                     edit={isEditing}
-                     onChange={(v) => handleChange('phone', v)}
-                  />
+                  <EditableField label="Telefon" value={form.phone} edit={isEditing} onChange={(v) => handleChange('phone', v)} />
                </div>
             </section>
 
-            <section>
-               <h4>Rechnungsadresse</h4>
-               <div className="profile-grid">
-                  <EditableField
-                     label="Straße"
-                     value={form.street}
-                     edit={isEditing}
-                     onChange={(v) => handleChange('street', v)}
-                  />
-                  <EditableField
-                     label="Hausnummer"
-                     value={form.houseNumber}
-                     edit={isEditing}
-                     onChange={(v) => handleChange('houseNumber', v)}
-                  />
-                  <EditableField
-                     label="PLZ"
-                     value={form.postalCode}
-                     edit={isEditing}
-                     onChange={(v) => handleChange('postalCode', v)}
-                  />
-                  <EditableField
-                     label="Stadt"
-                     value={form.city}
-                     edit={isEditing}
-                     onChange={(v) => handleChange('city', v)}
-                  />
-                  <EditableField
-                     label="Bundesland"
-                     value={form.state}
-                     edit={isEditing}
-                     onChange={(v) => handleChange('state', v)}
-                  />
-                  <EditableField
-                     label="Land"
-                     value={form.country}
-                     edit={isEditing}
-                     onChange={(v) => handleChange('country', v)}
-                  />
+            <section className="mb-6">
+               <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Rechnungsadresse</h2>
+               <div className="grid gap-4 sm:grid-cols-2">
+                  <EditableField label="Straße" value={form.street} edit={isEditing} onChange={(v) => handleChange('street', v)} />
+                  <EditableField label="Hausnummer" value={form.houseNumber} edit={isEditing} onChange={(v) => handleChange('houseNumber', v)} />
+                  <EditableField label="PLZ" value={form.postalCode} edit={isEditing} onChange={(v) => handleChange('postalCode', v)} />
+                  <EditableField label="Stadt" value={form.city} edit={isEditing} onChange={(v) => handleChange('city', v)} />
+                  <EditableField label="Bundesland" value={form.state} edit={isEditing} onChange={(v) => handleChange('state', v)} />
+                  <EditableField label="Land" value={form.country} edit={isEditing} onChange={(v) => handleChange('country', v)} />
                </div>
             </section>
 
-            <section>
-               <h4>Einstellungen</h4>
-               <div className="profile-grid">
-                  <div className="p-field">
-                     <label>Bezahlung</label>
-
+            <section className="mb-6">
+               <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Einstellungen</h2>
+               <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="flex flex-col gap-2">
+                     <Label>Bezahlung</Label>
                      {isEditing ? (
-                        <Dropdown
-                           value={form.preferredPayment || null}
-                           options={paymentOptions}
-                           optionLabel="label"
-                           optionValue="value"
-                           placeholder="Bitte auswählen"
-                           onChange={(e) => handleChange('preferredPayment', (e.value as PaymentValue) ?? '')}
-                           className="profile-dropdown"
-                        />
+                        <Select
+                           value={form.preferredPayment || undefined}
+                           onValueChange={(v) => handleChange('preferredPayment', v as PaymentValue)}
+                        >
+                           <SelectTrigger>
+                              <SelectValue placeholder="Bitte auswählen" />
+                           </SelectTrigger>
+                           <SelectContent>
+                              {paymentOptions.map((o) => (
+                                 <SelectItem key={o.value} value={o.value}>
+                                    {o.label}
+                                 </SelectItem>
+                              ))}
+                           </SelectContent>
+                        </Select>
                      ) : (
-                        <InputText value={preferredPaymentLabel} disabled />
+                        <Input value={preferredPaymentLabel} disabled />
                      )}
                   </div>
 
-                  <div className="p-field">
-                     <label>Newsletter</label>
-                     <div className="profile-checkbox-row">
+                  <div className="flex flex-col gap-2">
+                     <Label>Newsletter</Label>
+                     <div className="flex h-10 items-center gap-2">
                         <Checkbox
-                           inputId="newsletter"
+                           id="newsletter"
                            checked={!!form.newsletterOptIn}
                            disabled={!isEditing}
-                           onChange={(e) => handleChange('newsletterOptIn', !!e.checked)}
+                           onCheckedChange={(c) => handleChange('newsletterOptIn', c === true)}
                         />
-                        <label htmlFor="newsletter" className="profile-checkbox-label">
+                        <Label htmlFor="newsletter" className="font-normal text-muted-foreground">
                            {form.newsletterOptIn ? 'Abonniert' : 'Nicht abonniert'}
-                        </label>
+                        </Label>
                      </div>
                   </div>
                </div>
             </section>
 
-            <div className="profile-actions">
+            <div className="flex flex-wrap justify-end gap-2">
                {!isEditing ? (
-                  <Button label="Bearbeiten" icon="pi pi-pencil" onClick={() => setIsEditing(true)} disabled={saving} />
+                  <Button onClick={() => setIsEditing(true)} disabled={saving}>
+                     <Pencil className="h-4 w-4" />
+                     Bearbeiten
+                  </Button>
                ) : (
                   <>
-                     <Button label="Abbrechen" className="p-button-outlined" onClick={handleCancel} disabled={saving} />
-                     <Button label="Speichern" icon="pi pi-save" onClick={handleSave} disabled={saving || !dirty} />
+                     <Button variant="outline" onClick={handleCancel} disabled={saving}>
+                        Abbrechen
+                     </Button>
+                     <Button onClick={handleSave} disabled={saving || !dirty}>
+                        <Save className="h-4 w-4" />
+                        Speichern
+                     </Button>
                   </>
                )}
             </div>
@@ -325,19 +278,3 @@ export const ProfilePage: React.FC = () => {
       </div>
    );
 };
-
-const EditableField: React.FC<{
-   label: string;
-   value?: string | null;
-   edit: boolean;
-   onChange?: (value: string) => void;
-}> = ({ label, value, edit, onChange }) => (
-   <div className="p-field">
-      <label>{label}</label>
-      {edit && onChange ? (
-         <InputText value={value || ''} onChange={(e) => onChange(e.target.value)} />
-      ) : (
-         <InputText value={value || ''} disabled />
-      )}
-   </div>
-);

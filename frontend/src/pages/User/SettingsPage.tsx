@@ -1,17 +1,26 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import api from '@/services/api';
-import { Button } from 'primereact/button';
-import { Password } from 'primereact/password';
-import { Checkbox } from 'primereact/checkbox';
-import { Dropdown } from 'primereact/dropdown';
-import { Toast } from 'primereact/toast';
-import { ConfirmDialog, confirmDialog } from 'primereact/confirmdialog';
-import { InputText } from 'primereact/inputtext';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import './SettingsPage.css';
+import { ArrowLeft, Lock, Save, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
+import api from '@/services/api';
 import { logout } from '@/store/slices/authSlice';
 import { useAppDispatch, useAppSelector } from '@/store';
 import { getApiErrorMessage } from '@/utils/error';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+   AlertDialog,
+   AlertDialogAction,
+   AlertDialogCancel,
+   AlertDialogContent,
+   AlertDialogDescription,
+   AlertDialogFooter,
+   AlertDialogHeader,
+   AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 type PaymentValue = 'paypal' | 'invoice' | 'creditcard' | 'banktransfer';
 
@@ -25,9 +34,7 @@ const paymentOptions: Array<{ label: string; value: PaymentValue }> = [
 export const SettingsPage: React.FC = () => {
    const dispatch = useAppDispatch();
    const navigate = useNavigate();
-   const toast = useRef<Toast>(null);
 
-   // Wir lesen Prefs (wenn vorhanden) aus auth.user, damit initial nichts "überschrieben" wird
    const authUser = useAppSelector((s: any) => s?.auth?.user);
 
    const [oldPassword, setOldPassword] = useState('');
@@ -41,16 +48,15 @@ export const SettingsPage: React.FC = () => {
    const [savingPrefs, setSavingPrefs] = useState(false);
    const [deleting, setDeleting] = useState(false);
 
+   const [deleteOpen, setDeleteOpen] = useState(false);
    const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
    useEffect(() => {
-      // Initialwerte aus Store setzen (falls user schon geladen)
       if (authUser) {
          setNewsletter(!!authUser.newsletterOptIn);
          setPreferredPayment((authUser.preferredPayment as PaymentValue) ?? null);
       }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-   }, [authUser?.id]); // nur wenn user wechselt
+   }, [authUser?.id]);
 
    const passwordValid = useMemo(() => {
       if (!oldPassword || !newPassword || !confirmPassword) return false;
@@ -60,7 +66,15 @@ export const SettingsPage: React.FC = () => {
    }, [oldPassword, newPassword, confirmPassword]);
 
    const show = (severity: 'success' | 'info' | 'warn' | 'error', summary: string, detail: string) => {
-      toast.current?.show({ severity, summary, detail, life: 3200 });
+      const fn =
+         severity === 'success'
+            ? toast.success
+            : severity === 'error'
+              ? toast.error
+              : severity === 'warn'
+                ? toast.warning
+                : toast.info;
+      fn(summary, { description: detail });
    };
 
    const handlePasswordChange = async () => {
@@ -76,7 +90,6 @@ export const SettingsPage: React.FC = () => {
       setSavingPassword(true);
       try {
          await api.put('/users/me/password', { oldPassword, newPassword });
-
          show('success', 'Gespeichert', 'Passwort erfolgreich geändert.');
          setOldPassword('');
          setNewPassword('');
@@ -91,11 +104,7 @@ export const SettingsPage: React.FC = () => {
    const handlePreferencesSave = async () => {
       setSavingPrefs(true);
       try {
-         await api.put('/users/me/preferences', {
-            newsletterOptIn: newsletter,
-            preferredPayment,
-         });
-
+         await api.put('/users/me/preferences', { newsletterOptIn: newsletter, preferredPayment });
          show('success', 'Gespeichert', 'Einstellungen gespeichert.');
       } catch (err: any) {
          show('error', 'Fehler', getApiErrorMessage(err, 'Fehler beim Speichern der Einstellungen'));
@@ -104,190 +113,177 @@ export const SettingsPage: React.FC = () => {
       }
    };
 
-   const handleDeleteAccount = () => {
-      setDeleteConfirmText('');
-
-      confirmDialog({
-         header: 'Account löschen?',
-         message: (
-            <div className="settings-confirm">
-               <p className="settings-confirm-text">
-                  Das löscht deinen Account dauerhaft. Dieser Schritt kann nicht rückgängig gemacht werden.
-               </p>
-               <p className="settings-confirm-text">
-                  Tippe <strong>LÖSCHEN</strong>, um zu bestätigen.
-               </p>
-               <InputText
-                  value={deleteConfirmText}
-                  onChange={(e) => setDeleteConfirmText(e.target.value)}
-                  placeholder="LÖSCHEN"
-                  className="settings-confirm-input"
-               />
-            </div>
-         ),
-         icon: 'pi pi-exclamation-triangle',
-         acceptLabel: 'Account löschen',
-         rejectLabel: 'Abbrechen',
-         acceptClassName: 'p-button-danger',
-         accept: async () => {
-            // ConfirmDialog "message" rendert React – aber state update ist async.
-            // Deshalb: nochmal im nächsten Tick prüfen:
-            setDeleting(true);
-            try {
-               const ok = deleteConfirmText.trim().toUpperCase() === 'LÖSCHEN';
-               if (!ok) {
-                  show('warn', 'Nicht bestätigt', 'Bitte LÖSCHEN eintippen, um fortzufahren.');
-                  return;
-               }
-
-               await api.delete('/users/me');
-
-               dispatch(logout());
-               show('success', 'Gelöscht', 'Account gelöscht.');
-               navigate('/login', { replace: true });
-            } catch (err: any) {
-               show('error', 'Fehler', getApiErrorMessage(err, 'Account konnte nicht gelöscht werden'));
-            } finally {
-               setDeleting(false);
-            }
-         },
-         reject: () => {},
-      });
+   const handleDeleteAccount = async () => {
+      setDeleting(true);
+      try {
+         await api.delete('/users/me');
+         dispatch(logout());
+         show('success', 'Gelöscht', 'Account gelöscht.');
+         navigate('/login', { replace: true });
+      } catch (err: any) {
+         show('error', 'Fehler', getApiErrorMessage(err, 'Account konnte nicht gelöscht werden'));
+      } finally {
+         setDeleting(false);
+         setDeleteOpen(false);
+      }
    };
 
    const anyBusy = savingPassword || savingPrefs || deleting;
 
    return (
-      <div className="settings-page">
-         <Toast ref={toast} />
-         <ConfirmDialog />
-
-         <div className="settings-card">
-            <div className="settings-header">
-               <h2>Einstellungen</h2>
-
-               <div className="settings-header-actions">
-                  <Button
-                     label="Zurück"
-                     icon="pi pi-arrow-left"
-                     className="p-button-outlined"
-                     onClick={() => navigate('/user/account')}
-                     disabled={anyBusy}
-                  />
-               </div>
+      <div className="tw-scope mx-auto max-w-3xl px-4 py-8">
+         <div className="rounded-lg border border-solid border-border bg-surface p-6">
+            <div className="mb-6 flex items-center justify-between">
+               <h1 className="text-2xl font-semibold text-foreground">Einstellungen</h1>
+               <Button variant="outline" onClick={() => navigate('/user/account')} disabled={anyBusy}>
+                  <ArrowLeft className="h-4 w-4" />
+                  Zurück
+               </Button>
             </div>
 
-            <section className="settings-section">
-               <h4>Passwort ändern</h4>
-
-               <div className="settings-grid">
-                  <div className="settings-field">
-                     <label>Altes Passwort</label>
-                     <Password
+            {/* Passwort */}
+            <section className="mb-8">
+               <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Passwort ändern</h2>
+               <div className="grid gap-4 sm:grid-cols-3">
+                  <div className="flex flex-col gap-2">
+                     <Label htmlFor="oldPassword">Altes Passwort</Label>
+                     <Input
+                        id="oldPassword"
+                        type="password"
                         value={oldPassword}
                         onChange={(e) => setOldPassword(e.target.value)}
-                        feedback={false}
-                        toggleMask
                         disabled={anyBusy}
+                        autoComplete="current-password"
                      />
                   </div>
-
-                  <div className="settings-field">
-                     <label>Neues Passwort</label>
-                     <Password
+                  <div className="flex flex-col gap-2">
+                     <Label htmlFor="newPassword">Neues Passwort</Label>
+                     <Input
+                        id="newPassword"
+                        type="password"
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
-                        feedback
-                        toggleMask
                         disabled={anyBusy}
+                        autoComplete="new-password"
                      />
-                     <small className="settings-hint">Mindestens 8 Zeichen.</small>
+                     <span className="text-xs text-muted-foreground">Mindestens 8 Zeichen.</span>
                   </div>
-
-                  <div className="settings-field">
-                     <label>Neues Passwort bestätigen</label>
-                     <Password
+                  <div className="flex flex-col gap-2">
+                     <Label htmlFor="confirmPassword">Neues Passwort bestätigen</Label>
+                     <Input
+                        id="confirmPassword"
+                        type="password"
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
-                        feedback={false}
-                        toggleMask
                         disabled={anyBusy}
+                        autoComplete="new-password"
                      />
                      {confirmPassword && newPassword !== confirmPassword && (
-                        <small className="settings-hint warn">Passwörter stimmen nicht überein.</small>
+                        <span className="text-xs text-destructive">Passwörter stimmen nicht überein.</span>
                      )}
                   </div>
                </div>
-
-               <div className="settings-actions">
-                  <Button
-                     label="Passwort speichern"
-                     icon="pi pi-lock"
-                     onClick={handlePasswordChange}
-                     disabled={savingPassword || !passwordValid}
-                     loading={savingPassword}
-                  />
+               <div className="mt-4">
+                  <Button onClick={handlePasswordChange} disabled={savingPassword || !passwordValid}>
+                     <Lock className="h-4 w-4" />
+                     Passwort speichern
+                  </Button>
                </div>
             </section>
 
-            <section className="settings-section">
-               <h4>Präferenzen</h4>
-
-               <div className="settings-grid">
-                  <div className="settings-field settings-checkbox-field">
-                     <label>Newsletter</label>
-                     <div className="settings-checkbox-row">
+            {/* Präferenzen */}
+            <section className="mb-8">
+               <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Präferenzen</h2>
+               <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="flex flex-col gap-2">
+                     <Label>Newsletter</Label>
+                     <div className="flex h-10 items-center gap-2">
                         <Checkbox
-                           inputId="newsletter"
+                           id="newsletter"
                            checked={newsletter}
-                           onChange={(e) => setNewsletter(!!e.checked)}
                            disabled={anyBusy}
+                           onCheckedChange={(c) => setNewsletter(c === true)}
                         />
-                        <label htmlFor="newsletter" className="settings-checkbox-label">
+                        <Label htmlFor="newsletter" className="font-normal text-muted-foreground">
                            Newsletter abonnieren
-                        </label>
+                        </Label>
                      </div>
                   </div>
-
-                  <div className="settings-field">
-                     <label>Bevorzugte Zahlungsmethode</label>
-                     <Dropdown
-                        value={preferredPayment}
-                        options={paymentOptions}
-                        optionLabel="label"
-                        optionValue="value"
-                        onChange={(e) => setPreferredPayment(e.value)}
-                        placeholder="Bitte auswählen"
+                  <div className="flex flex-col gap-2">
+                     <Label>Bevorzugte Zahlungsmethode</Label>
+                     <Select
+                        value={preferredPayment ?? undefined}
+                        onValueChange={(v) => setPreferredPayment(v as PaymentValue)}
                         disabled={anyBusy}
-                     />
+                     >
+                        <SelectTrigger>
+                           <SelectValue placeholder="Bitte auswählen" />
+                        </SelectTrigger>
+                        <SelectContent>
+                           {paymentOptions.map((o) => (
+                              <SelectItem key={o.value} value={o.value}>
+                                 {o.label}
+                              </SelectItem>
+                           ))}
+                        </SelectContent>
+                     </Select>
                   </div>
                </div>
-
-               <div className="settings-actions">
-                  <Button
-                     label="Einstellungen speichern"
-                     icon="pi pi-save"
-                     onClick={handlePreferencesSave}
-                     disabled={savingPrefs}
-                     loading={savingPrefs}
-                  />
+               <div className="mt-4">
+                  <Button onClick={handlePreferencesSave} disabled={savingPrefs}>
+                     <Save className="h-4 w-4" />
+                     Einstellungen speichern
+                  </Button>
                </div>
             </section>
 
-            <section className="settings-section danger">
-               <h4>Account</h4>
-
-               <div className="settings-actions">
-                  <Button
-                     label="Account löschen"
-                     icon="pi pi-trash"
-                     className="p-button-danger"
-                     onClick={handleDeleteAccount}
-                     disabled={anyBusy}
-                  />
-               </div>
+            {/* Account löschen */}
+            <section className="rounded-lg border border-solid border-red-200 p-4">
+               <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-destructive">Account</h2>
+               <Button
+                  className="bg-destructive text-destructive-foreground hover:opacity-90"
+                  onClick={() => {
+                     setDeleteConfirmText('');
+                     setDeleteOpen(true);
+                  }}
+                  disabled={anyBusy}
+               >
+                  <Trash2 className="h-4 w-4" />
+                  Account löschen
+               </Button>
             </section>
          </div>
+
+         <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+            <AlertDialogContent>
+               <AlertDialogHeader>
+                  <AlertDialogTitle>Account löschen?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                     Das löscht deinen Account dauerhaft. Dieser Schritt kann nicht rückgängig gemacht werden. Tippe{' '}
+                     <strong>LÖSCHEN</strong>, um zu bestätigen.
+                  </AlertDialogDescription>
+               </AlertDialogHeader>
+               <Input
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder="LÖSCHEN"
+                  autoFocus
+               />
+               <AlertDialogFooter>
+                  <AlertDialogCancel disabled={deleting}>Abbrechen</AlertDialogCancel>
+                  <AlertDialogAction
+                     className="bg-destructive text-destructive-foreground hover:opacity-90"
+                     disabled={deleting || deleteConfirmText.trim().toUpperCase() !== 'LÖSCHEN'}
+                     onClick={(e) => {
+                        e.preventDefault();
+                        handleDeleteAccount();
+                     }}
+                  >
+                     Account löschen
+                  </AlertDialogAction>
+               </AlertDialogFooter>
+            </AlertDialogContent>
+         </AlertDialog>
       </div>
    );
 };

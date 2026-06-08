@@ -1,21 +1,51 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { UserPlus } from 'lucide-react';
 import { useAppDispatch } from '@/store';
 import { signup } from '@/store/slices/authSlice';
-import { InputText } from 'primereact/inputtext';
-import { Password } from 'primereact/password';
-import { Button } from 'primereact/button';
-import { Dropdown } from 'primereact/dropdown';
-import { Calendar } from 'primereact/calendar';
-import { Checkbox } from 'primereact/checkbox';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-import './SignupPage.css';
+type PaymentValue = 'invoice' | 'paypal' | 'creditcard' | 'banktransfer';
+type GenderValue = 'male' | 'female' | 'other';
+
+const paymentOptions: Array<{ label: string; value: PaymentValue }> = [
+   { label: 'Rechnung', value: 'invoice' },
+   { label: 'PayPal', value: 'paypal' },
+   { label: 'Kreditkarte', value: 'creditcard' },
+   { label: 'Überweisung', value: 'banktransfer' },
+];
+
+const genderOptions: Array<{ label: string; value: GenderValue }> = [
+   { label: 'Männlich', value: 'male' },
+   { label: 'Weiblich', value: 'female' },
+   { label: 'Divers', value: 'other' },
+];
+
+const Field: React.FC<{
+   label: string;
+   value: string;
+   onChange: (v: string) => void;
+   required?: boolean;
+   type?: string;
+   autoComplete?: string;
+}> = ({ label, value, onChange, required, type = 'text', autoComplete }) => (
+   <div className="flex flex-col gap-2">
+      <Label>
+         {label}
+         {required && <span className="text-destructive"> *</span>}
+      </Label>
+      <Input type={type} value={value} onChange={(e) => onChange(e.target.value)} autoComplete={autoComplete} />
+   </div>
+);
 
 export const SignupPage: React.FC = () => {
    const dispatch = useAppDispatch();
    const navigate = useNavigate();
 
-   // Basis
    const [firstName, setFirstName] = useState('');
    const [lastName, setLastName] = useState('');
    const [email, setEmail] = useState('');
@@ -23,7 +53,6 @@ export const SignupPage: React.FC = () => {
    const [password, setPassword] = useState('');
    const [confirmPassword, setConfirmPassword] = useState('');
 
-   // Rechnungsadresse (Pflicht)
    const [street, setStreet] = useState('');
    const [houseNumber, setHouseNumber] = useState('');
    const [postalCode, setPostalCode] = useState('');
@@ -31,7 +60,6 @@ export const SignupPage: React.FC = () => {
    const [country, setCountry] = useState('');
    const [state, setState] = useState('');
 
-   // Lieferadresse (optional)
    const [shippingStreet, setShippingStreet] = useState('');
    const [shippingHouseNumber, setShippingHouseNumber] = useState('');
    const [shippingPostalCode, setShippingPostalCode] = useState('');
@@ -39,18 +67,16 @@ export const SignupPage: React.FC = () => {
    const [shippingCountry, setShippingCountry] = useState('');
    const [shippingState, setShippingState] = useState('');
 
-   // Payment / Misc
-   const [preferredPayment, setPreferredPayment] = useState('');
+   const [preferredPayment, setPreferredPayment] = useState<PaymentValue | ''>('');
    const [newsletterOptIn, setNewsletterOptIn] = useState(false);
-   const [dateOfBirth, setDateOfBirth] = useState<Date | null>(null);
-   const [gender, setGender] = useState('');
+   const [dateOfBirth, setDateOfBirth] = useState('');
+   const [gender, setGender] = useState<GenderValue | ''>('');
 
    const [loading, setLoading] = useState(false);
    const [error, setError] = useState<string | null>(null);
 
-   // Pflichtfelder prüfen
-   const isFormValid = () => {
-      return (
+   const isFormValid = () =>
+      !!(
          firstName.trim() &&
          lastName.trim() &&
          email.trim() &&
@@ -61,9 +87,8 @@ export const SignupPage: React.FC = () => {
          postalCode.trim() &&
          city.trim() &&
          country.trim() &&
-         preferredPayment.trim()
+         preferredPayment
       );
-   };
 
    const handleSignup = async () => {
       if (password !== confirmPassword) {
@@ -73,7 +98,7 @@ export const SignupPage: React.FC = () => {
       setLoading(true);
       setError(null);
       try {
-         const normalizedDateOfBirth = dateOfBirth ? dateOfBirth.toISOString() : null;
+         const normalizedDateOfBirth = dateOfBirth ? new Date(dateOfBirth).toISOString() : null;
          await dispatch(
             signup({
                firstName,
@@ -93,10 +118,10 @@ export const SignupPage: React.FC = () => {
                shippingCity,
                shippingState,
                shippingCountry,
-               preferredPayment,
+               preferredPayment: preferredPayment || null,
                newsletterOptIn,
                dateOfBirth: normalizedDateOfBirth,
-               gender,
+               gender: gender || null,
             }),
          ).unwrap();
          navigate('/auth/login');
@@ -108,169 +133,115 @@ export const SignupPage: React.FC = () => {
    };
 
    return (
-      <div className="signup-page">
-         <div className="signup-card">
-            <h2>Registrieren</h2>
+      <div className="tw-scope mx-auto max-w-2xl px-4 py-8">
+         <div className="rounded-lg border border-solid border-border bg-surface p-6">
+            <h1 className="mb-6 text-2xl font-semibold text-foreground">Registrieren</h1>
 
-            {/* Basis */}
-            <div className="p-field">
-               <label>
-                  Vorname <span className="required">*</span>
-               </label>
-               <InputText value={firstName} onChange={(e) => setFirstName(e.target.value)} />
-            </div>
-            <div className="p-field">
-               <label>
-                  Nachname <span className="required">*</span>
-               </label>
-               <InputText value={lastName} onChange={(e) => setLastName(e.target.value)} />
-            </div>
-            <div className="p-field">
-               <label>
-                  E-Mail <span className="required">*</span>
-               </label>
-               <InputText value={email} onChange={(e) => setEmail(e.target.value)} />
-            </div>
-            <div className="p-field">
-               <label>Telefon</label>
-               <InputText value={phone} onChange={(e) => setPhone(e.target.value)} />
+            <div className="grid gap-4 sm:grid-cols-2">
+               <Field label="Vorname" required value={firstName} onChange={setFirstName} autoComplete="given-name" />
+               <Field label="Nachname" required value={lastName} onChange={setLastName} autoComplete="family-name" />
+               <Field label="E-Mail" required value={email} onChange={setEmail} type="email" autoComplete="email" />
+               <Field label="Telefon" value={phone} onChange={setPhone} autoComplete="tel" />
             </div>
 
-            {/* Rechnungsadresse */}
-            <h4>Rechnungsadresse</h4>
-            <div className="signup-grid">
-               <div className="p-field">
-                  <label>
-                     Straße <span className="required">*</span>
-                  </label>
-                  <InputText value={street} onChange={(e) => setStreet(e.target.value)} />
-               </div>
-               <div className="p-field">
-                  <label>
-                     Hausnummer <span className="required">*</span>
-                  </label>
-                  <InputText value={houseNumber} onChange={(e) => setHouseNumber(e.target.value)} />
-               </div>
-               <div className="p-field">
-                  <label>
-                     PLZ <span className="required">*</span>
-                  </label>
-                  <InputText value={postalCode} onChange={(e) => setPostalCode(e.target.value)} />
-               </div>
-               <div className="p-field">
-                  <label>
-                     Stadt <span className="required">*</span>
-                  </label>
-                  <InputText value={city} onChange={(e) => setCity(e.target.value)} />
-               </div>
-               <div className="p-field">
-                  <label>
-                     Land <span className="required">*</span>
-                  </label>
-                  <InputText value={country} onChange={(e) => setCountry(e.target.value)} />
-               </div>
-               <div className="p-field">
-                  <label>Bundesland</label>
-                  <InputText value={state} onChange={(e) => setState(e.target.value)} />
-               </div>
+            <h2 className="mb-3 mt-6 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+               Rechnungsadresse
+            </h2>
+            <div className="grid gap-4 sm:grid-cols-2">
+               <Field label="Straße" required value={street} onChange={setStreet} />
+               <Field label="Hausnummer" required value={houseNumber} onChange={setHouseNumber} />
+               <Field label="PLZ" required value={postalCode} onChange={setPostalCode} />
+               <Field label="Stadt" required value={city} onChange={setCity} />
+               <Field label="Land" required value={country} onChange={setCountry} />
+               <Field label="Bundesland" value={state} onChange={setState} />
             </div>
 
-            {/* Lieferadresse */}
-            <h4>Lieferadresse (optional)</h4>
-            <div className="signup-grid">
-               <div className="p-field">
-                  <label>Straße</label>
-                  <InputText value={shippingStreet} onChange={(e) => setShippingStreet(e.target.value)} />
+            <h2 className="mb-3 mt-6 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+               Lieferadresse (optional)
+            </h2>
+            <div className="grid gap-4 sm:grid-cols-2">
+               <Field label="Straße" value={shippingStreet} onChange={setShippingStreet} />
+               <Field label="Hausnummer" value={shippingHouseNumber} onChange={setShippingHouseNumber} />
+               <Field label="PLZ" value={shippingPostalCode} onChange={setShippingPostalCode} />
+               <Field label="Stadt" value={shippingCity} onChange={setShippingCity} />
+               <Field label="Land" value={shippingCountry} onChange={setShippingCountry} />
+               <Field label="Bundesland" value={shippingState} onChange={setShippingState} />
+            </div>
+
+            <h2 className="mb-3 mt-6 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+               Weitere Angaben
+            </h2>
+            <div className="grid gap-4 sm:grid-cols-2">
+               <div className="flex flex-col gap-2">
+                  <Label>
+                     Bevorzugte Zahlung<span className="text-destructive"> *</span>
+                  </Label>
+                  <Select value={preferredPayment || undefined} onValueChange={(v) => setPreferredPayment(v as PaymentValue)}>
+                     <SelectTrigger>
+                        <SelectValue placeholder="Auswählen" />
+                     </SelectTrigger>
+                     <SelectContent>
+                        {paymentOptions.map((o) => (
+                           <SelectItem key={o.value} value={o.value}>
+                              {o.label}
+                           </SelectItem>
+                        ))}
+                     </SelectContent>
+                  </Select>
                </div>
-               <div className="p-field">
-                  <label>Hausnummer</label>
-                  <InputText value={shippingHouseNumber} onChange={(e) => setShippingHouseNumber(e.target.value)} />
+
+               <div className="flex flex-col gap-2">
+                  <Label>Geschlecht</Label>
+                  <Select value={gender || undefined} onValueChange={(v) => setGender(v as GenderValue)}>
+                     <SelectTrigger>
+                        <SelectValue placeholder="Auswählen" />
+                     </SelectTrigger>
+                     <SelectContent>
+                        {genderOptions.map((o) => (
+                           <SelectItem key={o.value} value={o.value}>
+                              {o.label}
+                           </SelectItem>
+                        ))}
+                     </SelectContent>
+                  </Select>
                </div>
-               <div className="p-field">
-                  <label>PLZ</label>
-                  <InputText value={shippingPostalCode} onChange={(e) => setShippingPostalCode(e.target.value)} />
-               </div>
-               <div className="p-field">
-                  <label>Stadt</label>
-                  <InputText value={shippingCity} onChange={(e) => setShippingCity(e.target.value)} />
-               </div>
-               <div className="p-field">
-                  <label>Land</label>
-                  <InputText value={shippingCountry} onChange={(e) => setShippingCountry(e.target.value)} />
-               </div>
-               <div className="p-field">
-                  <label>Bundesland</label>
-                  <InputText value={shippingState} onChange={(e) => setShippingState(e.target.value)} />
+
+               <Field label="Geburtsdatum" value={dateOfBirth} onChange={setDateOfBirth} type="date" />
+
+               <div className="flex flex-col gap-2">
+                  <Label>Newsletter</Label>
+                  <div className="flex h-10 items-center gap-2">
+                     <Checkbox
+                        id="newsletter"
+                        checked={newsletterOptIn}
+                        onCheckedChange={(c) => setNewsletterOptIn(c === true)}
+                     />
+                     <Label htmlFor="newsletter" className="font-normal text-muted-foreground">
+                        Newsletter abonnieren
+                     </Label>
+                  </div>
                </div>
             </div>
 
-            {/* Weitere Angaben */}
-            <h4>Weitere Angaben</h4>
-            <div className="p-field">
-               <label>
-                  Bevorzugte Zahlung<span className="required">*</span>
-               </label>
-               <Dropdown
-                  value={preferredPayment}
-                  onChange={(e) => setPreferredPayment(e.value)}
-                  options={['invoice', 'paypal', 'creditcard', 'banktransfer']}
-                  placeholder="Auswählen"
-               />
-            </div>
-            <div className="p-field-checkbox">
-               <Checkbox
-                  inputId="newsletter"
-                  checked={newsletterOptIn}
-                  onChange={(e) => setNewsletterOptIn(e.checked!)}
-               />
-               <label htmlFor="newsletter">Newsletter abonnieren</label>
-            </div>
-            <div className="p-field">
-               <label>Geburtsdatum</label>
-               <Calendar
-                  value={dateOfBirth}
-                  onChange={(e) => setDateOfBirth(e.value as Date)}
-                  showIcon
-                  dateFormat="dd.mm.yy"
-               />
-            </div>
-            <div className="p-field">
-               <label>Geschlecht</label>
-               <Dropdown
-                  value={gender}
-                  onChange={(e) => setGender(e.value)}
-                  options={['male', 'female', 'other']}
-                  placeholder="Auswählen"
-               />
-            </div>
-
-            {/* Passwort */}
-            <div className="p-field">
-               <label>
-                  Passwort <span className="required">*</span>
-               </label>
-               <Password value={password} onChange={(e) => setPassword(e.target.value)} feedback={false} />
-            </div>
-            <div className="p-field">
-               <label>
-                  Passwort bestätigen <span className="required">*</span>
-               </label>
-               <Password
+            <h2 className="mb-3 mt-6 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Passwort</h2>
+            <div className="grid gap-4 sm:grid-cols-2">
+               <Field label="Passwort" required value={password} onChange={setPassword} type="password" autoComplete="new-password" />
+               <Field
+                  label="Passwort bestätigen"
+                  required
                   value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  feedback={false}
+                  onChange={setConfirmPassword}
+                  type="password"
+                  autoComplete="new-password"
                />
             </div>
 
-            {error && <p className="p-text-danger">{error}</p>}
-            <Button
-               label="Registrieren"
-               icon="pi pi-user-plus"
-               className="p-mt-2"
-               onClick={handleSignup}
-               loading={loading}
-               disabled={!isFormValid()}
-            />
+            {error && <p className="mt-4 text-sm text-destructive">{error}</p>}
+
+            <Button className="mt-6" onClick={handleSignup} disabled={!isFormValid() || loading}>
+               <UserPlus className="h-4 w-4" />
+               {loading ? 'Wird registriert …' : 'Registrieren'}
+            </Button>
          </div>
       </div>
    );

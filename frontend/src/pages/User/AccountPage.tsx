@@ -1,10 +1,18 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ChevronRight, Cog, Home, LogIn, LogOut, ShieldCheck, ShoppingBag, ShoppingCart, User } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/store';
 import { logout, selectAuth } from '@/store/slices/authSlice';
-import { Avatar } from 'primereact/avatar';
-import { Button } from 'primereact/button';
-import './AccountPage.css';
+import { Avatar } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+
+type Tile = {
+   to: string;
+   icon: React.ReactNode;
+   title: string;
+   desc: string;
+   primary?: boolean;
+};
 
 export const AccountPage: React.FC = () => {
    const { user } = useAppSelector(selectAuth);
@@ -13,46 +21,28 @@ export const AccountPage: React.FC = () => {
 
    const go = (path: string) => navigate(path);
 
-   const clickable = (path: string) => ({
-      role: 'button' as const,
-      tabIndex: 0,
-      onClick: () => go(path),
-      onKeyDown: (e: React.KeyboardEvent) => {
-         if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            go(path);
-         }
-      },
-   });
-
    const handleLogout = () => {
       dispatch(logout());
       navigate('/');
    };
 
-   // Admin optional (ohne Typ-Annahmen zu erzwingen)
    const isAdmin = !!(user as any)?.isAdmin || (user as any)?.role === 'admin' || !!(user as any)?.is_admin;
 
    if (!user) {
       return (
-         <div className="account-page">
-            <h2>Mein Konto</h2>
-
-            <div className="account-wrapper account-empty">
-               <p className="account-empty-text">Du bist aktuell nicht eingeloggt.</p>
-               <div className="account-empty-actions">
-                  <Button
-                     label="Zum Login"
-                     icon="pi pi-sign-in"
-                     onClick={() => go('/login')}
-                     className="account-primary-btn"
-                  />
-                  <Button
-                     label="Zur Startseite"
-                     icon="pi pi-home"
-                     className="p-button-outlined"
-                     onClick={() => go('/')}
-                  />
+         <div className="tw-scope mx-auto max-w-3xl px-4 py-8">
+            <h1 className="mb-6 text-2xl font-semibold text-foreground">Mein Konto</h1>
+            <div className="flex flex-col items-center gap-4 rounded-lg border border-solid border-border bg-surface p-8 text-center">
+               <p className="text-muted-foreground">Du bist aktuell nicht eingeloggt.</p>
+               <div className="flex flex-wrap justify-center gap-3">
+                  <Button onClick={() => go('/login')}>
+                     <LogIn className="h-4 w-4" />
+                     Zum Login
+                  </Button>
+                  <Button variant="outline" onClick={() => go('/')}>
+                     <Home className="h-4 w-4" />
+                     Zur Startseite
+                  </Button>
                </div>
             </div>
          </div>
@@ -60,94 +50,55 @@ export const AccountPage: React.FC = () => {
    }
 
    const displayName = [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || user.email || 'Account';
-
    const avatarLabel = ((user.firstName?.[0] ?? user.email?.[0] ?? '?') as string).toUpperCase();
 
-   return (
-      <div className="account-page">
-         <h2>Mein Konto</h2>
+   const tiles: Tile[] = [
+      { to: '/user/profile', icon: <User className="h-5 w-5" />, title: 'Meine Daten', desc: 'Profil ansehen und bearbeiten' },
+      { to: '/user/orders', icon: <ShoppingBag className="h-5 w-5" />, title: 'Meine Bestellungen', desc: 'Status, Details & Historie' },
+      { to: '/user/settings', icon: <Cog className="h-5 w-5" />, title: 'Einstellungen', desc: 'Passwort, Newsletter, Zahlart' },
+      { to: '/cart', icon: <ShoppingCart className="h-5 w-5" />, title: 'Warenkorb', desc: 'Weiter einkaufen oder zur Kasse', primary: true },
+   ];
+   if (isAdmin) {
+      tiles.push({ to: '/admin', icon: <ShieldCheck className="h-5 w-5" />, title: 'Admin', desc: 'Dashboard & Verwaltung' });
+   }
 
-         <div className="account-wrapper">
-            {/* Hero */}
-            <div className="account-hero">
-               <div className="account-hero-left">
-                  <Avatar label={avatarLabel} size="xlarge" className="account-avatar" />
-                  <div className="account-hero-meta">
-                     <h3 className="account-name">{displayName}</h3>
-                     <p className="account-email">{user.email}</p>
+   return (
+      <div className="tw-scope mx-auto max-w-3xl px-4 py-8">
+         <h1 className="mb-6 text-2xl font-semibold text-foreground">Mein Konto</h1>
+
+         <div className="rounded-lg border border-solid border-border bg-surface">
+            <div className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
+               <div className="flex items-center gap-4">
+                  <Avatar label={avatarLabel} />
+                  <div>
+                     <h2 className="text-lg font-semibold text-foreground">{displayName}</h2>
+                     <p className="text-sm text-muted-foreground">{user.email}</p>
                   </div>
                </div>
-
-               <div className="account-hero-right">
-                  <Button
-                     label="Abmelden"
-                     icon="pi pi-sign-out"
-                     className="p-button-outlined account-logout"
-                     onClick={handleLogout}
-                  />
-               </div>
+               <Button variant="outline" onClick={handleLogout}>
+                  <LogOut className="h-4 w-4" />
+                  Abmelden
+               </Button>
             </div>
 
-            <div className="account-divider" />
-
-            {/* Clickable Tiles */}
-            <div className="account-grid">
-               <div className="account-tile account-tile-clickable" {...clickable('/user/profile')}>
-                  <div className="account-tile-head">
-                     <i className="pi pi-user account-tile-icon" />
-                     <div>
-                        <div className="account-tile-title">Meine Daten</div>
-                        <div className="account-tile-desc">Profil ansehen und bearbeiten</div>
-                     </div>
-                  </div>
-                  <i className="pi pi-angle-right account-tile-arrow" />
-               </div>
-
-               <div className="account-tile account-tile-clickable" {...clickable('/user/orders')}>
-                  <div className="account-tile-head">
-                     <i className="pi pi-shopping-bag account-tile-icon" />
-                     <div>
-                        <div className="account-tile-title">Meine Bestellungen</div>
-                        <div className="account-tile-desc">Status, Details & Historie</div>
-                     </div>
-                  </div>
-                  <i className="pi pi-angle-right account-tile-arrow" />
-               </div>
-
-               <div className="account-tile account-tile-clickable" {...clickable('/user/settings')}>
-                  <div className="account-tile-head">
-                     <i className="pi pi-cog account-tile-icon" />
-                     <div>
-                        <div className="account-tile-title">Einstellungen</div>
-                        <div className="account-tile-desc">Passwort, Newsletter, Zahlart</div>
-                     </div>
-                  </div>
-                  <i className="pi pi-angle-right account-tile-arrow" />
-               </div>
-
-               <div className="account-tile account-tile-clickable account-tile-primary" {...clickable('/cart')}>
-                  <div className="account-tile-head">
-                     <i className="pi pi-shopping-cart account-tile-icon" />
-                     <div>
-                        <div className="account-tile-title">Warenkorb</div>
-                        <div className="account-tile-desc">Weiter einkaufen oder zur Kasse</div>
-                     </div>
-                  </div>
-                  <i className="pi pi-angle-right account-tile-arrow" />
-               </div>
-
-               {isAdmin && (
-                  <div className="account-tile account-tile-clickable account-tile-admin" {...clickable('/admin')}>
-                     <div className="account-tile-head">
-                        <i className="pi pi-shield account-tile-icon" />
-                        <div>
-                           <div className="account-tile-title">Admin</div>
-                           <div className="account-tile-desc">Dashboard & Verwaltung</div>
-                        </div>
-                     </div>
-                     <i className="pi pi-angle-right account-tile-arrow" />
-                  </div>
-               )}
+            <div className="grid gap-3 border-t border-border p-6 sm:grid-cols-2">
+               {tiles.map((tile) => (
+                  <button
+                     key={tile.to}
+                     type="button"
+                     onClick={() => go(tile.to)}
+                     className="flex items-center justify-between gap-3 rounded-lg border border-solid border-border bg-surface p-4 text-left transition-colors hover:border-primary"
+                  >
+                     <span className="flex items-center gap-3">
+                        <span className="text-primary">{tile.icon}</span>
+                        <span>
+                           <span className="block font-medium text-foreground">{tile.title}</span>
+                           <span className="block text-sm text-muted-foreground">{tile.desc}</span>
+                        </span>
+                     </span>
+                     <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                  </button>
+               ))}
             </div>
          </div>
       </div>
