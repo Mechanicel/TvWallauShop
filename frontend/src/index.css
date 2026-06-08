@@ -1,19 +1,7 @@
-/* frontend/src/index.css – globale Basis (PrimeReact entfernt) */
-
-* {
-   margin: 0;
-   padding: 0;
-   box-sizing: border-box;
-}
+/* frontend/src/index.css – globale Basis (PrimeReact entfernt; Tailwind-Preflight aktiv) */
 
 body {
    font-family: 'Inter Variable', Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
    background-color: var(--background, #f8fafc);
    color: var(--text, #0f172a);
-   line-height: 1.6;
-}
-
-a {
-   color: inherit;
-   text-decoration: none;
 }

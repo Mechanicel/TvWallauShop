@@ -193,7 +193,7 @@ export const AdminDashboard: React.FC = () => {
             return (
                <div className="flex gap-1">
                   <Button variant="ghost" size="icon" aria-label="Bearbeiten" onClick={() => openOrderDialog(order)}>
-                     <Settings2 className="h-4 w-4" />
+                     <Pencil className="h-4 w-4" />
                   </Button>
                   {order.status === 'Bestellt' && (
                      <Button
@@ -251,7 +251,7 @@ export const AdminDashboard: React.FC = () => {
          cell: ({ row }) => (
             <div className="flex gap-1">
                <Button variant="ghost" size="icon" aria-label="Bearbeiten" onClick={() => openUserDialog(row.original)}>
-                  <Settings2 className="h-4 w-4" />
+                  <Pencil className="h-4 w-4" />
                </Button>
                <Button
                   variant="ghost"

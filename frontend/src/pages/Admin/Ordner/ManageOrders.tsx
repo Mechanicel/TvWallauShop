@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Check, FileSpreadsheet, Settings2, Trash2, X } from 'lucide-react';
+import { Check, FileSpreadsheet, Pencil, Trash2, X } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/store';
 import {
    fetchOrders,
@@ -123,9 +123,9 @@ export const ManageOrders: React.FC = () => {
          cell: ({ row }) => {
             const order = row.original;
             return (
-               <div className="flex gap-1">
+               <div className="flex flex-nowrap gap-1">
                   <Button variant="ghost" size="icon" aria-label="Bearbeiten" onClick={() => openEditDialog(order)}>
-                     <Settings2 className="h-4 w-4" />
+                     <Pencil className="h-4 w-4" />
                   </Button>
                   {order.status === 'Bestellt' && (
                      <Button

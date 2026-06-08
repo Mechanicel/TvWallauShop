@@ -2,17 +2,14 @@ import type { Config } from 'tailwindcss';
 import animate from 'tailwindcss-animate';
 
 /**
- * Tailwind v3 – Koexistenz mit PrimeReact während der inkrementellen Migration:
- * - preflight ist AUS, damit der globale Reset die bestehenden PrimeReact-Seiten nicht verändert.
+ * Tailwind v3 – Setup nach vollständiger Migration (PrimeReact entfernt):
+ * - preflight ist AN (Standard): normalisiert native Form-/Button-/Heading-Styles, wie es shadcn erwartet.
  * - Farben zeigen direkt auf Hex-CSS-Variablen (var(--accent) etc.), KEIN hsl()-Wrapper.
  *   So bleibt der Akzent eine einzige Hex-Stellschraube und Utilities wie bg-primary rendern farbig.
  * - Kein Dark-Mode (Design ist hell).
  */
 export default {
    content: ['./index.html', './src/**/*.{ts,tsx}'],
-   corePlugins: {
-      preflight: false,
-   },
    theme: {
       extend: {
          colors: {
