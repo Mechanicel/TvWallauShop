@@ -1,12 +1,9 @@
 // frontend/src/pages/Admin/AdminDashboard.tsx
 
 import React, { useEffect, useState } from 'react';
-import { DataTable } from 'primereact/datatable';
-import { Column } from 'primereact/column';
-import { Button } from 'primereact/button';
-import { Dropdown } from 'primereact/dropdown';
+import type { ColumnDef } from '@tanstack/react-table';
+import { Check, Pencil, Settings2, Trash2, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-
 import { useAppDispatch, useAppSelector } from '@/store';
 import {
    fetchProducts,
@@ -17,16 +14,38 @@ import {
 } from '@/store/slices/productSlice';
 import { fetchOrders, updateOrderStatus, selectOrders, deleteOrder } from '@/store/slices/orderSlice';
 import { fetchUsers, updateUserById, deleteUser } from '@/store/slices/userSlice';
-
 import type { Product } from '@/type/product';
 import type { User } from '@/type/user';
 import type { Order } from '@tvwallaushop/contracts';
-
-import ProductDialog, { EditableProduct } from './Product/ProductDialog';
-import UserEditDialog from './User/UserEditDialog';
-import OrderEditDialog, { OrderStatus } from './Ordner/OrderEditDialog';
-
 import { ROUTES } from '@/utils/constants';
+import { mapApiUserToUser } from '@/utils/helpers';
+import { formatPrice, formatDate } from '@/utils/format';
+import { orderStatusVariant } from '@/utils/orderStatus';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { DataTable } from '@/components/ui/data-table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import ProductDialog, { type EditableProduct } from './Product/ProductDialog';
+import UserEditDialog from './User/UserEditDialog';
+import OrderEditDialog, { type OrderStatus } from './Ordner/OrderEditDialog';
+
+const Section: React.FC<{ title: string; actionLabel: string; onAction: () => void; children: React.ReactNode }> = ({
+   title,
+   actionLabel,
+   onAction,
+   children,
+}) => (
+   <section className="mb-8">
+      <div className="mb-3 flex items-center justify-between">
+         <h2 className="text-lg font-semibold text-foreground">{title}</h2>
+         <Button variant="outline" size="sm" onClick={onAction}>
+            <Settings2 className="h-4 w-4" />
+            {actionLabel}
+         </Button>
+      </div>
+      {children}
+   </section>
+);
 
 export const AdminDashboard: React.FC = () => {
    const dispatch = useAppDispatch();
@@ -36,16 +55,13 @@ export const AdminDashboard: React.FC = () => {
    const orders = useAppSelector(selectOrders);
    const users = useAppSelector((state) => state.user.users);
 
-   // --- Produkt-Dialog ---
    const [displayDialog, setDisplayDialog] = useState(false);
    const [editingProduct, setEditingProduct] = useState<EditableProduct | null>(null);
    const [uploadFiles, setUploadFiles] = useState<File[]>([]);
 
-   // --- User-Dialog (geteilt mit ManageUsers) ---
    const [editingUser, setEditingUser] = useState<User | null>(null);
    const [userDialogVisible, setUserDialogVisible] = useState(false);
 
-   // --- Order-Dialog (geteilt mit ManageOrders) ---
    const [editingOrder, setEditingOrder] = useState<Order | null>(null);
    const [orderDialogVisible, setOrderDialogVisible] = useState(false);
 
@@ -70,44 +86,26 @@ export const AdminDashboard: React.FC = () => {
 
    const saveProduct = async () => {
       if (!editingProduct || editingProduct.id == null) return;
-
       const { id, name, description, price, imageUrl, sizes } = editingProduct;
-      const safeDescription = description ?? '';
-      const safeImageUrl = imageUrl ?? '';
-
       await dispatch(
-         updateProduct({
-            id,
-            changes: { name, description: safeDescription, price, imageUrl: safeImageUrl, sizes },
-         }),
+         updateProduct({ id, changes: { name, description: description ?? '', price, imageUrl: imageUrl ?? '', sizes } }),
       );
-
       if (uploadFiles.length > 0) {
          await dispatch(uploadProductImages({ id, files: uploadFiles }));
       }
-
       hideDialog();
    };
 
    const confirmDeleteProduct = (product: Product) => {
-      if (window.confirm(`Produkt "${product.name}" wirklich löschen?`)) {
-         if (product.id != null) dispatch(deleteProduct(product.id));
+      if (window.confirm(`Produkt "${product.name}" wirklich löschen?`) && product.id != null) {
+         dispatch(deleteProduct(product.id));
       }
    };
 
    const handleDeleteImage = async (imageId: number) => {
       if (!editingProduct || editingProduct.id == null) return;
-
-      const ok = window.confirm('Dieses Bild wirklich löschen?');
-      if (!ok) return;
-
-      const action = await dispatch(
-         deleteProductImage({
-            productId: editingProduct.id,
-            imageId,
-         }),
-      );
-
+      if (!window.confirm('Dieses Bild wirklich löschen?')) return;
+      const action = await dispatch(deleteProductImage({ productId: editingProduct.id, imageId }));
       if ('payload' in action && (action as any).payload) {
          const updated = action.payload as Product;
          setEditingProduct((prev) => (prev && prev.id === updated.id ? { ...updated } : prev));
@@ -119,20 +117,12 @@ export const AdminDashboard: React.FC = () => {
       setEditingUser(u);
       setUserDialogVisible(true);
    };
-
    const hideUserDialog = () => {
       setUserDialogVisible(false);
       setEditingUser(null);
    };
-
    const onUserRoleChange = (id: number, newRole: User['role']) =>
-      dispatch(
-         updateUserById({
-            id,
-            changes: { role: newRole },
-         }),
-      );
-
+      dispatch(updateUserById({ id, changes: { role: newRole } }));
    const onDeleteUser = (u: User) =>
       void (window.confirm(`User "${u.email}" wirklich löschen?`) && dispatch(deleteUser(u.id)));
 
@@ -141,170 +131,158 @@ export const AdminDashboard: React.FC = () => {
       setEditingOrder(order);
       setOrderDialogVisible(true);
    };
-
    const hideOrderDialog = () => {
       setOrderDialogVisible(false);
       setEditingOrder(null);
    };
-
    const onStatusChange = (orderId: number, newStatus: OrderStatus) =>
       dispatch(updateOrderStatus({ orderId, status: newStatus }));
-
    const handleSaveOrderStatus = async (orderId: number, status: OrderStatus) => {
       await dispatch(updateOrderStatus({ orderId, status }));
       setOrderDialogVisible(false);
    };
-
    const handleDeleteOrder = async (orderId: number) => {
       await dispatch(deleteOrder(orderId));
       setOrderDialogVisible(false);
       setEditingOrder(null);
    };
 
+   const productColumns: ColumnDef<Product, any>[] = [
+      { id: 'id', accessorFn: (r) => r.id, header: 'ID', cell: ({ row }) => `#${row.original.id}` },
+      { id: 'name', accessorFn: (r) => r.name, header: 'Name' },
+      { id: 'price', accessorFn: (r) => r.price, header: 'Preis', cell: ({ row }) => formatPrice(Number(row.original.price)) },
+      {
+         id: 'actions',
+         header: 'Aktionen',
+         enableSorting: false,
+         cell: ({ row }) => (
+            <div className="flex gap-1">
+               <Button variant="ghost" size="icon" aria-label="Bearbeiten" onClick={() => editExisting(row.original)}>
+                  <Pencil className="h-4 w-4" />
+               </Button>
+               <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-destructive"
+                  aria-label="Löschen"
+                  onClick={() => confirmDeleteProduct(row.original)}
+               >
+                  <Trash2 className="h-4 w-4" />
+               </Button>
+            </div>
+         ),
+      },
+   ];
+
+   const orderColumns: ColumnDef<Order, any>[] = [
+      { id: 'id', accessorFn: (r) => r.id, header: 'Bestell-Nr.', cell: ({ row }) => `#${row.original.id}` },
+      { id: 'email', accessorFn: (r) => mapApiUserToUser(r.user).email, header: 'Kunde' },
+      {
+         id: 'status',
+         accessorFn: (r) => r.status,
+         header: 'Status',
+         cell: ({ row }) => <Badge variant={orderStatusVariant(row.original.status)}>{row.original.status}</Badge>,
+      },
+      { id: 'createdAt', accessorFn: (r) => r.createdAt, header: 'Datum', cell: ({ row }) => formatDate(row.original.createdAt) },
+      {
+         id: 'actions',
+         header: 'Aktionen',
+         enableSorting: false,
+         cell: ({ row }) => {
+            const order = row.original;
+            return (
+               <div className="flex gap-1">
+                  <Button variant="ghost" size="icon" aria-label="Bearbeiten" onClick={() => openOrderDialog(order)}>
+                     <Settings2 className="h-4 w-4" />
+                  </Button>
+                  {order.status === 'Bestellt' && (
+                     <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-success"
+                        aria-label="Als bezahlt markieren"
+                        onClick={() => onStatusChange(order.id, 'Bezahlt')}
+                     >
+                        <Check className="h-4 w-4" />
+                     </Button>
+                  )}
+                  {order.status !== 'Storniert' && (
+                     <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-destructive"
+                        aria-label="Stornieren"
+                        onClick={() => onStatusChange(order.id, 'Storniert')}
+                     >
+                        <X className="h-4 w-4" />
+                     </Button>
+                  )}
+               </div>
+            );
+         },
+      },
+   ];
+
+   const userColumns: ColumnDef<User, any>[] = [
+      { id: 'id', accessorFn: (r) => r.id, header: 'ID', cell: ({ row }) => `#${row.original.id}` },
+      { id: 'email', accessorFn: (r) => r.email, header: 'E-Mail' },
+      { id: 'name', accessorFn: (r) => `${r.firstName ?? ''} ${r.lastName ?? ''}`.trim(), header: 'Name' },
+      {
+         id: 'role',
+         accessorFn: (r) => r.role,
+         header: 'Rolle',
+         enableSorting: false,
+         cell: ({ row }) => (
+            <Select value={row.original.role} onValueChange={(v) => onUserRoleChange(row.original.id, v as User['role'])}>
+               <SelectTrigger className="w-32">
+                  <SelectValue />
+               </SelectTrigger>
+               <SelectContent>
+                  <SelectItem value="customer">Kunde</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+               </SelectContent>
+            </Select>
+         ),
+      },
+      {
+         id: 'actions',
+         header: 'Aktionen',
+         enableSorting: false,
+         cell: ({ row }) => (
+            <div className="flex gap-1">
+               <Button variant="ghost" size="icon" aria-label="Bearbeiten" onClick={() => openUserDialog(row.original)}>
+                  <Settings2 className="h-4 w-4" />
+               </Button>
+               <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-destructive"
+                  aria-label="Löschen"
+                  onClick={() => onDeleteUser(row.original)}
+               >
+                  <Trash2 className="h-4 w-4" />
+               </Button>
+            </div>
+         ),
+      },
+   ];
+
    return (
-      <div className="p-grid p-dir-col p-gap-4 p-p-4">
-         {/* Produkte */}
-         <div className="p-col">
-            <div className="p-d-flex p-jc-between p-ai-center p-mb-2">
-               <h2>Produkte verwalten</h2>
-               <Button
-                  label="Vollständig verwalten"
-                  icon="pi pi-cog"
-                  onClick={() => navigate(ROUTES.MANAGE_PRODUCTS)}
-                  className="p-button-sm"
-               />
-            </div>
-            <DataTable value={products} paginator rows={10} responsiveLayout="scroll">
-               <Column field="id" header="ID" style={{ width: '5rem' }} />
-               <Column field="name" header="Name" />
-               <Column header="Preis (€)" body={(row) => Number(row.price).toFixed(2)} style={{ width: '8rem' }} />
-               <Column
-                  header="Aktionen"
-                  body={(row) => (
-                     <div>
-                        <Button
-                           icon="pi pi-pencil"
-                           className="p-button-sm p-button-rounded p-button-text"
-                           onClick={() => editExisting(row)}
-                        />
-                        <Button
-                           icon="pi pi-trash"
-                           className="p-button-sm p-button-rounded p-button-text p-button-danger"
-                           onClick={() => confirmDeleteProduct(row)}
-                        />
-                     </div>
-                  )}
-                  style={{ width: '8rem' }}
-               />
-            </DataTable>
-         </div>
+      <div className="tw-scope mx-auto max-w-6xl px-4 py-8">
+         <h1 className="mb-6 text-2xl font-semibold text-foreground">Admin-Dashboard</h1>
 
-         {/* Bestellungen */}
-         <div className="p-col">
-            <div className="p-d-flex p-jc-between p-ai-center p-mb-2">
-               <h2>Bestellungen</h2>
-               <Button
-                  label="Vollständig verwalten"
-                  icon="pi pi-cog"
-                  onClick={() => navigate(ROUTES.MANAGE_ORDERS)}
-                  className="p-button-sm"
-               />
-            </div>
-            <DataTable value={orders} paginator rows={10} responsiveLayout="scroll">
-               <Column field="id" header="Bestell-Nr." style={{ width: '8rem' }} />
-               <Column field="user.email" header="Kunde" />
-               <Column field="status" header="Status" />
-               <Column
-                  field="createdAt"
-                  header="Datum"
-                  body={(row: Order) => new Date(row.createdAt).toLocaleDateString('de-DE')}
-               />
-               <Column
-                  header="Aktionen"
-                  style={{ width: '14rem' }}
-                  body={(row: Order) => (
-                     <div className="row-actions">
-                        <Button
-                           icon="pi pi-cog"
-                           className="p-button-rounded p-button-text"
-                           tooltip="Bestellung bearbeiten"
-                           onClick={() => openOrderDialog(row)}
-                        />
-                        {row.status === 'Bestellt' && (
-                           <Button
-                              icon="pi pi-check"
-                              className="p-button-success p-button-rounded p-button-text"
-                              tooltip="Als bezahlt markieren"
-                              onClick={() => onStatusChange(row.id, 'Bezahlt')}
-                           />
-                        )}
-                        {row.status !== 'Storniert' && (
-                           <Button
-                              icon="pi pi-times"
-                              className="p-button-danger p-button-rounded p-button-text"
-                              tooltip="Stornieren"
-                              onClick={() => onStatusChange(row.id, 'Storniert')}
-                           />
-                        )}
-                     </div>
-                  )}
-               />
-            </DataTable>
-         </div>
+         <Section title="Produkte verwalten" actionLabel="Vollständig verwalten" onAction={() => navigate(ROUTES.MANAGE_PRODUCTS)}>
+            <DataTable columns={productColumns} data={products} pageSize={5} getRowId={(r) => String(r.id)} emptyMessage="Keine Produkte." />
+         </Section>
 
-         {/* Userverwaltung */}
-         <div className="p-col">
-            <div className="p-d-flex p-jc-between p-ai-center p-mb-2">
-               <h2>User verwalten</h2>
-               <Button
-                  label="Vollständig verwalten"
-                  icon="pi pi-cog"
-                  onClick={() => navigate(ROUTES.MANAGE_USERS)}
-                  className="p-button-sm"
-               />
-            </div>
-            <DataTable value={users} paginator rows={10} responsiveLayout="scroll">
-               <Column field="id" header="ID" style={{ width: '5rem' }} />
-               <Column field="email" header="E-Mail" />
-               <Column header="Name" body={(u: User) => `${u.firstName} ${u.lastName}`} />
-               <Column
-                  header="Rolle"
-                  body={(u: User) => (
-                     <Dropdown
-                        value={u.role}
-                        options={[
-                           { label: 'Kunde', value: 'customer' },
-                           { label: 'Admin', value: 'admin' },
-                        ]}
-                        onChange={(e) => onUserRoleChange(u.id, e.value)}
-                        style={{ width: '8rem' }}
-                     />
-                  )}
-               />
-               <Column
-                  header="Aktionen"
-                  body={(u: User) => (
-                     <div className="p-d-flex p-flex-wrap">
-                        <Button
-                           icon="pi pi-cog"
-                           className="p-button-text p-button-sm p-mr-2"
-                           tooltip="Details & Bearbeiten"
-                           onClick={() => openUserDialog(u)}
-                        />
-                        <Button
-                           icon="pi pi-trash"
-                           className="p-button-danger p-button-text p-button-sm"
-                           tooltip="Löschen"
-                           onClick={() => onDeleteUser(u)}
-                        />
-                     </div>
-                  )}
-                  style={{ width: '10rem' }}
-               />
-            </DataTable>
-         </div>
+         <Section title="Bestellungen" actionLabel="Vollständig verwalten" onAction={() => navigate(ROUTES.MANAGE_ORDERS)}>
+            <DataTable columns={orderColumns} data={orders} pageSize={5} getRowId={(r) => String(r.id)} emptyMessage="Keine Bestellungen." />
+         </Section>
 
-         {/* Produkt-Dialog */}
+         <Section title="Benutzer verwalten" actionLabel="Vollständig verwalten" onAction={() => navigate(ROUTES.MANAGE_USERS)}>
+            <DataTable columns={userColumns} data={users} pageSize={5} getRowId={(r) => String(r.id)} emptyMessage="Keine Benutzer." />
+         </Section>
+
          <ProductDialog
             visible={displayDialog}
             title="Produkt bearbeiten"
@@ -317,10 +295,8 @@ export const AdminDashboard: React.FC = () => {
             onDeleteImage={handleDeleteImage}
          />
 
-         {/* Gemeinsamer User-Dialog */}
          <UserEditDialog visible={userDialogVisible} user={editingUser} onHide={hideUserDialog} />
 
-         {/* Neuer Order-Dialog – wie in ManageOrders */}
          <OrderEditDialog
             order={editingOrder}
             visible={orderDialogVisible}
@@ -331,5 +307,3 @@ export const AdminDashboard: React.FC = () => {
       </div>
    );
 };
-
-export default AdminDashboard;
