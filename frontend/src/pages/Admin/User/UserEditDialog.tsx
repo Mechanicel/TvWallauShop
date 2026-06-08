@@ -1,18 +1,18 @@
-// frontend/src/pages/Admin/UserEditDialog.tsx
+// frontend/src/pages/Admin/User/UserEditDialog.tsx
 
 import React, { useEffect, useState } from 'react';
-import { Dialog } from 'primereact/dialog';
-import { InputText } from 'primereact/inputtext';
-import { Dropdown } from 'primereact/dropdown';
-import { InputNumber } from 'primereact/inputnumber';
-import { Checkbox } from 'primereact/checkbox';
-import { Button } from 'primereact/button';
-
+import { Save } from 'lucide-react';
 import { useAppDispatch } from '@/store';
 import { updateUserById } from '@/store/slices/userSlice';
 import type { User } from '@/type/user';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
-export interface UserEditDialogProps {
+interface UserEditDialogProps {
    visible: boolean;
    user: User | null;
    onHide: () => void;
@@ -22,7 +22,6 @@ const UserEditDialog: React.FC<UserEditDialogProps> = ({ visible, user, onHide }
    const dispatch = useAppDispatch();
    const [draft, setDraft] = useState<User | null>(user);
 
-   // Immer wenn ein neuer User gesetzt wird, lokalen Draft aktualisieren
    useEffect(() => {
       setDraft(user ? { ...user } : null);
    }, [user]);
@@ -33,7 +32,6 @@ const UserEditDialog: React.FC<UserEditDialogProps> = ({ visible, user, onHide }
 
    const saveUser = async () => {
       if (!draft) return;
-
       const {
          id,
          firstName,
@@ -86,9 +84,6 @@ const UserEditDialog: React.FC<UserEditDialogProps> = ({ visible, user, onHide }
                gender,
                accountStatus,
                loyaltyPoints,
-               // optional – nur wenn in DB + allowedFields vorhanden:
-               // loyalty_points: loyaltyPoints,
-               // account_status: accountStatus,
             },
          }),
       );
@@ -96,215 +91,107 @@ const UserEditDialog: React.FC<UserEditDialogProps> = ({ visible, user, onHide }
       onHide();
    };
 
-   const footer = (
-      <>
-         <Button label="Abbrechen" icon="pi pi-times" className="p-button-text" onClick={onHide} />
-         <Button label="Speichern" icon="pi pi-check" onClick={saveUser} />
-      </>
+   const field = (label: string, key: keyof User, type = 'text') => (
+      <div className="flex flex-col gap-2">
+         <Label htmlFor={String(key)}>{label}</Label>
+         <Input
+            id={String(key)}
+            type={type}
+            value={(draft?.[key] as string) || ''}
+            onChange={(e) => handleFieldChange(key, e.target.value)}
+         />
+      </div>
    );
 
    return (
-      <Dialog
-         visible={visible && !!draft}
-         header={draft ? `User bearbeiten – ${draft.email}` : 'User bearbeiten'}
-         style={{ width: '700px' }}
-         modal
-         className="user-edit-dialog"
-         onHide={onHide}
-         footer={footer}
-      >
-         {draft && (
-            <div className="p-fluid p-formgrid p-grid user-edit-dialog__grid">
-               {/* Basisdaten */}
-               <div className="p-field p-col-12 p-md-6">
-                  <label htmlFor="first_name">Vorname</label>
-                  <InputText
-                     id="first_name"
-                     value={draft.firstName || ''}
-                     onChange={(e) => handleFieldChange('firstName', e.target.value)}
-                  />
-               </div>
-               <div className="p-field p-col-12 p-md-6">
-                  <label htmlFor="last_name">Nachname</label>
-                  <InputText
-                     id="last_name"
-                     value={draft.lastName || ''}
-                     onChange={(e) => handleFieldChange('lastName', e.target.value)}
-                  />
-               </div>
-               <div className="p-field p-col-12 p-md-6">
-                  <label htmlFor="email">E-Mail</label>
-                  <InputText
-                     id="email"
-                     value={draft.email || ''}
-                     onChange={(e) => handleFieldChange('email', e.target.value)}
-                  />
-               </div>
-               <div className="p-field p-col-12 p-md-6">
-                  <label htmlFor="phone">Telefon</label>
-                  <InputText
-                     id="phone"
-                     value={draft.phone || ''}
-                     onChange={(e) => handleFieldChange('phone', e.target.value)}
-                  />
-               </div>
+      <Dialog open={visible && !!draft} onOpenChange={(open) => !open && onHide()}>
+         <DialogContent className="max-w-3xl">
+            <DialogHeader>
+               <DialogTitle>{draft ? `User bearbeiten – ${draft.email}` : 'User bearbeiten'}</DialogTitle>
+            </DialogHeader>
 
-               {/* Rolle & Status */}
-               <div className="p-field p-col-12 p-md-6">
-                  <label>Rolle</label>
-                  <Dropdown
-                     value={draft.role}
-                     options={[
-                        { label: 'Kunde', value: 'customer' },
-                        { label: 'Admin', value: 'admin' },
-                     ]}
-                     onChange={(e) => handleFieldChange('role', e.value)}
-                     style={{ width: '100%' }}
-                  />
-               </div>
-               <div className="p-field p-col-12 p-md-6">
-                  <label>Status</label>
-                  <Dropdown
-                     value={draft.accountStatus}
-                     options={[
-                        { label: 'Aktiv', value: 'active' },
-                        { label: 'Gesperrt', value: 'suspended' },
-                        { label: 'Gelöscht', value: 'deleted' },
-                     ]}
-                     onChange={(e) => handleFieldChange('accountStatus', e.value)}
-                     style={{ width: '100%' }}
-                  />
-               </div>
+            {draft && (
+               <div className="grid gap-4 sm:grid-cols-2">
+                  {field('Vorname', 'firstName')}
+                  {field('Nachname', 'lastName')}
+                  {field('E-Mail', 'email')}
+                  {field('Telefon', 'phone')}
 
-               {/* Adresse */}
-               <div className="p-field p-col-12 p-md-8">
-                  <label htmlFor="street">Straße</label>
-                  <InputText
-                     id="street"
-                     value={draft.street || ''}
-                     onChange={(e) => handleFieldChange('street', e.target.value)}
-                  />
-               </div>
-               <div className="p-field p-col-12 p-md-4">
-                  <label htmlFor="house_number">Hausnr.</label>
-                  <InputText
-                     id="house_number"
-                     value={draft.houseNumber || ''}
-                     onChange={(e) => handleFieldChange('houseNumber', e.target.value)}
-                  />
-               </div>
-               <div className="p-field p-col-12 p-md-4">
-                  <label htmlFor="postal_code">PLZ</label>
-                  <InputText
-                     id="postal_code"
-                     value={draft.postalCode || ''}
-                     onChange={(e) => handleFieldChange('postalCode', e.target.value)}
-                  />
-               </div>
-               <div className="p-field p-col-12 p-md-4">
-                  <label htmlFor="city">Stadt</label>
-                  <InputText
-                     id="city"
-                     value={draft.city || ''}
-                     onChange={(e) => handleFieldChange('city', e.target.value)}
-                  />
-               </div>
-               <div className="p-field p-col-12 p-md-4">
-                  <label htmlFor="country">Land</label>
-                  <InputText
-                     id="country"
-                     value={draft.country || ''}
-                     onChange={(e) => handleFieldChange('country', e.target.value)}
-                  />
-               </div>
+                  <div className="flex flex-col gap-2">
+                     <Label>Rolle</Label>
+                     <Select value={draft.role} onValueChange={(v) => handleFieldChange('role', v)}>
+                        <SelectTrigger>
+                           <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                           <SelectItem value="customer">Kunde</SelectItem>
+                           <SelectItem value="admin">Admin</SelectItem>
+                        </SelectContent>
+                     </Select>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                     <Label>Status</Label>
+                     <Select value={draft.accountStatus} onValueChange={(v) => handleFieldChange('accountStatus', v)}>
+                        <SelectTrigger>
+                           <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                           <SelectItem value="active">Aktiv</SelectItem>
+                           <SelectItem value="suspended">Gesperrt</SelectItem>
+                           <SelectItem value="deleted">Gelöscht</SelectItem>
+                        </SelectContent>
+                     </Select>
+                  </div>
 
-               {/* Lieferadresse */}
-               <div className="p-field p-col-12 p-md-8">
-                  <label htmlFor="shippingStreet">Lieferstraße</label>
-                  <InputText
-                     id="shippingStreet"
-                     value={draft.shippingStreet || ''}
-                     onChange={(e) => handleFieldChange('shippingStreet', e.target.value)}
-                  />
-               </div>
-               <div className="p-field p-col-12 p-md-4">
-                  <label htmlFor="shippingHouseNumber">Liefer-Hausnr.</label>
-                  <InputText
-                     id="shippingHouseNumber"
-                     value={draft.shippingHouseNumber || ''}
-                     onChange={(e) => handleFieldChange('shippingHouseNumber', e.target.value)}
-                  />
-               </div>
-               <div className="p-field p-col-12 p-md-4">
-                  <label htmlFor="shippingPostalCode">Liefer-PLZ</label>
-                  <InputText
-                     id="shippingPostalCode"
-                     value={draft.shippingPostalCode || ''}
-                     onChange={(e) => handleFieldChange('shippingPostalCode', e.target.value)}
-                  />
-               </div>
-               <div className="p-field p-col-12 p-md-4">
-                  <label htmlFor="shippingCity">Lieferstadt</label>
-                  <InputText
-                     id="shippingCity"
-                     value={draft.shippingCity || ''}
-                     onChange={(e) => handleFieldChange('shippingCity', e.target.value)}
-                  />
-               </div>
-               <div className="p-field p-col-12 p-md-4">
-                  <label htmlFor="shippingCountry">Lieferland</label>
-                  <InputText
-                     id="shippingCountry"
-                     value={draft.shippingCountry || ''}
-                     onChange={(e) => handleFieldChange('shippingCountry', e.target.value)}
-                  />
-               </div>
+                  {field('Straße', 'street')}
+                  {field('Hausnummer', 'houseNumber')}
+                  {field('PLZ', 'postalCode')}
+                  {field('Stadt', 'city')}
+                  {field('Land', 'country')}
 
-               {/* Zahlung / Newsletter / Sonstiges */}
-               <div className="p-field p-col-12 p-md-6">
-                  <label htmlFor="preferred_payment">Bevorzugte Zahlung</label>
-                  <InputText
-                     id="preferred_payment"
-                     value={draft.preferredPayment || ''}
-                     onChange={(e) => handleFieldChange('preferredPayment', e.target.value)}
-                  />
-               </div>
-               <div className="p-field-checkbox p-col-12 p-md-6 user-edit-dialog__newsletter">
-                  <Checkbox
-                     inputId="newsletter"
-                     checked={!!draft.newsletterOptIn}
-                     onChange={(e) => handleFieldChange('newsletterOptIn', e.checked)}
-                  />
-                  <label htmlFor="newsletter">Newsletter erhalten</label>
-               </div>
+                  {field('Lieferstraße', 'shippingStreet')}
+                  {field('Liefer-Hausnr.', 'shippingHouseNumber')}
+                  {field('Liefer-PLZ', 'shippingPostalCode')}
+                  {field('Lieferstadt', 'shippingCity')}
+                  {field('Lieferland', 'shippingCountry')}
 
-               <div className="p-field p-col-12 p-md-4">
-                  <label htmlFor="dateOfBirth">Geburtsdatum</label>
-                  <InputText
-                     id="dateOfBirth"
-                     placeholder="YYYY-MM-DD"
-                     value={draft.dateOfBirth || ''}
-                     onChange={(e) => handleFieldChange('dateOfBirth', e.target.value)}
-                  />
+                  {field('Bevorzugte Zahlung', 'preferredPayment')}
+                  {field('Geburtsdatum', 'dateOfBirth')}
+                  {field('Geschlecht', 'gender')}
+
+                  <div className="flex flex-col gap-2">
+                     <Label htmlFor="loyaltyPoints">Treuepunkte</Label>
+                     <Input
+                        id="loyaltyPoints"
+                        type="number"
+                        value={draft.loyaltyPoints ?? 0}
+                        onChange={(e) => handleFieldChange('loyaltyPoints', Number(e.target.value))}
+                     />
+                  </div>
+
+                  <div className="flex items-center gap-2 sm:col-span-2">
+                     <Checkbox
+                        id="newsletter"
+                        checked={!!draft.newsletterOptIn}
+                        onCheckedChange={(c) => handleFieldChange('newsletterOptIn', c === true)}
+                     />
+                     <Label htmlFor="newsletter" className="font-normal text-muted-foreground">
+                        Newsletter erhalten
+                     </Label>
+                  </div>
                </div>
-               <div className="p-field p-col-12 p-md-4">
-                  <label htmlFor="gender">Geschlecht</label>
-                  <InputText
-                     id="gender"
-                     value={draft.gender || ''}
-                     onChange={(e) => handleFieldChange('gender', e.target.value)}
-                  />
-               </div>
-               <div className="p-field p-col-12 p-md-4">
-                  <label htmlFor="loyaltyPoints">Treuepunkte</label>
-                  <InputNumber
-                     id="loyaltyPoints"
-                     value={draft.loyaltyPoints ?? 0}
-                     onValueChange={(e) => handleFieldChange('loyaltyPoints', e.value ?? 0)}
-                  />
-               </div>
-            </div>
-         )}
+            )}
+
+            <DialogFooter>
+               <Button variant="outline" onClick={onHide}>
+                  Abbrechen
+               </Button>
+               <Button onClick={saveUser}>
+                  <Save className="h-4 w-4" />
+                  Speichern
+               </Button>
+            </DialogFooter>
+         </DialogContent>
       </Dialog>
    );
 };
