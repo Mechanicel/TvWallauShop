@@ -1,14 +1,8 @@
-// frontend/src/pages/Admin/ManageOrders.tsx
+// frontend/src/pages/Admin/Ordner/ManageOrders.tsx
 
-import React, { useEffect, useState, useRef } from 'react';
-import { DataTable } from 'primereact/datatable';
-import { Column } from 'primereact/column';
-import { InputText } from 'primereact/inputtext';
-import { Dropdown, DropdownChangeEvent } from 'primereact/dropdown';
-import { Calendar } from 'primereact/calendar';
-import { Button } from 'primereact/button';
-import { FilterMatchMode } from 'primereact/api';
-
+import React, { useEffect, useMemo, useState } from 'react';
+import type { ColumnDef } from '@tanstack/react-table';
+import { Check, FileSpreadsheet, Settings2, Trash2, X } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/store';
 import {
    fetchOrders,
@@ -18,42 +12,45 @@ import {
    selectOrderLoading,
 } from '@/store/slices/orderSlice';
 import type { Order } from '@tvwallaushop/contracts';
-
-import './ManageOrders.css';
 import { mapApiUserToUser } from '@/utils/helpers';
-import OrderEditDialog, { OrderStatus } from './OrderEditDialog';
+import { formatPrice, formatDate } from '@/utils/format';
+import { orderStatusVariant } from '@/utils/orderStatus';
+import { exportRowsToCsv } from '@/utils/csv';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { DataTable } from '@/components/ui/data-table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import OrderEditDialog, { type OrderStatus } from './OrderEditDialog';
 
-// 🔹 Hilfsfunktion: Gesamtpreis berechnen
 function calculateTotal(items: Order['items']): number {
    return items.reduce((sum, it) => sum + Number(it.price) * Number(it.quantity), 0);
 }
+
+const STATUS_ALL = 'all';
+
+const fullName = (order: Order) => {
+   const u = mapApiUserToUser(order.user);
+   return [u.firstName, u.lastName].filter(Boolean).join(' ');
+};
 
 export const ManageOrders: React.FC = () => {
    const dispatch = useAppDispatch();
    const orders = useAppSelector(selectOrders);
    const loading = useAppSelector(selectOrderLoading);
 
-   const dt = useRef<DataTable<any>>(null);
+   const [globalFilter, setGlobalFilter] = useState('');
+   const [statusFilter, setStatusFilter] = useState<string>(STATUS_ALL);
+   const [dateFrom, setDateFrom] = useState('');
+   const [dateTo, setDateTo] = useState('');
 
-   const [globalFilter, setGlobalFilter] = useState<string>('');
-   const [statusFilter, setStatusFilter] = useState<string | null>(null);
-   const [dateRange, setDateRange] = useState<Date[] | null>(null);
-   const [expandedRows, setExpandedRows] = useState<{ [key: number]: boolean } | undefined>(undefined);
-
-   // Dialog-State für Order-Edit
    const [editDialogVisible, setEditDialogVisible] = useState(false);
    const [editingOrder, setEditingOrder] = useState<Order | null>(null);
 
    useEffect(() => {
       dispatch(fetchOrders());
    }, [dispatch]);
-
-   const statusOptions = [
-      { label: 'Alle', value: null },
-      { label: 'Bestellt', value: 'Bestellt' },
-      { label: 'Bezahlt', value: 'Bezahlt' },
-      { label: 'Storniert', value: 'Storniert' },
-   ];
 
    const handleStatusChange = (orderId: number, status: OrderStatus) => {
       dispatch(updateOrderStatus({ orderId, status }));
@@ -78,61 +75,99 @@ export const ManageOrders: React.FC = () => {
       setEditingOrder(null);
    };
 
-   // 🔍 Toolbar – Stil analog zu Produkten & Usern
-   const header = (
-      <div className="orders-toolbar">
-         <div className="orders-field">
-            <InputText
-               placeholder="🔍 Suche nach Nr., Kunde, Status…"
-               value={globalFilter}
-               onChange={(e) => setGlobalFilter(e.target.value)}
-               className="orders-input"
-            />
-         </div>
+   const filtered = useMemo(() => {
+      return orders.filter((o) => {
+         if (statusFilter !== STATUS_ALL && o.status !== statusFilter) return false;
+         if (dateFrom && new Date(o.createdAt) < new Date(dateFrom)) return false;
+         if (dateTo) {
+            const end = new Date(dateTo);
+            end.setHours(23, 59, 59, 999);
+            if (new Date(o.createdAt) > end) return false;
+         }
+         return true;
+      });
+   }, [orders, statusFilter, dateFrom, dateTo]);
 
-         <div className="orders-field">
-            <Dropdown
-               placeholder="Status filtern"
-               value={statusFilter}
-               options={statusOptions}
-               onChange={(e: DropdownChangeEvent) => setStatusFilter(e.value)}
-               showClear
-               className="orders-dropdown"
-            />
-         </div>
-
-         <div className="orders-field">
-            <Calendar
-               selectionMode="range"
-               placeholder="Datum von–bis"
-               value={dateRange}
-               onChange={(e) => setDateRange(e.value as Date[])}
-               dateFormat="dd.mm.yy"
-               className="orders-calendar"
-            />
-         </div>
-
-         <div className="orders-actions">
-            <Button
-               icon="pi pi-file-excel"
-               label="CSV export"
-               onClick={() => dt.current?.exportCSV()}
-               className="orders-button"
-            />
-         </div>
-      </div>
-   );
-
-   // Filter-Konfiguration (global + Status + Datum)
-   const filters: any = {
-      global: { value: globalFilter, matchMode: FilterMatchMode.CONTAINS },
-      status: { value: statusFilter, matchMode: FilterMatchMode.EQUALS },
-      createdAt: { value: dateRange, matchMode: FilterMatchMode.BETWEEN },
+   const exportCsv = () => {
+      exportRowsToCsv(
+         'bestellungen.csv',
+         ['Nr.', 'E-Mail', 'Name', 'Rolle', 'Status', 'Datum', 'Gesamt'],
+         filtered.map((o) => {
+            const u = mapApiUserToUser(o.user);
+            return [o.id, u.email, fullName(o), u.role, o.status, formatDate(o.createdAt), calculateTotal(o.items).toFixed(2)];
+         }),
+      );
    };
 
-   const rowExpansionTemplate = (order: Order) => {
-      const user = mapApiUserToUser(order.user);
+   const columns: ColumnDef<Order, any>[] = [
+      { id: 'id', accessorFn: (row) => row.id, header: 'Nr.', cell: ({ row }) => `#${row.original.id}` },
+      { id: 'email', accessorFn: (row) => mapApiUserToUser(row.user).email, header: 'E-Mail' },
+      { id: 'name', accessorFn: (row) => fullName(row), header: 'Name' },
+      { id: 'role', accessorFn: (row) => mapApiUserToUser(row.user).role, header: 'Rolle' },
+      {
+         id: 'status',
+         accessorFn: (row) => row.status,
+         header: 'Status',
+         cell: ({ row }) => <Badge variant={orderStatusVariant(row.original.status)}>{row.original.status}</Badge>,
+      },
+      {
+         id: 'createdAt',
+         accessorFn: (row) => row.createdAt,
+         header: 'Datum',
+         cell: ({ row }) => formatDate(row.original.createdAt),
+      },
+      {
+         id: 'actions',
+         header: 'Aktionen',
+         enableSorting: false,
+         cell: ({ row }) => {
+            const order = row.original;
+            return (
+               <div className="flex gap-1">
+                  <Button variant="ghost" size="icon" aria-label="Bearbeiten" onClick={() => openEditDialog(order)}>
+                     <Settings2 className="h-4 w-4" />
+                  </Button>
+                  {order.status === 'Bestellt' && (
+                     <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Als bezahlt markieren"
+                        className="text-success"
+                        onClick={() => handleStatusChange(order.id, 'Bezahlt')}
+                     >
+                        <Check className="h-4 w-4" />
+                     </Button>
+                  )}
+                  {order.status !== 'Storniert' && (
+                     <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Stornieren"
+                        className="text-destructive"
+                        onClick={() => handleStatusChange(order.id, 'Storniert')}
+                     >
+                        <X className="h-4 w-4" />
+                     </Button>
+                  )}
+                  {order.status === 'Storniert' && (
+                     <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Endgültig löschen"
+                        className="text-muted-foreground"
+                        onClick={() => handleDelete(order.id)}
+                     >
+                        <Trash2 className="h-4 w-4" />
+                     </Button>
+                  )}
+               </div>
+            );
+         },
+      },
+   ];
 
+   const renderSubComponent = (order: Order) => {
+      const user = mapApiUserToUser(order.user);
       const addressParts: string[] = [];
       const line1 = [user.street, user.houseNumber].filter(Boolean).join(' ');
       if (line1) addressParts.push(line1);
@@ -142,167 +177,100 @@ export const ManageOrders: React.FC = () => {
       const address = addressParts.join(', ');
 
       return (
-         <div className="order-expansion">
-            <div className="order-expansion__cols">
-               <div>
-                  <h5>Kundendaten</h5>
-                  <ul className="kv">
-                     <li>
-                        <span>User-ID</span>
-                        <span>{user.id}</span>
-                     </li>
-                     <li>
-                        <span>E-Mail</span>
-                        <span>{user.email}</span>
-                     </li>
-                     <li>
-                        <span>Name</span>
-                        <span>{[user.firstName, user.lastName].filter(Boolean).join(' ')}</span>
-                     </li>
-                     {user.phone && (
-                        <li>
-                           <span>Telefon</span>
-                           <span>{user.phone}</span>
-                        </li>
-                     )}
-                     <li>
-                        <span>Rolle</span>
-                        <span>{user.role}</span>
-                     </li>
-                     <li>
-                        <span>Adresse</span>
-                        <span>{address}</span>
-                     </li>
-                     <li>
-                        <span>Zahlung</span>
-                        <span>{user.preferredPayment || '–'}</span>
-                     </li>
-                     <li>
-                        <span>Treuepunkte</span>
-                        <span>{user.loyaltyPoints}</span>
-                     </li>
-                  </ul>
-               </div>
-
-               <div>
-                  <h5>Bestell-Infos</h5>
-                  <ul className="kv">
-                     <li>
-                        <span>Bestell-Nr.</span>
-                        <span>#{order.id}</span>
-                     </li>
-                     <li>
-                        <span>Status</span>
-                        <span className={`badge badge--${order.status.toLowerCase()}`}>{order.status}</span>
-                     </li>
-                     <li>
-                        <span>Erstellt</span>
-                        <span>{new Date(order.createdAt).toLocaleString('de-DE')}</span>
-                     </li>
-                     <li>
-                        <span>Gesamt</span>
-                        <span>{calculateTotal(order.items).toFixed(2)} €</span>
-                     </li>
-                  </ul>
+         <div className="grid gap-6 p-2 sm:grid-cols-2">
+            <div>
+               <h4 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Kundendaten</h4>
+               <dl className="space-y-1 text-sm">
+                  {[
+                     ['User-ID', user.id],
+                     ['E-Mail', user.email],
+                     ['Name', [user.firstName, user.lastName].filter(Boolean).join(' ')],
+                     ...(user.phone ? [['Telefon', user.phone]] : []),
+                     ['Rolle', user.role],
+                     ['Adresse', address || '–'],
+                     ['Zahlung', user.preferredPayment || '–'],
+                     ['Treuepunkte', user.loyaltyPoints],
+                  ].map(([k, v]) => (
+                     <div key={String(k)} className="flex justify-between gap-4">
+                        <dt className="text-muted-foreground">{k}</dt>
+                        <dd className="text-right text-foreground">{v as React.ReactNode}</dd>
+                     </div>
+                  ))}
+               </dl>
+            </div>
+            <div>
+               <h4 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Positionen</h4>
+               <div className="overflow-hidden rounded-lg border border-solid border-border bg-surface">
+                  <Table>
+                     <TableHeader>
+                        <TableRow className="hover:bg-transparent">
+                           <TableHead>Produkt</TableHead>
+                           <TableHead>Größe</TableHead>
+                           <TableHead>Anzahl</TableHead>
+                           <TableHead className="text-right">Preis</TableHead>
+                        </TableRow>
+                     </TableHeader>
+                     <TableBody>
+                        {order.items.map((item: any, i: number) => (
+                           <TableRow key={i}>
+                              <TableCell className="text-foreground">{item.productName}</TableCell>
+                              <TableCell>{item.sizeLabel ?? '–'}</TableCell>
+                              <TableCell>{item.quantity}</TableCell>
+                              <TableCell className="text-right">{formatPrice(Number(item.price))}</TableCell>
+                           </TableRow>
+                        ))}
+                     </TableBody>
+                  </Table>
+                  <div className="flex justify-end border-t border-border p-2 text-sm font-semibold text-foreground">
+                     Gesamt: {formatPrice(calculateTotal(order.items))}
+                  </div>
                </div>
             </div>
-
-            <h5>Positionen</h5>
-            <DataTable value={order.items} responsiveLayout="scroll">
-               <Column field="productName" header="Produkt" />
-               <Column field="sizeLabel" header="Größe" style={{ width: '6rem' }} />
-               <Column field="quantity" header="Anzahl" style={{ width: '6rem' }} />
-               <Column field="price" header="Preis" body={(item: any) => `${Number(item.price).toFixed(2)} €`} />
-            </DataTable>
          </div>
       );
    };
 
    return (
-      <div className="orders-page">
-         <h2>Bestellungen verwalten</h2>
+      <div className="tw-scope mx-auto max-w-6xl px-4 py-8">
+         <h1 className="mb-6 text-2xl font-semibold text-foreground">Bestellungen verwalten</h1>
+
+         <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <Input
+               placeholder="Suche nach Nr., Kunde, Status…"
+               value={globalFilter}
+               onChange={(e) => setGlobalFilter(e.target.value)}
+               className="lg:w-72"
+            />
+            <div className="flex flex-wrap items-center gap-2">
+               <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-40">
+                     <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                     <SelectItem value={STATUS_ALL}>Alle Status</SelectItem>
+                     <SelectItem value="Bestellt">Bestellt</SelectItem>
+                     <SelectItem value="Bezahlt">Bezahlt</SelectItem>
+                     <SelectItem value="Storniert">Storniert</SelectItem>
+                  </SelectContent>
+               </Select>
+               <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-40" />
+               <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-40" />
+               <Button variant="outline" onClick={exportCsv}>
+                  <FileSpreadsheet className="h-4 w-4" />
+                  CSV-Export
+               </Button>
+            </div>
+         </div>
 
          <DataTable
-            ref={dt}
-            value={orders}
+            columns={columns}
+            data={filtered}
+            globalFilter={globalFilter}
             loading={loading}
-            paginator
-            rows={10}
-            header={header}
-            filters={filters}
-            globalFilterFields={['id', 'user.email', 'status', 'user.firstName', 'user.lastName']}
-            dataKey="id"
-            expandedRows={expandedRows}
-            onRowToggle={(e) => setExpandedRows(e.data)}
-            rowExpansionTemplate={rowExpansionTemplate}
-            responsiveLayout="scroll"
-            className="orders-table"
-         >
-            <Column expander style={{ width: '3rem' }} />
-            <Column field="id" header="Nr." sortable />
-            <Column field="user.email" header="E-Mail" sortable />
-            <Column
-               header="Name"
-               sortable
-                  body={(row: Order) => {
-                  const user = mapApiUserToUser(row.user);
-                     return [user.firstName, user.lastName].filter(Boolean).join(' ');
-               }}
-            />
-            <Column field="user.role" header="Rolle" sortable />
-            <Column
-               field="status"
-               header="Status"
-               sortable
-               body={(row: Order) => (
-                  <span className={`badge badge--${row.status?.toLowerCase()}`}>{row.status}</span>
-               )}
-            />
-            <Column
-               field="createdAt"
-               header="Datum"
-               sortable
-               body={(row: Order) => new Date(row.createdAt).toLocaleDateString('de-DE')}
-            />
-            <Column
-               header="Aktionen"
-               style={{ width: '14rem' }}
-               body={(row: Order) => (
-                  <div className="row-actions">
-                     <Button
-                        icon="pi pi-cog"
-                        className="p-button-rounded p-button-text"
-                        tooltip="Bestellung bearbeiten"
-                        onClick={() => openEditDialog(row)}
-                     />
-                     {row.status === 'Bestellt' && (
-                        <Button
-                           icon="pi pi-check"
-                           className="p-button-success p-button-rounded p-button-text"
-                           tooltip="Als bezahlt markieren"
-                           onClick={() => handleStatusChange(row.id, 'Bezahlt')}
-                        />
-                     )}
-                     {row.status !== 'Storniert' && (
-                        <Button
-                           icon="pi pi-times"
-                           className="p-button-danger p-button-rounded p-button-text"
-                           tooltip="Stornieren"
-                           onClick={() => handleStatusChange(row.id, 'Storniert')}
-                        />
-                     )}
-                     {row.status === 'Storniert' && (
-                        <Button
-                           icon="pi pi-trash"
-                           className="p-button-secondary p-button-rounded p-button-text"
-                           tooltip="Endgültig löschen"
-                           onClick={() => handleDelete(row.id)}
-                        />
-                     )}
-                  </div>
-               )}
-            />
-         </DataTable>
+            getRowId={(row) => String(row.id)}
+            renderSubComponent={renderSubComponent}
+            emptyMessage="Keine Bestellungen gefunden."
+         />
 
          <OrderEditDialog
             order={editingOrder}
@@ -314,5 +282,3 @@ export const ManageOrders: React.FC = () => {
       </div>
    );
 };
-
-export default ManageOrders;
