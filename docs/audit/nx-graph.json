@@ -1,0 +1,858 @@
+
+{
+  "graph": {
+    "nodes": {
+      "python-ai-service": {
+        "name": "python-ai-service",
+        "type": "app",
+        "data": {
+          "root": "python_ai_service",
+          "sourceRoot": "python_ai_service/app",
+          "name": "python-ai-service",
+          "tags": [
+            "npm:private"
+          ],
+          "metadata": {
+            "targetGroups": {
+              "NPM Scripts": [
+                "dev:start",
+                "dev:stop",
+                "dev:status"
+              ]
+            }
+          },
+          "targets": {
+            "dev:start": {
+              "executor": "nx:run-script",
+              "options": {
+                "script": "dev:start"
+              },
+              "metadata": {
+                "scriptContent": "uv run python scripts/service.py start",
+                "runCommand": "npm run dev:start"
+              },
+              "configurations": {},
+              "parallelism": true
+            },
+            "dev:stop": {
+              "executor": "nx:run-script",
+              "options": {
+                "script": "dev:stop"
+              },
+              "metadata": {
+                "scriptContent": "python scripts/service.py stop",
+                "runCommand": "npm run dev:stop"
+              },
+              "configurations": {},
+              "parallelism": true
+            },
+            "dev:status": {
+              "executor": "nx:run-script",
+              "options": {
+                "script": "dev:status"
+              },
+              "metadata": {
+                "scriptContent": "python scripts/service.py status",
+                "runCommand": "npm run dev:status"
+              },
+              "configurations": {},
+              "parallelism": true
+            },
+            "install": {
+              "executor": "nx:run-commands",
+              "options": {
+                "command": "npm run install",
+                "cwd": "python_ai_service"
+              },
+              "configurations": {},
+              "parallelism": true,
+              "inputs": [
+                "default",
+                "sharedGlobals"
+              ]
+            },
+            "build": {
+              "executor": "nx:run-commands",
+              "options": {
+                "command": "npm run build",
+                "cwd": "python_ai_service"
+              },
+              "configurations": {},
+              "parallelism": true,
+              "inputs": [
+                "default",
+                "sharedGlobals"
+              ]
+            },
+            "docker:build": {
+              "executor": "nx:run-commands",
+              "options": {
+                "command": "docker build -t tvwallaushop/python-ai-service:local -f python_ai_service/Dockerfile .",
+                "cwd": "."
+              },
+              "dependsOn": [
+                "build"
+              ],
+              "configurations": {},
+              "parallelism": true
+            },
+            "test": {
+              "executor": "nx:run-commands",
+              "options": {
+                "command": "npm run test",
+                "cwd": "python_ai_service"
+              },
+              "configurations": {},
+              "parallelism": true,
+              "inputs": [
+                "default",
+                "sharedGlobals"
+              ]
+            },
+            "lint": {
+              "executor": "nx:run-commands",
+              "options": {
+                "command": "echo \"No lint configured for python_ai_service\"",
+                "cwd": "python_ai_service"
+              },
+              "configurations": {},
+              "parallelism": true,
+              "inputs": [
+                "default",
+                "sharedGlobals"
+              ]
+            },
+            "serve": {
+              "executor": "nx:run-commands",
+              "options": {
+                "command": "npm run dev:start",
+                "cwd": "python_ai_service"
+              },
+              "configurations": {},
+              "parallelism": true,
+              "inputs": [
+                "default",
+                "sharedGlobals"
+              ]
+            },
+            "stop": {
+              "executor": "nx:run-commands",
+              "options": {
+                "command": "npm run dev:stop",
+                "cwd": "python_ai_service"
+              },
+              "configurations": {},
+              "parallelism": true
+            },
+            "status": {
+              "executor": "nx:run-commands",
+              "options": {
+                "command": "npm run dev:status",
+                "cwd": "python_ai_service"
+              },
+              "configurations": {},
+              "parallelism": true
+            },
+            "clear": {
+              "executor": "nx:run-commands",
+              "options": {
+                "command": "rimraf --glob .venv __pycache__ \"**/__pycache__\" .pytest_cache .mypy_cache .ruff_cache dist build \"*.egg-info\" target",
+                "cwd": "python_ai_service"
+              },
+              "configurations": {},
+              "parallelism": true
+            },
+            "deps:reset": {
+              "executor": "nx:run-commands",
+              "options": {
+                "command": "rimraf --glob .venv uv.lock poetry.lock *.egg-info",
+                "cwd": "python_ai_service"
+              },
+              "configurations": {},
+              "parallelism": true
+            }
+          },
+          "projectType": "application",
+          "implicitDependencies": []
+        }
+      },
+      "repo-tools": {
+        "name": "repo-tools",
+        "type": "lib",
+        "data": {
+          "root": "tools/repo-tools",
+          "name": "repo-tools",
+          "projectType": "library",
+          "targets": {
+            "clear": {
+              "executor": "nx:run-commands",
+              "options": {
+                "command": "rimraf dist build coverage tmp",
+                "cwd": "."
+              },
+              "configurations": {},
+              "parallelism": true
+            },
+            "deps:reset": {
+              "executor": "nx:run-commands",
+              "options": {
+                "command": "rimraf node_modules package-lock.json",
+                "cwd": "."
+              },
+              "configurations": {},
+              "parallelism": true
+            }
+          },
+          "implicitDependencies": [],
+          "tags": []
+        }
+      },
+      "contracts": {
+        "name": "contracts",
+        "type": "lib",
+        "data": {
+          "root": "contracts",
+          "sourceRoot": "contracts/src",
+          "name": "contracts",
+          "tags": [
+            "npm:private"
+          ],
+          "metadata": {
+            "targetGroups": {
+              "NPM Scripts": [
+                "gen:schema"
+              ]
+            }
+          },
+          "targets": {
+            "gen:schema": {
+              "executor": "nx:run-script",
+              "options": {
+                "script": "gen:schema"
+              },
+              "metadata": {
+                "scriptContent": "ts-json-schema-generator --path src/ai-product.ts --type AnalyzeProductRequest --out schema/analyze-product-request.schema.json && ts-json-schema-generator --path src/ai-product.ts --type AnalyzeProductResponse --out schema/analyze-product-response.schema.json",
+                "runCommand": "npm run gen:schema"
+              },
+              "configurations": {},
+              "parallelism": true
+            },
+            "build": {
+              "executor": "nx:run-commands",
+              "options": {
+                "command": "npm run build",
+                "cwd": "contracts"
+              },
+              "configurations": {},
+              "parallelism": true,
+              "inputs": [
+                "default",
+                "sharedGlobals"
+              ]
+            },
+            "test": {
+              "executor": "nx:run-commands",
+              "options": {
+                "command": "npm run test",
+                "cwd": "contracts"
+              },
+              "configurations": {},
+              "parallelism": true,
+              "inputs": [
+                "default",
+                "sharedGlobals"
+              ]
+            },
+            "lint": {
+              "executor": "nx:run-commands",
+              "options": {
+                "command": "echo \"No lint configured for contracts\"",
+                "cwd": "contracts"
+              },
+              "configurations": {},
+              "parallelism": true,
+              "inputs": [
+                "default",
+                "sharedGlobals"
+              ]
+            },
+            "clear": {
+              "executor": "nx:run-commands",
+              "options": {
+                "command": "rimraf node_modules dist build coverage .turbo .vite .next out target",
+                "cwd": "contracts"
+              },
+              "configurations": {},
+              "parallelism": true
+            },
+            "deps:reset": {
+              "executor": "nx:run-commands",
+              "options": {
+                "command": "rimraf node_modules package-lock.json",
+                "cwd": "contracts"
+              },
+              "configurations": {},
+              "parallelism": true
+            }
+          },
+          "projectType": "library",
+          "implicitDependencies": []
+        }
+      },
+      "frontend": {
+        "name": "frontend",
+        "type": "app",
+        "data": {
+          "root": "frontend",
+          "sourceRoot": "frontend/src",
+          "name": "frontend",
+          "tags": [
+            "npm:private"
+          ],
+          "metadata": {
+            "targetGroups": {
+              "NPM Scripts": [
+                "dev",
+                "dev:wait",
+                "dev:start",
+                "dev:stop",
+                "dev:status",
+                "preview",
+                "format",
+                "clean"
+              ]
+            }
+          },
+          "targets": {
+            "dev": {
+              "executor": "nx:run-script",
+              "options": {
+                "script": "dev"
+              },
+              "metadata": {
+                "scriptContent": "vite",
+                "runCommand": "npm run dev"
+              },
+              "configurations": {},
+              "parallelism": true
+            },
+            "dev:wait": {
+              "executor": "nx:run-script",
+              "options": {
+                "script": "dev:wait"
+              },
+              "metadata": {
+                "scriptContent": "wait-on http://localhost:3000/health http://localhost:8000/health && vite",
+                "runCommand": "npm run dev:wait"
+              },
+              "configurations": {},
+              "parallelism": true
+            },
+            "dev:start": {
+              "executor": "nx:run-script",
+              "options": {
+                "script": "dev:start"
+              },
+              "metadata": {
+                "scriptContent": "node ../scripts/dev/service-runner-node.js start --service-name frontend --pid-file target/dev.pid --meta-file target/dev.meta.json --log-file target/frontend.log --err-file target/frontend.err.log -- npm run dev:wait",
+                "runCommand": "npm run dev:start"
+              },
+              "configurations": {},
+              "parallelism": true
+            },
+            "dev:stop": {
+              "executor": "nx:run-script",
+              "options": {
+                "script": "dev:stop"
+              },
+              "metadata": {
+                "scriptContent": "node ../scripts/dev/service-runner-node.js stop --service-name frontend --pid-file target/dev.pid --meta-file target/dev.meta.json",
+                "runCommand": "npm run dev:stop"
+              },
+              "configurations": {},
+              "parallelism": true
+            },
+            "dev:status": {
+              "executor": "nx:run-script",
+              "options": {
+                "script": "dev:status"
+              },
+              "metadata": {
+                "scriptContent": "node ../scripts/dev/service-runner-node.js status --service-name frontend --pid-file target/dev.pid --meta-file target/dev.meta.json",
+                "runCommand": "npm run dev:status"
+              },
+              "configurations": {},
+              "parallelism": true
+            },
+            "preview": {
+              "executor": "nx:run-script",
+              "options": {
+                "script": "preview"
+              },
+              "metadata": {
+                "scriptContent": "vite preview",
+                "runCommand": "npm run preview"
+              },
+              "configurations": {},
+              "parallelism": true
+            },
+            "format": {
+              "executor": "nx:run-script",
+              "options": {
+                "script": "format"
+              },
+              "metadata": {
+                "scriptContent": "prettier --write \"src/**/*.{ts,tsx,json,css}\"",
+                "runCommand": "npm run format"
+              },
+              "configurations": {},
+              "parallelism": true
+            },
+            "clean": {
+              "executor": "nx:run-script",
+              "options": {
+                "script": "clean"
+              },
+              "metadata": {
+                "scriptContent": "rimraf ./dist",
+                "runCommand": "npm run clean"
+              },
+              "configurations": {},
+              "parallelism": true
+            },
+            "build": {
+              "executor": "nx:run-commands",
+              "options": {
+                "command": "npm run build",
+                "cwd": "frontend"
+              },
+              "outputs": [
+                "{projectRoot}/dist"
+              ],
+              "configurations": {},
+              "parallelism": true,
+              "inputs": [
+                "default",
+                "sharedGlobals"
+              ]
+            },
+            "docker:build": {
+              "executor": "nx:run-commands",
+              "options": {
+                "command": "docker build -t tvwallaushop/frontend:local -f frontend/Dockerfile .",
+                "cwd": "."
+              },
+              "dependsOn": [
+                "build"
+              ],
+              "configurations": {},
+              "parallelism": true
+            },
+            "test": {
+              "executor": "nx:run-commands",
+              "options": {
+                "command": "npm run test",
+                "cwd": "frontend"
+              },
+              "configurations": {},
+              "parallelism": true,
+              "inputs": [
+                "default",
+                "sharedGlobals"
+              ]
+            },
+            "lint": {
+              "executor": "nx:run-commands",
+              "options": {
+                "command": "npm run lint",
+                "cwd": "frontend"
+              },
+              "configurations": {},
+              "parallelism": true,
+              "inputs": [
+                "default",
+                "sharedGlobals"
+              ]
+            },
+            "serve": {
+              "executor": "nx:run-commands",
+              "options": {
+                "command": "npm run dev:start",
+                "cwd": "frontend"
+              },
+              "configurations": {},
+              "parallelism": true,
+              "inputs": [
+                "default",
+                "sharedGlobals"
+              ]
+            },
+            "stop": {
+              "executor": "nx:run-commands",
+              "options": {
+                "command": "npm run dev:stop",
+                "cwd": "frontend"
+              },
+              "configurations": {},
+              "parallelism": true
+            },
+            "status": {
+              "executor": "nx:run-commands",
+              "options": {
+                "command": "npm run dev:status",
+                "cwd": "frontend"
+              },
+              "configurations": {},
+              "parallelism": true
+            },
+            "clear": {
+              "executor": "nx:run-commands",
+              "options": {
+                "command": "rimraf node_modules dist build coverage .turbo .vite .next out target",
+                "cwd": "frontend"
+              },
+              "configurations": {},
+              "parallelism": true
+            },
+            "deps:reset": {
+              "executor": "nx:run-commands",
+              "options": {
+                "command": "rimraf node_modules package-lock.json",
+                "cwd": "frontend"
+              },
+              "configurations": {},
+              "parallelism": true
+            }
+          },
+          "projectType": "application",
+          "implicitDependencies": []
+        }
+      },
+      "backend": {
+        "name": "backend",
+        "type": "app",
+        "data": {
+          "root": "backend",
+          "sourceRoot": "backend/src",
+          "name": "backend",
+          "tags": [
+            "npm:private"
+          ],
+          "metadata": {
+            "targetGroups": {
+              "NPM Scripts": [
+                "dev:start",
+                "dev:stop",
+                "dev:status",
+                "start",
+                "start:dev",
+                "migrate",
+                "migrate:rollback",
+                "seed"
+              ]
+            }
+          },
+          "targets": {
+            "dev:start": {
+              "executor": "nx:run-script",
+              "options": {
+                "script": "dev:start"
+              },
+              "metadata": {
+                "scriptContent": "node ../scripts/dev/service-runner-node.js start --service-name backend --pid-file target/dev.pid --meta-file target/dev.meta.json --log-file target/backend.log --err-file target/backend.err.log -- npm run start:dev",
+                "runCommand": "npm run dev:start"
+              },
+              "configurations": {},
+              "parallelism": true
+            },
+            "dev:stop": {
+              "executor": "nx:run-script",
+              "options": {
+                "script": "dev:stop"
+              },
+              "metadata": {
+                "scriptContent": "node ../scripts/dev/service-runner-node.js stop --service-name backend --pid-file target/dev.pid --meta-file target/dev.meta.json",
+                "runCommand": "npm run dev:stop"
+              },
+              "configurations": {},
+              "parallelism": true
+            },
+            "dev:status": {
+              "executor": "nx:run-script",
+              "options": {
+                "script": "dev:status"
+              },
+              "metadata": {
+                "scriptContent": "node ../scripts/dev/service-runner-node.js status --service-name backend --pid-file target/dev.pid --meta-file target/dev.meta.json",
+                "runCommand": "npm run dev:status"
+              },
+              "configurations": {},
+              "parallelism": true
+            },
+            "start": {
+              "executor": "nx:run-script",
+              "options": {
+                "script": "start"
+              },
+              "metadata": {
+                "scriptContent": "node dist/index.js",
+                "runCommand": "npm run start"
+              },
+              "configurations": {},
+              "parallelism": true
+            },
+            "start:dev": {
+              "executor": "nx:run-script",
+              "options": {
+                "script": "start:dev"
+              },
+              "metadata": {
+                "scriptContent": "ts-node-dev --respawn src/index.ts",
+                "runCommand": "npm run start:dev"
+              },
+              "configurations": {},
+              "parallelism": true
+            },
+            "migrate": {
+              "executor": "nx:run-script",
+              "options": {
+                "script": "migrate"
+              },
+              "metadata": {
+                "scriptContent": "knex migrate:latest --knexfile dist/knexfile.js --env development",
+                "runCommand": "npm run migrate"
+              },
+              "configurations": {},
+              "parallelism": true
+            },
+            "migrate:rollback": {
+              "executor": "nx:run-script",
+              "options": {
+                "script": "migrate:rollback"
+              },
+              "metadata": {
+                "scriptContent": "knex --knexfile dist/knexfile.js migrate:rollback",
+                "runCommand": "npm run migrate:rollback"
+              },
+              "configurations": {},
+              "parallelism": true
+            },
+            "seed": {
+              "executor": "nx:run-script",
+              "options": {
+                "script": "seed"
+              },
+              "metadata": {
+                "scriptContent": "knex --knexfile dist/knexfile.js seed:run",
+                "runCommand": "npm run seed"
+              },
+              "configurations": {},
+              "parallelism": true
+            },
+            "build": {
+              "executor": "nx:run-commands",
+              "options": {
+                "command": "npm run build",
+                "cwd": "backend"
+              },
+              "outputs": [
+                "{projectRoot}/dist"
+              ],
+              "configurations": {},
+              "parallelism": true,
+              "inputs": [
+                "default",
+                "sharedGlobals"
+              ]
+            },
+            "docker:build": {
+              "executor": "nx:run-commands",
+              "options": {
+                "command": "docker build -t tvwallaushop/backend:local -f backend/Dockerfile .",
+                "cwd": "."
+              },
+              "dependsOn": [
+                "build"
+              ],
+              "configurations": {},
+              "parallelism": true
+            },
+            "test": {
+              "executor": "nx:run-commands",
+              "options": {
+                "command": "npm run test",
+                "cwd": "backend"
+              },
+              "configurations": {},
+              "parallelism": true,
+              "inputs": [
+                "default",
+                "sharedGlobals"
+              ]
+            },
+            "lint": {
+              "executor": "nx:run-commands",
+              "options": {
+                "command": "echo \"No lint configured for backend\"",
+                "cwd": "backend"
+              },
+              "configurations": {},
+              "parallelism": true,
+              "inputs": [
+                "default",
+                "sharedGlobals"
+              ]
+            },
+            "serve": {
+              "executor": "nx:run-commands",
+              "options": {
+                "command": "npm run dev:start",
+                "cwd": "backend"
+              },
+              "configurations": {},
+              "parallelism": true,
+              "inputs": [
+                "default",
+                "sharedGlobals"
+              ]
+            },
+            "stop": {
+              "executor": "nx:run-commands",
+              "options": {
+                "command": "npm run dev:stop",
+                "cwd": "backend"
+              },
+              "configurations": {},
+              "parallelism": true
+            },
+            "status": {
+              "executor": "nx:run-commands",
+              "options": {
+                "command": "npm run dev:status",
+                "cwd": "backend"
+              },
+              "configurations": {},
+              "parallelism": true
+            },
+            "clear": {
+              "executor": "nx:run-commands",
+              "options": {
+                "command": "rimraf node_modules dist build coverage .turbo .vite .next out target logs",
+                "cwd": "backend"
+              },
+              "configurations": {},
+              "parallelism": true
+            },
+            "deps:reset": {
+              "executor": "nx:run-commands",
+              "options": {
+                "command": "rimraf node_modules package-lock.json",
+                "cwd": "backend"
+              },
+              "configurations": {},
+              "parallelism": true
+            }
+          },
+          "projectType": "application",
+          "implicitDependencies": []
+        }
+      },
+      "infra": {
+        "name": "infra",
+        "type": "app",
+        "data": {
+          "root": "infra",
+          "name": "infra",
+          "projectType": "application",
+          "targets": {
+            "compose:up": {
+              "executor": "nx:run-commands",
+              "options": {
+                "command": "node ../scripts/env/init-env.js && docker compose up -d",
+                "cwd": "infra"
+              },
+              "configurations": {},
+              "parallelism": true
+            },
+            "compose:down": {
+              "executor": "nx:run-commands",
+              "options": {
+                "command": "docker compose down",
+                "cwd": "infra"
+              },
+              "configurations": {},
+              "parallelism": true
+            },
+            "compose:logs": {
+              "executor": "nx:run-commands",
+              "options": {
+                "command": "docker compose logs -f --tail=200",
+                "cwd": "infra"
+              },
+              "configurations": {},
+              "parallelism": true
+            },
+            "compose:ps": {
+              "executor": "nx:run-commands",
+              "options": {
+                "command": "docker compose ps",
+                "cwd": "infra"
+              },
+              "configurations": {},
+              "parallelism": true
+            },
+            "compose:db": {
+              "executor": "nx:run-commands",
+              "options": {
+                "command": "node ../scripts/env/init-env.js && docker compose up -d mariadb",
+                "cwd": "infra"
+              },
+              "configurations": {},
+              "parallelism": true
+            },
+            "compose:db:stop": {
+              "executor": "nx:run-commands",
+              "options": {
+                "command": "docker compose stop mariadb",
+                "cwd": "infra"
+              },
+              "configurations": {},
+              "parallelism": true
+            },
+            "compose:init": {
+              "executor": "nx:run-commands",
+              "options": {
+                "command": "node ../scripts/env/init-env.js && docker compose --profile init up --abort-on-container-exit db-init",
+                "cwd": "infra"
+              },
+              "configurations": {},
+              "parallelism": true
+            }
+          },
+          "implicitDependencies": [],
+          "tags": []
+        }
+      }
+    },
+    "dependencies": {
+      "python-ai-service": [],
+      "repo-tools": [],
+      "contracts": [],
+      "frontend": [
+        {
+          "source": "frontend",
+          "target": "contracts",
+          "type": "static"
+        }
+      ],
+      "backend": [
+        {
+          "source": "backend",
+          "target": "contracts",
+          "type": "static"
+        }
+      ],
+      "infra": []
+    }
+  }
+}
